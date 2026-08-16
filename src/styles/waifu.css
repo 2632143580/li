@@ -1,0 +1,64 @@
+/* ====================== 妻子模式 ====================== */
+/* waifu 模式 AI 外层放开到 100%，子 .waifu-bubble 独享 85% 限制（消除双层 85% 叠加，P2）。
+   外层用 .msg.ai（P3 去掉 .waifu-msg 后统一），不再与子 .waifu-bubble 叠乘宽度。 */
+#chat.waifu-mode .msg.ai {
+    max-width: 100%;
+    animation: none;
+    opacity: 1;
+    transform: none;
+}
+
+.waifu-bubble {
+    max-width: 85%;
+    margin-bottom: 8px;
+    display: block;
+    /* 同 .msg 修复：block 元素 width:auto 会拉伸到 85% 导致气泡拉满、文本贴左留白；
+       fit-content 让每个分句气泡随文本收缩，长句封顶 85% 后换行 */
+    width: fit-content;
+    /* 每个分句独立气泡：结构(内边距)由本类独占，普通模式气泡不在此列(保持文字贴边)。
+       父级 .msg.ai 透明包裹，若不在此加外观，多个分句会叠在透明容器里像"一个气泡按句换行"。
+       绿底/绿边等"默认皮肤"见下方 body:not(.theme-active) .waifu-bubble(仅无主题时生效)。 */
+    padding: 10px 14px;
+    /* 同 .msg：可见态为基线，入场动画用 both 填充，主题覆盖 animation 也不会让分句泡消失 */
+    opacity: 1;
+    animation: bubbleIn 0.5s ease both;
+}
+
+/* 默认气泡皮肤（无主题时）：user / 普通 AI / waifu 分句泡统一有底色边框，
+   避免用户看到「完全透明像没气泡」。一旦有主题挂载 (body.theme-active)，
+   所有底色完全让位给主题 .chat-bubble--ai / .chat-bubble--user 覆盖。 */
+body:not(.theme-active) .chat-bubble--user {
+    /* 底色/边框从 --color-user 派生（10% / 18% 透明度），跟随主题 */
+    background: color-mix(in srgb, var(--color-user) 10%, transparent);
+    border: 1px solid color-mix(in srgb, var(--color-user) 18%, transparent);
+    padding: 10px 14px;
+}
+body:not(.theme-active) .chat-bubble--ai {
+    /* 底色/边框从 --color-ai 派生（10% / 18% 透明度），跟随主题 */
+    background: color-mix(in srgb, var(--color-ai) 10%, transparent);
+    border: 1px solid color-mix(in srgb, var(--color-ai) 18%, transparent);
+    padding: 10px 14px;
+}
+
+.waifu-bubble:last-of-type {
+    margin-bottom: 0;
+}
+
+@keyframes bubbleIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.waifu-toggle-btn {
+    transition: all var(--transition-normal);
+    padding: 4px;
+    border-radius: 50%;
+}
+
+.waifu-toggle-btn.active {
+    /* 激活态专用 token --color-waifu-active（原硬编码 rgba(240,180,200)，换肤可控） */
+    color: var(--color-waifu-active) !important;
+    background: color-mix(in srgb, var(--color-waifu-active) 15%, transparent);
+    filter: drop-shadow(0 0 6px color-mix(in srgb, var(--color-waifu-active) 50%, transparent));
+}
+

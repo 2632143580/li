@@ -1,0 +1,339 @@
+/* ====================== Deferred CSS ====================== */
+/* 以下组件均为 display:none，用户交互后才显示。延迟到 body 末尾不阻塞首屏渲染 */
+/* ====================== 模态框 ====================== */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    /* 毛玻璃已移除（化繁为简，用户拍板）：原 backdrop-filter: blur(8px) 是全屏模糊放大器——
+       背后任何像素变化（遮罩层拖动、后台动画）都逼它每帧重算全屏模糊，是模态框场景 GPU 暴增的主放大器。
+       保留 var(--black-a60) 60% 黑底即可压暗背景、突出内容，视觉损失小。 */
+    background: var(--black-a60);
+    z-index: 100;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    animation: overlayFadeIn 0.3s ease;
+    /* 阻断滚动链：模态框内容滚到边界后不再传播给 body（配合 body.modal-open 滚动锁） */
+    overscroll-behavior: contain;
+}
+
+/* 任一主面板打开时锁 body 滚动（modal.js syncBodyScrollLock 维护），防止触摸穿透滑底层聊天记录 */
+body.modal-open { overflow: hidden; }
+/* 穿透根治：body 锁不住真正的滚动容器 #chat（overflow-y:auto，实测模态框打开时仍可滚动）——
+   直接锁 #chat，模态框关闭时随 body.modal-open 移除自动恢复。 */
+body.modal-open #chat { overflow: hidden !important; }
+
+/* 模态框打开时暂停背后的全部 CSS 动画（背后被全屏 overlay 遮住不可见，暂停零视觉损失）：
+   否则背后任一动画（TTS 光晕 / 语音波形等）持续产生帧 → 即使 overlay 已无毛玻璃，合成器仍被钉在 60fps。
+   模态框内容（.modal-overlay 内）动画不受影响。 */
+body.modal-open *:not(.modal-overlay):not(.modal-overlay *) { animation-play-state: paused !important; }
+
+@keyframes overlayFadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.modal-content {
+    background: var(--bg-modal);
+    /* 简约化（用户拍板）：去掉描边与投影，靠底色与页面区分 */
+    padding: 24px;
+    border-radius: var(--radius-lg);
+    width: 90%;
+    max-width: 480px;
+    color: var(--white-a80);
+    max-height: 85vh;
+    overflow-y: auto;
+    animation: modalSlideUp 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes modalSlideUp {
+    from { opacity: 0; transform: translateY(20px) scale(0.96); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* ====================== 词云分析（云图 + 词频列表） ====================== */
+/* 复用 .modal-overlay / .modal-content / .modal-x 等模态框基础样式，仅补充专属样式。
+   所有颜色均走已有 token（--color-user / --color-ai / --color-accent / --white-a*），
+   不引入硬编码 RGB，以免触发 skin-lint。
+
+   曾出现的溢出缺陷与修法（两处根因，勿回退）：
+   根因1 —— 比例条溢出：早期 .wc-bar 直接是 .wc-row 的 flex 子项且宽度用百分比，
+     而百分比是相对**整行宽度**计算的，于是最高频词（100%）的条宽等于整行宽，
+     再叠加左侧词（固定宽）+ 右侧次数（固定宽）+ 两个间距，总宽必然超出面板并被裁掉。
+     修法：插入 .wc-track 轨道容器占据剩余空间（flex:1 1 auto + min-width:0），
+     条宽百分比改为相对轨道计算，100% 恰好填满轨道，永不撑破行。
+   根因2 —— 长词被截：早期 .wc-word 固定 width:88px 且带省略号，
+     四字以上中文词或长英文单词一律被截成「词…」。
+     修法：改为弹性宽度（基准 88px 可伸缩、上限 42%），超长时仍以省略号收尾但
+     JS 侧已为每行补 title 属性，完整词可悬停查看，不丢信息。 */
+#wordcloud-dialog { z-index: 110; }
+.wc-panel {
+    width: 720px;
+    max-width: 94vw;
+    height: 87.5vh;              /* 固定面板高（用户拍板）：页面更规整，列表区占满剩余高度 */
+    max-height: 87.5vh;          /* 覆盖 .modal-content 的 85vh，保证 87.5vh 生效 */
+    padding: 18px 20px;
+    display: flex;
+    flex-direction: column;
+    overflow-y: hidden;          /* 内部滚动统一交给 .wc-list，面板本身不滚 */
+    min-width: 0;                /* 允许内部 flex 子项正常收缩，避免子内容把面板撑宽 */
+}
+
+/* —— 工具栏：指定词查询 + 分词模式（v3：一键直达分段按钮，非下拉、无二次点击） —— */
+.wc-toolbar {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 2px 0 6px;
+}
+.wc-query-input {
+    flex: 1 1 160px;
+    min-width: 0;
+    font: inherit;
+    font-size: 13px;
+    color: var(--white-a90);
+    background: var(--bg-input);
+    border: 1px solid var(--white-a20);
+    border-radius: var(--radius-md);
+    padding: 6px 10px;
+    outline: none;
+}
+.wc-query-input:focus { border-color: var(--color-accent); }
+.wc-query-input::placeholder { color: var(--white-a35); }
+
+/* 分段按钮：两个选项直接摆出，点哪个立即生效（1 次点击直达） */
+.wc-seg {
+    display: inline-flex;
+    flex: 0 0 auto;
+    border: 1px solid var(--white-a20);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+}
+.wc-seg-btn {
+    font: inherit;
+    font-size: 12px;
+    padding: 6px 13px;
+    border: none;
+    cursor: pointer;
+    color: var(--white-a50);
+    background: transparent;
+    transition: background var(--transition-fast, 0.15s), color var(--transition-fast, 0.15s);
+}
+.wc-seg-btn + .wc-seg-btn { border-left: 1px solid var(--white-a20); }
+.wc-seg-btn.active { background: var(--color-accent); color: var(--white-a90); }
+.wc-seg-btn:active { filter: brightness(1.2); }   /* 按下有即时反馈，避免「点了没反应」的观感 */
+
+/* 加载中：专业按钮从底部**真实进度**填充（高度 = --wc-progress，JS 按词典下载字节更新），
+   填充到满 = 下载完成，不再用循环动画误导「满=已完成」 */
+.wc-seg-btn.loading {
+    position: relative;
+    overflow: hidden;
+    color: var(--white-a90);
+    pointer-events: none;
+}
+.wc-seg-btn.loading::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: var(--wc-progress, 0%);
+    background: color-mix(in srgb, var(--color-accent) 55%, transparent);
+    transition: height 0.12s linear;
+}
+
+/* 专业词库加载状态行：常驻显示是否已加载 jieba（成功/失败都停在这一行，不一闪而过） */
+.wc-status {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    color: var(--white-a35);
+    margin: 8px 0 0;
+    line-height: 1.5;
+    min-height: 14px;
+}
+.wc-status::before {
+    content: '';
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: currentColor;
+    flex: 0 0 auto;
+}
+.wc-status.loading { color: var(--color-accent); }
+.wc-status.loading::before { animation: wc-blink 1s ease-in-out infinite; }
+.wc-status.ok { color: var(--color-accent); }
+.wc-status.fail { color: var(--color-error); }
+@keyframes wc-blink { 50% { opacity: 0.35; } }
+
+/* 查询结果条：独立整行、带底纹，命中/未命中/加载三种状态同一位（不闪位置） */
+.wc-result {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 10px 0 0;
+    padding: 9px 12px;
+    background: var(--white-a06);
+    border: 1px solid var(--white-a10);
+    border-radius: var(--radius-md);
+    font-size: 13px;
+    min-width: 0;
+}
+.wc-result-word { font-weight: 700; color: var(--white-a90); flex: 0 0 auto; }
+.wc-result-count { color: var(--color-accent); font-weight: 700; font-variant-numeric: tabular-nums; flex: 0 0 auto; }
+.wc-result-split { color: var(--white-a50); font-size: 12px; flex: 1 1 auto; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wc-result.miss .wc-result-count { color: var(--white-a35); font-weight: 400; }
+
+/* 快捷词条：查过的词自动收录，点一下直接再查；右键/长按删除（不放叉，词条小而净） */
+.wc-quick {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin: 10px 0 0;
+}
+.wc-quick-label { font-size: 11px; color: var(--white-a35); flex: 0 0 auto; }
+.wc-chip {
+    display: inline-flex;
+    align-items: center;
+    font: inherit;
+    font-size: 12px;
+    color: var(--white-a90);
+    background: var(--white-a06);
+    border: 1px solid var(--white-a10);
+    border-radius: 999px;
+    padding: 4px 10px;
+    cursor: pointer;
+    transition: background var(--transition-fast, 0.15s), border-color var(--transition-fast, 0.15s);
+    max-width: 160px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    -webkit-tap-highlight-color: transparent;
+}
+.wc-chip:hover { background: var(--white-a10); border-color: var(--white-a20); }
+.wc-note {
+    font-size: 11px;
+    color: var(--white-a35);
+    line-height: 1.5;
+    margin: 10px 0 2px;
+}
+
+/* —— 词频列表视图 —— */
+.wc-list {
+    /* 标签切换：tab 栏 + 单组面板纵向堆叠；一次只显示一组（替代原三列手风琴）。
+       面板高度固定 87.5vh，列表 flex:1 占满剩余空间并自行滚动（min-height:0 允许收缩） */
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    min-width: 0;
+}
+/* —— 分组 tab 栏（自绘按钮，非原生；规避原生 UI/UX 铁律） —— */
+.wc-tabs {
+    display: flex;
+    gap: 4px;
+    border-bottom: 1px solid var(--white-a10);
+    position: sticky;
+    top: 0;
+    background: var(--bg-modal);
+}
+.wc-tab {
+    flex: 1 1 0;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 7px 6px;
+    font: inherit;
+    font-size: 12px;
+    color: var(--white-a60);
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid transparent;
+    cursor: pointer;
+    border-radius: 6px 6px 0 0;
+    transition: color var(--transition-fast, 0.15s), border-color var(--transition-fast, 0.15s), background var(--transition-fast, 0.15s);
+}
+.wc-tab:hover { color: var(--white-a90); background: var(--white-a06); }
+.wc-tab.active {
+    color: var(--white-a90);
+    border-bottom-color: var(--color-accent);
+    font-weight: 600;
+}
+/* 空组 tab：颜色淡化（提示该组暂无词）但**保持可点**——点开显示「（无）」让用户自己确认，
+   不做 pointer-events:none（否则「点不动」会误以为 bug） */
+.wc-tab[aria-disabled='true'] { color: var(--white-a30); }
+/* —— 分组面板：默认隐藏，仅 .active 组显示 —— */
+.wc-panels { display: flex; flex-direction: column; }
+.wc-group { display: none; }
+.wc-group.active {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;                 /* 列宽受限时允许收缩，不撑破容器 */
+}
+.wc-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 5px 4px;
+    font-size: 13px;
+    min-width: 0;                 /* flex 子项默认不小于内容宽，不置 0 长词会撑破行 */
+    cursor: pointer;              /* 点词 = 直接查询（用户直达，免输入） */
+    border-radius: 6px;
+    transition: background var(--transition-fast, 0.15s);
+}
+.wc-row:hover { background: var(--white-a06); }
+/* 查询命中的词：列表行高亮，用户一眼看到它在哪（连同结果条） */
+.wc-row.hit {
+    background: color-mix(in srgb, var(--color-accent) 14%, transparent);
+    outline: 1px solid color-mix(in srgb, var(--color-accent) 40%, transparent);
+}
+.wc-word {
+    flex: 0 1 88px;               /* 基准 88px，空间不足时可收缩 */
+    max-width: 42%;               /* 上限：极长词不至于挤掉比例条 */
+    color: var(--white-a90);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    text-align: right;
+}
+.wc-track {
+    flex: 1 1 auto;
+    min-width: 0;                 /* 关键：允许轨道收缩，否则仍会溢出 */
+    height: 8px;
+    border-radius: 4px;
+    background: var(--white-a06);
+    overflow: hidden;
+}
+.wc-bar {
+    display: block;
+    height: 100%;
+    border-radius: 4px;
+    background: var(--color-accent);   /* 默认值；JS 按角色占比覆盖为 user/ai/accent 色 */
+    min-width: 2px;
+}
+.wc-count {
+    flex: 0 0 40px;
+    text-align: left;
+    color: var(--white-a70);
+    font-variant-numeric: tabular-nums;
+}
+.wc-empty {
+    color: var(--white-a35);
+    font-size: 13px;
+    padding: 12px 0;
+}
+
+
+/* 通用抖动提示（无效输入等；复用 chat.css @keyframes shake，不新建动画） */
+.js-shake { animation: shake 0.4s ease; }

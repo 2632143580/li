@@ -1,0 +1,91 @@
+/* ====================== 插件管理 ====================== */
+.plugin-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px;
+    background: var(--white-a03);
+    border: 1px solid var(--white-a08);
+    border-radius: 6px;
+    margin-bottom: 8px;
+    transition: all var(--transition-normal);
+}
+
+.plugin-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+}
+
+.plugin-name {
+    font-size: 13px;
+    color: var(--white-a80);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.plugin-actions {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.toggle-switch {
+    position: relative;
+    width: 32px;
+    height: 18px;
+}
+
+.toggle-switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.toggle-slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: var(--white-a10);
+    border: 1px solid var(--white-a20);
+    transition: 0.3s;
+    border-radius: 18px;
+}
+
+.toggle-slider:before {
+    position: absolute;
+    content: "";
+    height: 12px;
+    width: 12px;
+    left: 2px;
+    bottom: 2px;
+    background: var(--white-a60);
+    transition: 0.3s;
+    border-radius: 50%;
+}
+
+input:checked + .toggle-slider {
+    background: var(--color-accent-dim);
+    border-color: color-mix(in srgb, var(--color-accent) 80%, transparent);
+}
+
+input:checked + .toggle-slider:before {
+    transform: translateX(13px);
+    background: var(--color-accent-solid);
+}
+
+.modal-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 10px;
+}
+
+.modal-actions .fs-btn {
+    margin-top: 0;
+}
+

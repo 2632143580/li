@@ -1,0 +1,25 @@
+/* ====================== 基础重置 ====================== */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    -webkit-tap-highlight-color: transparent;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+
+*::-webkit-scrollbar {
+    display: none;
+}
+
+html,
+body {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background: var(--color-bg);
+    font-family: 'Georgia', 'KaiTi', '楷体', 'PingFang SC', 'Microsoft YaHei', serif;
+    touch-action: manipulation;
+}
+
+

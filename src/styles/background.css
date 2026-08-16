@@ -1,0 +1,52 @@
+/* ====================== 背景层 ====================== */
+#bg {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    z-index: 0;
+    display: block;
+}
+
+/* 动画图片背景层 — 位于 #bg Canvas 下方，浏览器原生引擎驱动动画 */
+#bg-img-layer {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    z-index: -1;
+    /* contain 基准：scale=1 完整显示整张图（不丢内容），放大即裁切，向下可回退到完整 */
+    object-fit: contain;
+    pointer-events: none;
+    display: none;
+}
+
+/* 背景图片·缩放移动编辑：预览框=屏幕比例，框内所见即最终背景 */
+#crop-frame {
+    position: relative;
+    width: 100%;
+    max-width: 640px;
+    margin: 0 auto;
+    overflow: hidden;
+    border-radius: var(--radius-lg);
+    background: var(--black-a30);
+    aspect-ratio: 16 / 9;
+    cursor: grab;
+    touch-action: none; /* 手机端：禁用浏览器默认手势，改由自定义触摸事件接管平移/缩放 */
+}
+#crop-frame:active { cursor: grabbing; }
+#crop-preview {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    object-position: center;
+    transform-origin: center center;
+    will-change: transform;
+    user-select: none;
+    -webkit-user-drag: none;
+}
+

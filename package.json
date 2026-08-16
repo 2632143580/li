@@ -1,0 +1,20 @@
+{
+  "name": "li-chat",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Li — 沉浸式 AI 对话界面（ES Module 多文件版，Vite 构建可回落为单文件 HTML）",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "lint:skin": "node tests/skin-lint.js",
+    "lint:imports": "node tests/import-lint.js",
+    "lint:modal-theme": "node tests/modal-theme-lint.js",
+    "build": "npm run lint:skin && npm run lint:imports && npm run lint:modal-theme && vite build",
+    "preview": "vite preview"
+  },
+  "devDependencies": {
+    "acorn": "^8.18.0",
+    "vite": "^8.2.1",
+    "vite-plugin-singlefile": "^2.3.3"
+  }
+}

@@ -1,0 +1,24 @@
+/* ====================== 响应式适配 ====================== */
+@media (max-width: 480px) {
+    .top-bar { gap: 8px; right: 12px; top: 16px; }
+    .top-bar-left { left: 12px; top: 16px; gap: 8px; }
+    .monitor-bar { gap: 8px; padding: 3px 7px; }
+    .monitor-light .ml-icon { width: 13px; height: 13px; }
+    .monitor-light .ml-num { font-size: 11px; }
+    #chat { padding: 50px 16px 100px 16px; }
+    .msg { max-width: 90%; }
+    .modal-content { width: 94%; padding: 18px; }
+    .compact-grid { gap: 10px; }
+    #fs-textarea { font-size: 16px; }
+}
+
+/* ====================== 无障碍：减少动效 ====================== */
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+    .typing-dots span { animation: none; opacity: 0.5; }
+}
+

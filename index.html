@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<!--
+  Li — 沉浸式 AI 对话界面（ES Module 多文件版）
+
+  === 模块地图 ===
+  src/main.js                 入口：导入全部模块、屏幕尺寸、设置管理、插件面板、事件绑定、init/loop
+  src/style.css               全局样式（原两段 <style> 合并，层叠顺序不变）
+  src/core/logger.js          Logger 分级日志 + safe/safeAsync 包装
+  src/core/constants.js       不可变常量 + 默认配置（API_TIMEOUT_MS/STORAGE_KEY/TAU/ERROR_PREFIX/DEFAULT_SETTINGS/WELCOME）
+  src/core/state.js           仅可变 state 单例（引用不重新赋值，内部字段可变）
+  src/core/utils.js           纯工具函数（clamp/rand/safeParseInt/formatTokens/getProviderByUrl/ensureKeysObject）
+  src/core/store.js           state 集中读取门面（业务/渲染层统一从这取 state）
+  src/core/dom.js             DOM 元素总表、uiCtx、视口尺寸 W/H 与 setViewport
+  src/core/storage.js         saveToLocal / loadFromLocal / debouncedSave
+  src/engines/bg-engine.js    BgEngine 背景插件引擎（注册 StarPlugin）
+  src/engines/theme-engine.js ThemeEngine 主题插件引擎（注册 DefaultThemePlugin）
+  src/plugins/star.js         StarPlugin 星空背景
+  src/plugins/default-theme.js DefaultThemePlugin 默认配色模板（仅导出）
+  src/ui/input-renderer.js    Canvas 输入框渲染、文本测量缓存、输入框布局、配色缓存
+  src/ui/input-manager.js     隐藏 input 焦点/IME 管理 + 全屏编辑器
+  src/ui/context-menu.js      消息长按/右键菜单
+  src/chat/tree.js            对话数据 + 设置应用 + 监控对话框（DOM 渲染已迁 ui/render/）
+  src/ui/render/tree-render.js 对话视图层：DOM 渲染 + 监控显示（只依赖 core + ui/context-menu）
+  src/chat/api.js             流式请求、请求编排、token 用量统计与监控 UI 刷新
+-->
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Li</title>
+</head>
+
+<body>
+    <!-- SVG 图标定义（隐藏，供 <use> 引用） -->
+    <svg style="display:none" aria-hidden="true">
+        <symbol id="i-puzzle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M19.439 7.85c-.049.322.059.648.289.878l1.568 1.568c.47.47.706 1.087.706 1.704s-.235 1.233-.706 1.704l-1.611 1.611a.98.98 0 0 1-.837.276c-.47-.07-.802-.48-.968-.925a2.501 2.501 0 1 0-3.214 3.214c.446.166.855.497.925.968a.979.979 0 0 1-.276.837l-1.61 1.61a2.404 2.404 0 0 1-1.705.707 2.402 2.402 0 0 1-1.704-.706l-1.568-1.568a1.026 1.026 0 0 0-.877-.29c-.493.074-.84.504-1.02.968a2.5 2.5 0 1 1-3.237-3.237c.464-.18.894-.527.967-1.02a1.026 1.026 0 0 0-.289-.877l-1.568-1.568A2.402 2.402 0 0 1 1.998 12c0-.617.236-1.234.706-1.704L4.23 8.77c.24-.24.581-.353.917-.303.515.077.877.528 1.073 1.01a2.5 2.5 0 1 0 3.259-3.259c-.482-.196-.933-.558-1.01-1.073-.05-.336.062-.676.303-.917l1.525-1.525A2.402 2.402 0 0 1 12 1.998c.617 0 1.234.236 1.704.706l1.568 1.568c.23.23.556.338.877.29.493-.074.84-.504 1.02-.968a2.5 2.5 0 1 1 3.237 3.237c-.464.18-.894.527-.967 1.02Z"></path>
+        </symbol>
+        <symbol id="i-heart" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
+        </symbol>
+        <symbol id="i-trash" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="3 6 5 6 21 6"></polyline>
+            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+            <line x1="10" y1="11" x2="10" y2="17"></line>
+            <line x1="14" y1="11" x2="14" y2="17"></line>
+        </symbol>
+        <symbol id="i-upload" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+            <polyline points="17 8 12 3 7 8"></polyline>
+            <line x1="12" y1="3" x2="12" y2="15"></line>
+        </symbol>
+        <symbol id="i-download" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+            <polyline points="7 10 12 15 17 10"></polyline>
+            <line x1="12" y1="15" x2="12" y2="3"></line>
+        </symbol>
+        <symbol id="i-bolt" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+        </symbol>
+        <symbol id="i-send" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="22" y1="2" x2="11" y2="13"></line>
+            <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+        </symbol>
+        <symbol id="i-chat" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+        </symbol>
+        <symbol id="i-coins" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <ellipse cx="12" cy="6" rx="8" ry="3"></ellipse>
+            <path d="M4 6v6c0 1.66 3.58 3 8 3s8-1.34 8-3V6"></path>
+            <path d="M4 12v6c0 1.66 3.58 3 8 3s8-1.34 8-3v-6"></path>
+        </symbol>
+        <symbol id="i-stack" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 2 2 7l10 5 10-5-10-5z"></path>
+            <path d="M2 17l10 5 10-5"></path>
+            <path d="M2 12l10 5 10-5"></path>
+        </symbol>
+        <symbol id="i-window" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path>
+        </symbol>
+        <symbol id="i-sliders" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="4" y1="21" x2="4" y2="14"></line>
+            <line x1="4" y1="10" x2="4" y2="3"></line>
+            <line x1="12" y1="21" x2="12" y2="12"></line>
+            <line x1="12" y1="8" x2="12" y2="3"></line>
+            <line x1="20" y1="21" x2="20" y2="16"></line>
+            <line x1="20" y1="12" x2="20" y2="3"></line>
+            <line x1="1" y1="14" x2="7" y2="14"></line>
+            <line x1="9" y1="8" x2="15" y2="8"></line>
+            <line x1="17" y1="16" x2="23" y2="16"></line>
+        </symbol>
+        <!-- 语音回复开启：扬声器 + 声波（关闭态用 #i-vol-off 静音斜杠，图标即状态） -->
+        <symbol id="i-vol-on" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M4 9.5V14.5H7.5L12 18.5V5.5L7.5 9.5H4Z"></path>
+            <path d="M15.5 9C16.8 10.3 16.8 13.7 15.5 15"></path>
+            <path d="M18.5 6.5C21 9 21 15 18.5 17.5"></path>
+        </symbol>
+        <symbol id="i-vol-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M4 9.5V14.5H7.5L12 18.5V5.5L7.5 9.5H4Z"></path>
+            <line x1="16" y1="9" x2="21" y2="15"></line>
+            <line x1="21" y1="9" x2="16" y2="15"></line>
+        </symbol>
+        <!-- 语音设置模态框头部图标（麦克风） -->
+        <symbol id="i-voice" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="9" y="3" width="6" height="11" rx="3"></rect>
+            <path d="M5 11a7 7 0 0 0 14 0"></path>
+            <line x1="12" y1="18" x2="12" y2="21"></line>
+        </symbol>
+        <symbol id="i-pencil" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 20h9"></path>
+            <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z"></path>
+        </symbol>
+        <symbol id="i-palette" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 2C6.49 2 2 6.49 2 12s4.49 10 10 10c1.38 0 2.5-1.12 2.5-2.5 0-.61-.23-1.2-.64-1.66-.43-.47-.64-1.06-.64-1.84 0-1.38 1.12-2.5 2.5-2.5H20c1.1 0 2-.9 2-2 0-4.41-4.49-8-10-8z"></path>
+            <circle cx="6.5" cy="11.5" r="1.5"></circle>
+            <circle cx="9.5" cy="7.5" r="1.5"></circle>
+            <circle cx="14.5" cy="7.5" r="1.5"></circle>
+            <circle cx="17.5" cy="11.5" r="1.5"></circle>
+        </symbol>
+        <symbol id="i-flask" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M9 3h6"></path>
+            <path d="M10 3v6l-5 9a2 2 0 0 0 1.8 3h10.4a2 2 0 0 0 1.8-3l-5-9V3"></path>
+            <line x1="7.5" y1="15" x2="16.5" y2="15"></line>
+        </symbol>
+        <symbol id="i-cloud" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"></path>
+        </symbol>
+    </svg>
+
+    <img id="bg-img-layer" alt="" />
+    <!-- 背景遮罩层：用 CSS 合成层替代 Canvas 每帧 fillRect，零性能消耗；浓度由滑块实时控制。
+         实底黑 + opacity 驱动（纯黑 opacity α == rgba(0,0,0,α)，视觉一致；但 opacity 走合成器、零重绘，
+         滑块拖动不再每事件全屏重绘——原 rgba 写法在拖动遮罩浓度滑块时是 77% GPU 的重绘来源） -->
+    <div id="bg-dim-layer" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none; display: none; background: #000; opacity: 0.4;"></div>
+    <canvas id="bg"></canvas>
+    <!-- 背景插件 DOM 专属层：承载 DOM 背景插件，由 BgEngine 管理，不遮挡 UI -->
+    <div id="bg-dom-layer" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none; overflow: hidden;"></div>
+    <div id="chat"></div>
+    <div id="bottom-mask"></div>
+    <canvas id="ui-canvas"></canvas>
+    <input id="hiddenInput" name="no-autofill" type="text" autocomplete="off" spellcheck="false" maxlength="500" />
+    <div id="context-menu"></div>
+    <!-- 语音条右键菜单（转文字 / 隐藏文字） -->
+    <div id="vt-ctx" class="vt-ctx"></div>
+
+    <!-- 左侧顶栏：折叠工具栏（默认收起，仅显示监控状态灯；点左箭头展开，点底部箭头收起） -->
+    <div class="top-bar-left collapsed" id="top-bar-left">
+        <!-- 监控区即展开开关：点击非圆环区域切换左栏展开/收起；圆环点击弹编辑气泡（互不干扰） -->
+        <div id="monitor-bar" class="monitor-bar">
+            <span class="monitor-light">
+                <svg class="ml-icon"><use href="#i-chat"/></svg>
+                <span id="top-msg-count" class="ml-num">0</span>
+            </span>
+            <div id="cache-status" class="monitor-light cache">
+                <svg class="ml-icon"><use href="#i-bolt"/></svg>
+                <span id="cache-hit-val" class="ml-num">--</span>
+            </div>
+            <!-- 上下文占用圆环：中心百分比 = 已用/上限；点击弹编辑气泡直接改上限（k） -->
+            <button id="ctx-ring" class="ctx-ring" type="button" aria-label="上下文占用" data-tip="上下文已用：点击编辑上限">
+                <svg class="ctx-ring-svg" viewBox="0 0 36 36">
+                    <circle class="ctx-ring-track" cx="18" cy="18" r="15.5"></circle>
+                    <circle id="ctx-ring-fill" class="ctx-ring-fill" cx="18" cy="18" r="15.5"></circle>
+                </svg>
+                <span id="ctx-ring-pct" class="ctx-ring-pct">0%</span>
+            </button>
+        </div>
+        <!-- 收起时隐藏的工具区：竖向展开，上方一排图标按钮 + 下方独立一排色块选择器 -->
+        <div class="tb-body">
+        <!-- 一排图标按钮：背景插件 / 清空对话 / 导入 / 导出（词云入口已移至右上角顶栏，2026-08-16） -->
+        <div class="tb-row">
+            <svg id="btn-bg-plugin" class="icon-btn"><use href="#i-puzzle"/></svg>
+            <button id="btn-clear-chat" class="icon-btn danger-icon-btn"><svg><use href="#i-trash"/></svg></button>
+            <svg id="btn-import-all" class="icon-btn"><use href="#i-upload"/></svg>
+            <svg id="btn-export-all" class="icon-btn"><use href="#i-download"/></svg>
+        </div>
+            <!-- 快速配色色块条：独立一排，点击即时换肤（数据源 plugins/quick-themes.js） -->
+            <div id="quick-theme-palette" class="qt-palette"></div>
+        </div>
+    </div>
+
+        <!-- 右侧顶栏 -->
+        <div class="top-bar">
+            <svg id="btn-waifu-toggle" class="icon-btn waifu-toggle-btn"><use href="#i-heart"/></svg>
+            <!-- 语音设置入口：点击打开「语音设置模态框」（句句发语音：开/关 + 发语音概率 + 音色 + 语速）；图标点亮=语音回复已开启 -->
+            <svg id="btn-tts-toggle" class="icon-btn tts-toggle-btn tts-on"><use href="#i-vol-on"/></svg>
+            <!-- 词云分析入口：统计当前对话路径消息词频（原在左栏折叠工具排，2026-08-16 移至右上角顶栏常驻） -->
+            <svg id="btn-wordcloud" class="icon-btn"><use href="#i-cloud"/></svg>
+        <div id="settings-icon" class="icon-btn settings-ring">
+            <span class="ring-spin"></span>
+            <span class="ring-spin ring-spin-2"></span>
+            <span class="ring-dot"></span>
+        </div>
+    </div>
+
+    <div id="save-indicator">已保存</div>
+
+    <!-- 上下文窗口上限编辑气泡：点顶栏圆环弹出，直接输 k 值修改；右上角常显已用值 -->
+    <div id="ctx-edit-pop" class="ctx-edit-pop" hidden>
+        <div class="ctx-edit-title">
+            <span>上下文窗口上限</span>
+            <span id="ctx-edit-used" class="ctx-edit-used"></span>
+        </div>
+        <div class="ctx-edit-body">
+            <input id="ctx-edit-input" class="ctx-edit-input" type="number" min="1" step="1" inputmode="decimal">
+            <span class="ctx-edit-unit">k</span>
+            <button id="ctx-edit-save" class="ctx-edit-save" type="button">完成</button>
+        </div>
+    </div>
+
+    <!-- 自定义配色模态框：色块条「+」圆点触发，粘贴颜色代码并持久化 -->
+    <div id="custom-scheme-modal" class="modal-overlay" style="display:none;">
+        <div class="modal-content">
+            <div class="setting-group">
+                <div class="group-title">自定义配色</div>
+                <p class="cs-hint">粘贴颜色代码即可生成配色，会像聊天记录一样自动保存：<br>
+                    • 单个色值：<code>#ff6b6b</code> —— 你的色做强调色，背景保持原版深色<br>
+                    • 多个色值自动成渐变：<code>#ff6b6b, #4ecdc4</code> —— 渐变铺背景，强调取其中饱和度最高色<br>
+                    • 或直接粘贴：<code>linear-gradient(135deg, #ff6b6b, #4ecdc4)</code></p>
+                <textarea id="custom-scheme-input" class="cs-textarea" placeholder="例如：#ff6b6b, #4ecdc4"></textarea>
+                <!-- 撞色强度滑块：仅单色方案生效（多色/渐变无单色跳色，JS 自动隐藏整行）；不显示数字，纯拖动预览 -->
+                <div class="cs-mix-row">
+                    <span class="cs-mix-label">撞色强度</span>
+                    <input type="range" id="custom-scheme-mix" class="slider" min="0" max="70" step="1" value="56">
+                </div>
+                <div class="cs-preview-row">
+                    <span class="cs-name-preview">实时预览</span>
+                    <div id="custom-scheme-preview" class="cs-thumb cs-empty">
+                        <div class="ct-top"><i class="ct-dot"></i><i class="ct-dot"></i><i class="ct-dot"></i></div>
+                        <div class="ct-body">
+                            <div class="ct-bubble ct-ai">AI 回复示例文本</div>
+                            <div class="ct-bubble ct-user">你的消息示例</div>
+                            <div class="ct-modal"><span class="ct-modal-bar"></span><span class="ct-modal-title">弹窗标题</span></div>
+                        </div>
+                        <div class="ct-input"><span class="ct-caret"></span>输入消息…</div>
+                    </div>
+                </div>
+            </div>
+            <div class="cs-actions">
+                <button id="custom-scheme-cancel" class="fs-btn">取消</button>
+                <button id="custom-scheme-save" class="fs-btn primary">保存配色</button>
+            </div>
+            <div class="setting-group">
+                <div class="group-title">已保存的自定义配色</div>
+                <div id="custom-scheme-list" class="cs-list"></div>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- 隐藏文件输入 -->
+    <input type="file" id="file-import-all" accept="application/json" style="display:none">
+    <input type="file" id="file-import-prompt" accept=".txt,.md,text/plain,text/markdown" style="display:none">
+    <input type="file" id="file-import-code" accept=".txt,.js,text/plain,text/javascript" multiple style="display:none">
+    <input type="file" id="file-import-bg-image" accept="image/png, image/jpeg, image/webp, image/gif" style="display:none">
+
+    <!-- 全屏编辑器入口按钮 -->
+    <svg id="fs-trigger-btn" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.8)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"></path>
+    </svg>
+
+    <!-- 插件/背景管理模态框 -->
+    <div id="bg-modal" class="modal-overlay">
+        <div class="modal-content">
+            <div class="setting-group">
+                <div class="group-title">背景插件栈 (可多选叠加)</div>
+                <div id="plugin-list-container"></div>
+            </div>
+            <div class="setting-group">
+                <div class="group-title">主题插件栈 (可多选叠加)</div>
+                <div id="theme-list-container"></div>
+            </div>
+            <div class="setting-group">
+                <div class="group-title">图片背景</div>
+                <button id="btn-upload-image" class="fs-btn primary" style="width: 100%; padding: 8px; font-size: 12px;">上传本地图片作为背景</button>
+                <button id="btn-edit-bg" class="fs-btn" style="width: 100%; padding: 8px; font-size: 12px; margin-top: 8px;" disabled>编辑当前背景（缩放 / 移动）</button>
+            </div>
+            <div class="setting-group">
+                <div class="group-title">代码级操作</div>
+                <button id="btn-import-code" class="fs-btn primary" style="width: 100%; padding: 8px; font-size: 12px;">导入新插件代码 (自动识别背景/主题)</button>
+                <p class="ps-tip" style="margin-top:10px;">粘贴 AI 给的插件 .txt 代码，点「装载」直接生效（跳过建文件/导入），下方显示解析类型与归因告警。</p>
+                <textarea id="ps-code" placeholder="在此粘贴插件代码…" style="margin-top:8px;"></textarea>
+                <div class="ps-actions" style="margin-top:8px;">
+                    <button id="ps-load">装载</button>
+                    <button id="ps-clear">清空</button>
+                </div>
+                <div id="ps-log" class="ps-log" style="margin-top:8px;"></div>
+            </div>
+            <button id="bg-modal-close" class="fs-btn primary" style="width: 100%; padding: 12px; margin-top: 10px;">关闭</button>
+        </div>
+    </div>
+
+    <!-- 背景图片·缩放移动编辑：拖动平移、滑块/滚轮缩放，框内所见即最终背景 -->
+    <div id="crop-modal" class="modal-overlay" style="display:none;">
+        <div class="modal-content" style="max-width: 720px;">
+            <div class="setting-group">
+                <div class="group-title">调整背景图片（先缩放再拖动裁剪；「完整」已显示整图，无需拖动）</div>
+                <div id="crop-frame">
+                    <img id="crop-preview" alt="" />
+                </div>
+                <div class="setting-row slider-row" style="margin-top: 14px;">
+                    <label>缩放 <span id="crop-zoom-val" style="color: var(--color-user-bright)">100%</span></label>
+                    <input type="range" id="crop-zoom" class="slider" min="100" max="400" step="5" value="100">
+                </div>
+                <div class="crop-actions">
+                    <button id="crop-fit" type="button" class="fs-btn">填充</button>
+                    <button id="crop-reset" type="button" class="fs-btn">完整</button>
+                    <button id="crop-cancel" type="button" class="fs-btn">取消</button>
+                    <button id="crop-confirm" type="button" class="fs-btn primary">确认</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 词云分析面板 v3：词频列表 + 指定词查询 + 快捷词条 + 分词模式（一键直达） -->
+    <div id="wordcloud-dialog" class="modal-overlay" style="display:none;">
+        <div class="modal-content wc-panel">
+            <div class="monitor-title">
+                <span>词云分析 · 当前对话</span>
+                <span id="wordcloud-close" class="modal-x">&times;</span>
+            </div>
+            <!-- 工具栏：指定词查询输入框 + 分词模式（一键直达分段按钮，非下拉、无二次点击） -->
+            <div class="wc-toolbar">
+                <input id="wordcloud-query" class="wc-query-input" type="text" placeholder="查指定词频率…" autocomplete="off">
+                <div class="wc-seg" role="group" aria-label="分词模式">
+                    <button id="wordcloud-seg-light" class="wc-seg-btn active" type="button">轻量</button>
+                    <button id="wordcloud-seg-jieba" class="wc-seg-btn" type="button">专业</button>
+                </div>
+            </div>
+            <!-- 专业词库加载状态：常驻显示是否已加载 jieba（加载中/成功/失败都停在这一行，位置醒目） -->
+            <div id="wordcloud-status" class="wc-status"></div>
+            <!-- 查询结果条：独立整行，命中/未命中/加载三种状态同一位 -->
+            <div id="wordcloud-query-result" class="wc-result"></div>
+            <!-- 快捷词条：查过的词自动收录，点一下直接再查（免输入）；右键/长按删除 -->
+            <div id="wordcloud-quick" class="wc-quick"></div>
+            <div id="wordcloud-note" class="wc-note"></div>
+            <div id="wordcloud-list" class="wc-list"></div>
+        </div>
+    </div>
+
+    <!-- 设置模态框 -->
+    <div id="modal" class="modal-overlay">
+        <div class="modal-content">
+
+            <!-- 1. 名字 + 提示词 -->
+            <div class="section">
+                <input class="name-input" id="set-aiName" type="text" placeholder="输入名字...">
+                <div class="prompt-area">
+                    <div class="prompt-label">
+                        <span>系统提示词</span>
+                        <button class="mini-btn" id="sys-prompt-import">导入文件</button>
+                    </div>
+                    <textarea class="prompt-textarea" id="set-sysPrompt" rows="4"></textarea>
+                    <input type="file" id="file-import-prompt" hidden>
+                    <input id="hiddenInput" hidden>
+                </div>
+            </div>
+
+            <hr class="section-divider">
+
+            <!-- 2. LLM 配置 -->
+            <div class="section">
+                <div class="section-title">配置 LLM</div>
+                <div class="llm-container">
+                    <!-- 服务商标签（segmented 控件，对齐 DOM.providerTabs + .provider-tab） -->
+                    <div class="segmented" id="provider-tabs">
+                        <button class="segmented__item provider-tab segmented__item--active" data-provider="zhipu" data-url="https://open.bigmodel.cn/api/paas/v4/chat/completions">智谱</button>
+                        <button class="segmented__item provider-tab" data-provider="deepseek" data-url="https://api.deepseek.com/v1/chat/completions">DeepSeek</button>
+                    </div>
+                    <span class="provider-hint" id="provider-hint"></span>
+                    <div class="llm-tags">
+                        <span class="llm-tag llm-tag--set" id="tag-url" data-type="url">URL</span>
+                        <span class="llm-tag llm-tag--set" id="tag-key" data-type="key">KEY</span>
+                    </div>
+                    <div class="llm-actions">
+                        <div class="llm-model">
+                            <span class="llm-model__name" id="set-model-text">未选择</span>
+                            <button class="llm-refresh" id="btn-fetch-models">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>
+                            </button>
+                        </div>
+                        <button class="mini-btn llm-reset" id="btn-reset-api">RESET</button>
+                    </div>
+
+                    <!-- URL 气泡：input id=set-apiUrl（对齐 DOM.setApiUrl） -->
+                    <div class="llm-bubble" id="bubbleUrl" data-bubble="url">
+                        <div class="llm-bubble__title">API 地址</div>
+                        <div class="llm-bubble__wrap">
+                            <input class="llm-bubble__input" id="set-apiUrl" type="text">
+                        </div>
+                        <div class="llm-bubble__actions">
+                            <button class="llm-bubble__btn" data-close="url">取消</button>
+                            <button class="llm-bubble__btn llm-bubble__btn--primary" data-save="url">保存</button>
+                        </div>
+                    </div>
+
+                    <!-- KEY 气泡：input id=set-apiKey（对齐 DOM.setApiKey） -->
+                    <div class="llm-bubble" id="bubbleKey" data-bubble="key">
+                        <div class="llm-bubble__title">API 密钥</div>
+                        <div class="llm-bubble__wrap">
+                            <input class="llm-bubble__input" id="set-apiKey" type="password">
+                            <button class="llm-bubble__eye" id="api-key-toggle" type="button">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>
+                            </button>
+                        </div>
+                        <div class="llm-bubble__actions">
+                            <button class="llm-bubble__btn" data-close="key">取消</button>
+                            <button class="llm-bubble__btn llm-bubble__btn--primary" data-save="key">保存</button>
+                        </div>
+                    </div>
+
+                    <!-- 模型列表容器：id=set-model-options，由 tree.js 填充 .custom-option（保留原机制，仅外观重涂） -->
+                    <div class="model-list custom-select-options" id="set-model-options"></div>
+                </div>
+
+            </div>
+
+            <hr class="section-divider">
+
+            <!-- 3. 背景遮罩浓度（仿真框仅作预览；set-bgDim / set-bgDim-val 对齐） -->
+            <div class="section">
+                <div class="section-title">遮罩浓度</div>
+                <div class="dim-visual">
+                    <div class="dim-scene">
+                        <div class="dim-stars"></div>
+                        <div class="dim-moon"></div>
+                    </div>
+                    <span class="dim-val-big" id="set-bgDim-val">40%</span>
+                    <div class="dim-overlay" id="bg-dim-sim"></div>
+                </div>
+                <input type="range" class="dim-slider" id="set-bgDim" min="0" max="100" step="1" value="40">
+            </div>
+
+            <div class="modal-actions">
+                <button id="modal-cancel" class="fs-btn">取消</button>
+                <button id="modal-close" class="fs-btn primary">保存</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 语音设置模态框（句句发语音） -->
+    <div id="voice-modal" class="modal-overlay">
+        <div class="modal-content voice-card">
+            <div class="voice-head">
+                <span class="vh-icon"><svg><use href="#i-voice"/></svg></span>
+                <span class="vh-title">语音设置</span>
+                <span id="voice-modal-close" class="modal-x vh-x">&times;</span>
+            </div>
+            <div class="voice-body">
+                <p class="vt-hint">语音条点一下播放、再点一下停止；右键语音条可「转文字」看原文。<b>文字消息显示</b>三选一：只显示文字 / 都显示（语音条+文字逐句同现）/ 只显示语音。「只显示语音」按「发语音概率」决定每条消息是否变语音条；wife 模式下语音以气泡内嵌小喇叭呈现。</p>
+
+                <div class="voice-row">
+                    <span class="lab">语音回复<small>AI 回复以语音条形式呈现</small></span>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="set-voiceEnabled">
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+
+                <div class="voice-row">
+                    <span class="lab">自动朗读<small>AI 回复流式生成时逐句自动播放</small></span>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="set-autoRead">
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+                <p class="vt-hint vt-hint--auto">「自动朗读」开启后：只显示文字模式不自动读（无语音条可播）；其余模式 AI 边生成边逐句出声，无需手动点。首次打开页面、尚未任何操作时的第一条，浏览器会拦下自动出声（自动播放策略），发一次消息后即完全自动。</p>
+
+                <div class="voice-row">
+                    <span class="lab">发语音概率<small>每条 AI 消息按概率决定语音 / 文字</small></span>
+                    <div class="rate">
+                        <input type="range" id="set-voiceProb" class="slider" min="0" max="100" step="5" value="100">
+                        <span id="set-voiceProb-val" class="val">100%</span>
+                    </div>
+                </div>
+                <div class="voice-row voice-prob-row">
+                    <span class="lab"></span>
+                    <div class="voice-presets">
+                        <button type="button" id="set-voiceProb-0" class="voice-preset">从不 0%</button>
+                        <button type="button" id="set-voiceProb-100" class="voice-preset">总是 100%</button>
+                    </div>
+                </div>
+
+                <div class="voice-row">
+                    <span class="lab">语音源<small>系统离线免费 / 云端更自然需联网</small></span>
+                    <div class="voice-seg">
+                        <button type="button" id="set-voiceSourceSystem" class="voice-seg-btn">系统</button>
+                        <button type="button" id="set-voiceSourceCloud" class="voice-seg-btn">云端</button>
+                    </div>
+                </div>
+
+                <div class="voice-row">
+                    <span class="lab">文字消息显示<small>AI 文字消息以何种形式呈现</small></span>
+                    <div class="voice-seg">
+                        <button type="button" id="set-disp-text" class="voice-seg-btn">只显示文字</button>
+                        <button type="button" id="set-disp-both" class="voice-seg-btn">都显示</button>
+                        <button type="button" id="set-disp-voice" class="voice-seg-btn">只显示语音</button>
+                    </div>
+                </div>
+
+                <div id="voice-system-panel" class="voice-subpanel">
+                    <div class="voice-row">
+                        <span class="lab">音色</span>
+                        <div class="vt-voice">
+                            <button type="button" id="voice-name-trigger" class="vt-voice-trigger">
+                                <span id="voice-name-text">自动（系统推荐中文女声）</span>
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                            </button>
+                            <div id="voice-name-options" class="vt-voice-options"></div>
+                        </div>
+                    </div>
+
+                    <div class="voice-row">
+                        <span class="lab">语速</span>
+                        <div class="rate">
+                            <input type="range" id="set-voiceRate" class="slider" min="0.5" max="2" step="0.1" value="1">
+                            <span id="set-voiceRate-val" class="val">1.0x</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="voice-cloud-panel" class="voice-subpanel" style="display:none">
+                    <p class="vt-warn">云端走小米 MiMo-V2.5-TTS，浏览器直连、无需服务端；API Key 仅存本机（个人自用，勿公开部署分享存档）。当前限时免费。</p>
+                    <div class="voice-row voice-row--cache">
+                        <span class="lab">本地语音缓存<small>重听同一句免请求，刷新即清空</small></span>
+                        <div class="voice-cache-ctrls">
+                            <span class="voice-cache-stat" id="set-cloud-cache-stat">0 句 · 0 KB</span>
+                            <button type="button" id="cloud-cache-clear" class="voice-preset">清空</button>
+                        </div>
+                    </div>
+                    <div class="voice-row">
+                        <span class="lab">API Key<small>platform.xiaomimimo.com 获取</small></span>
+                        <div class="llm-bubble__wrap">
+                            <input type="password" id="set-cloudKey" class="vt-input" placeholder="粘贴你的 MiMo API Key" autocomplete="off">
+                            <button class="llm-bubble__eye" id="cloud-key-toggle" type="button" aria-label="显示/隐藏密钥">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="voice-row">
+                        <span class="lab">云端音色</span>
+                        <div class="vt-voice">
+                            <button type="button" id="cloud-voice-trigger" class="vt-voice-trigger">
+                                <span id="cloud-voice-text">默认（中国集群=冰糖）</span>
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                            </button>
+                            <div id="cloud-voice-options" class="vt-voice-options"></div>
+                        </div>
+                    </div>
+                    <div class="voice-row">
+                        <span class="lab">接口地址<small>一般不动，默认官方</small></span>
+                        <input type="text" id="set-cloudBase" class="vt-input" placeholder="https://api.xiaomimimo.com/v1" autocomplete="off">
+                    </div>
+                    <div class="voice-row">
+                        <span class="lab">模型<small>默认 mimo-v2.5-tts</small></span>
+                        <input type="text" id="set-cloudModel" class="vt-input" placeholder="mimo-v2.5-tts" autocomplete="off">
+                    </div>
+                    <div class="voice-row">
+                        <span class="lab">语速</span>
+                        <div class="rate rate--disabled">
+                            <span class="val">云端暂不支持语速调节</span>
+                        </div>
+                    </div>
+                    <div class="voice-row">
+                        <span class="lab">连接测试<small>一句话验证 Key/音色可用</small></span>
+                        <button type="button" id="cloud-test" class="voice-preset">测试</button>
+                    </div>
+                    <div class="vt-warn" id="cloud-test-result" style="display:none"></div>
+                </div>
+            </div>
+            <div class="voice-foot"><button id="voice-modal-cancel" class="fs-btn">完成</button></div>
+        </div>
+    </div>
+
+    <!-- 全屏编辑器 -->
+    <div id="fs-editor">
+        <div id="fs-toolbar">
+            <button id="fs-align-btn" class="fs-tool-btn"></button>
+        </div>
+        <div id="fs-title">沉浸式书写</div>
+        <textarea id="fs-textarea" placeholder="此处支持换行..."></textarea>
+        <div class="fs-actions">
+            <button id="fs-cancel" class="fs-btn">取消</button>
+            <button id="fs-confirm" class="fs-btn primary">发送</button>
+        </div>
+    </div>
+
+    <script type="module" src="/src/main.js"></script>
+</body>
+
+</html>

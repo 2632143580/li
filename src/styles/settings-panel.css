@@ -1,0 +1,283 @@
+/* ====================== 设置面板（方法1：新视觉 + 项目 token 化） ======================
+ * 颜色全部走 tokens.css 的 var()；星空场景装饰色提为 --scene-* token（在 :root 定义，lint 跳过）。
+ * 仅对「会被其他弹窗共用的通用类」(#modal .modal-content / .modal-actions) 加 #modal 作用域，
+ *   避免覆盖词云/语音/插件管理等弹窗的 .modal-content / .modal-actions。
+ * 其余新设计专属类（.section / .llm-* / .dim-* / .size-* 等）全局唯一，无需作用域。
+ * 缓动曲线 --ease / --ease-out 已提升至 tokens.css 全局默认（满足 modal-theme-lint 允许集），本文件不再私有定义。 */
+
+/* ---------- 模态表面（仅作用于设置弹窗） ---------- */
+#modal .modal-content {
+    background: var(--bg-modal);
+    /* 简约化（用户拍板）：去掉描边与投影 */
+    border-radius: 20px;
+    padding: 28px 32px 24px;
+    width: 92%;
+    max-width: 560px;
+    max-height: 88vh;
+    overflow-y: auto;
+    animation: modalSlideUp 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+#modal .modal-content::-webkit-scrollbar { display: none; }
+
+#modal .modal-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 24px;
+    padding-top: 16px;
+    border-top: 1px solid var(--white-a06);
+}
+#modal .modal-actions .fs-btn { flex: 1; }
+
+/* ---------- 1. 名字 + 提示词 ---------- */
+.section { margin-bottom: 24px; }
+.section:last-child { margin-bottom: 0; }
+.section-title {
+    font-size: 10px;
+    color: var(--white-a30);
+    letter-spacing: 2.5px;
+    text-transform: uppercase;
+    margin-bottom: 12px;
+    font-weight: 600;
+}
+.section-divider { border: none; border-top: 1px solid var(--white-a06); margin: 20px 0; }
+
+.name-input {
+    width: 100%;
+    font-size: 20px;
+    font-weight: 600;
+    text-align: center;
+    background: transparent;
+    border: none;
+    border-bottom: 1.5px solid var(--white-a08);
+    padding: 8px 0 10px;
+    color: var(--color-user);
+    outline: none;
+    font-family: inherit;
+    transition: border-color 0.25s var(--ease);
+}
+.name-input:focus { border-color: var(--color-accent-dim); }
+
+.prompt-area { margin-top: 14px; }
+.prompt-label {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 11px;
+    color: var(--white-a20);
+    margin-bottom: 6px;
+    letter-spacing: 0.5px;
+}
+.mini-btn {
+    background: none;
+    border: 1px solid var(--white-a06);
+    color: var(--white-a20);
+    font-size: 10px;
+    padding: 2px 10px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: all 0.2s var(--ease);
+    font-family: inherit;
+}
+.mini-btn:hover { border-color: var(--white-a20); color: var(--white-a40); }
+.llm-actions { display: flex; align-items: center; gap: 8px; }
+.mini-btn.llm-reset {
+    display: inline-flex; align-items: center; justify-content: center;
+    margin-left: 0; padding: 5px 12px;
+    font-size: 11px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase;
+    color: var(--white-a70); border-color: var(--white-a10);
+}
+.mini-btn.llm-reset:hover { border-color: var(--white-a30); color: var(--white-a90); }
+.mini-btn.llm-reset.armed {
+    border-color: var(--color-error); color: var(--color-error);
+    box-shadow: 0 0 0 2px var(--color-error);
+    animation: resetPulse 1s ease infinite;
+}
+@keyframes resetPulse {
+    0%, 100% { box-shadow: 0 0 0 2px var(--color-error); }
+    50% { box-shadow: 0 0 0 5px transparent; }
+}
+
+.prompt-textarea {
+    width: 100%;
+    background: var(--white-a03);
+    border: 1px solid var(--white-a06);
+    border-radius: 10px;
+    padding: 10px 14px;
+    color: var(--white-a70);
+    font-size: 13px;
+    font-family: inherit;
+    outline: none;
+    resize: vertical;
+    min-height: 60px;
+    transition: border-color 0.25s var(--ease);
+    display: block;
+    line-height: 1.6;
+}
+
+/* ---------- 2. LLM 配置 ---------- */
+.llm-container { position: relative; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+
+.segmented, .llm-tags, .llm-model { height: 34px; display: flex; align-items: center; border-radius: 30px; }
+.segmented { background: var(--white-a03); border: 1px solid var(--white-a05); padding: 0; overflow: hidden; }
+.segmented__item {
+    height: 100%; padding: 0 16px; border: none; border-radius: 30px;
+    background: transparent; color: var(--white-a20); font-size: 11px; font-weight: 500;
+    font-family: inherit; cursor: pointer; transition: all 0.25s var(--ease);
+    display: flex; align-items: center;
+}
+.segmented__item--active {
+    background: var(--color-accent-soft); color: var(--color-accent-bright);
+    box-shadow: 0 0 12px var(--color-accent-dim);
+}
+
+.provider-hint { font-size: 10px; color: var(--white-a30); margin-left: 4px; }
+
+.llm-tags { gap: 8px; }
+.llm-tag {
+    height: 100%; padding: 0 16px; border: 1px solid var(--white-a06);
+    background: var(--white-a03); cursor: pointer; transition: all 0.25s var(--ease);
+    font-size: 11px; font-weight: 600; color: var(--white-a20);
+    font-family: 'SF Mono', 'Menlo', monospace; display: flex; align-items: center;
+    border-radius: 30px; user-select: none;
+}
+.llm-tag--set { border-color: var(--color-accent-dim); color: var(--color-accent-bright); background: var(--color-accent-soft); }
+.llm-tag:hover { border-color: var(--white-a20); color: var(--white-a40); }
+
+.llm-model { background: var(--white-a03); border: 1px solid var(--white-a05); padding: 0 4px 0 14px; gap: 4px; }
+.llm-model__name {
+    height: 100%; font-size: 13px; font-weight: 500; color: var(--color-user); cursor: pointer;
+    padding: 0 8px; border-radius: 30px; white-space: nowrap; display: flex; align-items: center; user-select: none;
+}
+.llm-model__name:hover { background: var(--white-a05); }
+.llm-refresh {
+    width: 26px !important; height: 26px !important; border: none;
+    background: var(--white-a05); color: var(--white-a20);
+    cursor: pointer; display: flex; align-items: center; justify-content: center;
+    border-radius: 50%; flex-shrink: 0; transition: background 0.2s var(--ease);
+}
+.llm-refresh:hover { background: var(--white-a10); color: var(--white-a40); }
+.llm-refresh svg { width: 14px; height: 14px; display: block; }
+.llm-refresh.spinning svg { transform: rotate(360deg); transition: transform 0.6s var(--ease); }
+
+/* URL / KEY 气泡（popover） */
+.llm-bubble {
+    position: absolute; top: calc(100% + 12px); left: var(--bubble-left, 50%);
+    transform: translateX(var(--bubble-tx, -50%)) scale(0.92);
+    background: var(--bg-select);
+    /* 毛玻璃已移除（与全部浮层统一去 backdrop-filter，化繁为简）；简约化：去描边与投影（用户拍板） */
+    border-radius: 14px;
+    opacity: 0; visibility: hidden; pointer-events: none;
+    transition: opacity 0.2s var(--ease), visibility 0.2s, transform 0.2s var(--ease);
+    z-index: 60; padding: 16px 20px 18px; min-width: 240px; max-width: 88vw;
+}
+.llm-bubble.show {
+    opacity: 1; visibility: visible; pointer-events: auto;
+    transform: translateX(var(--bubble-tx, -50%)) scale(1);
+}
+.llm-bubble::before {
+    content: ''; position: absolute; top: -6px; left: var(--arrow-left, 50%);
+    transform: translateX(-50%) rotate(45deg); width: 12px; height: 12px;
+    background: var(--bg-select); border-left: 1px solid var(--white-a06); border-top: 1px solid var(--white-a06);
+    border-radius: 2px 0 0 0; transition: left 0.2s var(--ease);
+}
+.llm-bubble__title { font-size: 9px; color: var(--white-a30); letter-spacing: 2px; text-transform: uppercase; margin-bottom: 8px; font-weight: 600; }
+.llm-bubble__wrap { position: relative; width: 100%; }
+.llm-bubble__input {
+    width: 100%; background: var(--white-a03); border: 1px solid var(--white-a05);
+    border-radius: 8px; padding: 8px 36px 8px 12px; color: var(--white-a80);
+    font-size: 12px; font-family: 'SF Mono', 'Menlo', monospace; outline: none;
+}
+.llm-bubble__eye {
+    position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
+    background: none; border: none; color: var(--white-a20); cursor: pointer; padding: 4px;
+    display: flex; align-items: center; border-radius: 4px;
+}
+.llm-bubble__eye svg { width: 16px; height: 16px; }
+.llm-bubble__actions { display: flex; gap: 6px; margin-top: 12px; justify-content: flex-end; }
+.llm-bubble__btn {
+    background: var(--white-a03); border: 1px solid var(--white-a06);
+    border-radius: 6px; padding: 5px 16px; color: var(--white-a30);
+    font-size: 11px; cursor: pointer; transition: all 0.15s var(--ease); font-family: inherit;
+}
+.llm-bubble__btn:hover { background: var(--white-a06); color: var(--white-a50); }
+.llm-bubble__btn--primary { background: var(--color-accent-soft); border-color: var(--color-accent-dim); color: var(--color-accent-bright); }
+
+/* 模型列表容器：保留 tree.js 的 .custom-select-options 机制，仅重涂为新气泡外观（作用域限定 id，不污染其他弹窗） */
+#set-model-options.custom-select-options {
+    position: absolute;
+    top: calc(100% + 12px);
+    left: 0;
+    min-width: 140px;
+    background: var(--bg-select);
+    /* 简约化（用户拍板）：去描边与投影；毛玻璃已移除 */
+    border-radius: 14px;
+    padding: 6px;
+    z-index: 200;
+    display: none;
+}
+#set-model-options.custom-select-options.show { display: block; }
+#set-model-options.custom-select-options.show::before {
+    content: ''; position: absolute; top: -6px; left: 18px;
+    width: 12px; height: 12px; background: var(--bg-select);
+    border-left: 1px solid var(--white-a06); border-top: 1px solid var(--white-a06);
+    transform: rotate(45deg); border-radius: 2px 0 0 0;
+}
+#set-model-options .custom-option {
+    padding: 8px 16px; border-radius: 8px; color: var(--white-a30);
+    font-size: 13px; cursor: pointer; white-space: nowrap; transition: background 0.15s var(--ease);
+}
+#set-model-options .custom-option:hover { background: var(--white-a05); color: var(--white-a70); }
+#set-model-options .custom-option.selected { color: var(--color-accent-bright); background: var(--color-accent-soft); }
+#set-model-options .custom-option.divider { display: none; }
+
+/* ---------- 3. 遮罩浓度（仿真框预览） ---------- */
+.dim-visual { position: relative; width: 100%; height: 200px; border-radius: 16px; margin-bottom: 12px; border: 1px solid var(--white-a06); }
+.dim-scene, .dim-overlay { position: absolute; inset: 0; border-radius: 16px; overflow: hidden; }
+.dim-scene { background: linear-gradient(to bottom, var(--scene-sky-top), var(--scene-sky-bottom)); z-index: 0; }
+.dim-moon { position: absolute; top: 24px; right: 32px; width: 32px; height: 32px; border-radius: 50%; background: var(--scene-moon); box-shadow: 0 0 16px var(--scene-moon-glow); }
+.dim-stars {
+    position: absolute; inset: 0;
+    background-image:
+        radial-gradient(1px 1px at 20px 30px, var(--scene-star), transparent),
+        radial-gradient(1px 1px at 40px 70px, var(--scene-star-dim), transparent),
+        radial-gradient(1px 1px at 50px 160px, var(--scene-star), transparent),
+        radial-gradient(1px 1px at 90px 40px, var(--scene-star-dim), transparent),
+        radial-gradient(1px 1px at 130px 80px, var(--scene-star), transparent);
+    background-size: 200px 200px; background-repeat: repeat;
+}
+.dim-val-big {
+    position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    font-size: 64px; font-weight: 700; color: var(--scene-text);
+    text-shadow: 0 2px 12px var(--black-a50); z-index: 2; pointer-events: none;
+    letter-spacing: 4px; font-family: 'Georgia', serif; white-space: nowrap;
+}
+/* 仿真遮罩层（覆盖在聊天内容之上、低于数值；仅展示用，项目真实遮罩由 set-bgDim 驱动 bg-dim-layer）。
+   transition 已移除（控制变量实测：0.1s 过渡追不上滑块 60Hz 输入 → 每个 input 重启过渡 → 持续 CSS 帧驱动，
+   是「拖遮罩滑块 GPU 77%」的真正来源）。现随滑块瞬时变化，零持续动画。 */
+.dim-overlay { background: var(--color-bg); opacity: 0.4; pointer-events: none; z-index: 1; }
+
+/* 滑块（星型 thumb，强调色取自 token） */
+.dim-slider { -webkit-appearance: none; appearance: none; width: 100%; height: 3px; background: var(--white-a08); border-radius: 2px; outline: none; }
+.dim-slider::-webkit-slider-thumb {
+    -webkit-appearance: none; appearance: none; width: 24px; height: 24px; background-color: transparent;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M12 0 L13.5 10.5 L24 12 L13.5 13.5 L12 24 L10.5 13.5 L0 12 L10.5 10.5 Z' fill='%2396dc82'/></svg>");
+    background-size: 100% 100%; background-repeat: no-repeat; cursor: pointer; border: none;
+    transition: transform 0.2s var(--ease-out), filter 0.2s var(--ease-out);
+}
+.dim-slider::-webkit-slider-thumb:hover { transform: scale(1.2) rotate(45deg); filter: drop-shadow(0 0 8px var(--color-accent-glow)); }
+.dim-slider::-moz-range-thumb {
+    width: 24px; height: 24px; background-color: transparent;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M12 0 L13.5 10.5 L24 12 L13.5 13.5 L12 24 L10.5 13.5 L0 12 L10.5 10.5 Z' fill='%2396dc82'/></svg>");
+    background-size: 100% 100%; background-repeat: no-repeat; cursor: pointer; border: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}
+@media (max-width: 520px) {
+    #modal .modal-content { padding: 18px 16px 16px; max-width: 100%; border-radius: 16px; max-height: 92vh; }
+    .dim-visual { height: 180px; }
+    .dim-val-big { font-size: 48px; }
+}

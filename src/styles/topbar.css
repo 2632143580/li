@@ -1,0 +1,76 @@
+/* ====================== 隐藏输入框 ====================== */
+#hiddenInput {
+    position: fixed;
+    z-index: 10;
+    background: transparent;
+    color: var(--input-text);
+    caret-color: var(--input-cursor);
+    border: none;
+    outline: none;
+    resize: none;
+    padding: 0;
+    padding-left: 12px;
+    text-indent: 0;
+    line-height: 30px;
+    letter-spacing: normal;
+}
+
+/* ====================== 顶栏 ====================== */
+/* 顶栏背景用 var(--color-bg) 合成（color-mix），深/浅主题自适应；原硬编码 rgba(8,11,20) 在浅色主题下残留深色胶囊 */
+.top-bar {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 20;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    padding: 4px 10px;
+    border-radius: 10px;
+    background: color-mix(in srgb, var(--color-bg) 72%, transparent);
+    border: 1px solid var(--white-a10);
+    /* 毛玻璃已移除（用户拍板彻底无毛玻璃）；72% 实底色足够压住背后内容，文字可读性无虞 */
+}
+
+.top-bar-left {
+    position: fixed;
+    top: 20px;
+    left: 20px;
+    z-index: 20;
+    display: flex;
+    flex-direction: column;       /* 头（监控）/ 体（工具按钮+色块条）纵向堆叠；收起态只显示头 */
+    align-items: flex-start;
+    gap: 8px;
+    /* 透明容器：背景/边框/圆角/模糊全部让位给子元素（monitor-bar / tb-body）各自的胶囊外观，
+       避免「左栏胶囊套监控胶囊」的双层飞碟——子元素已是完整胶囊，父层无需再加外壳 */
+}
+
+
+/* ====================== 左栏折叠（渐进披露） ======================
+   结构：top-bar-left(监控,常驻) / tb-body(工具按钮组+色块选择器,收起隐藏)
+   展开/收起由**点击监控区**承担（原箭头与 tb-head 包裹层已按用户要求移除，监控直挂顶层）；
+   配色/圆角/动效全部走已有语义 token，不引入硬编码 RGB（避免触发 skin-lint）。 */
+
+/* 体：竖向展开（监控下方上下堆叠）——上一排 4 个图标按钮，下一排色块选择器 */
+.tb-body {
+    display: flex;
+    flex-direction: column;       /* 竖向展开：按钮行 + 色块选择器行 上下堆叠 */
+    align-items: flex-start;
+    gap: 10px;
+    animation: dropdownFadeIn 0.18s ease;
+}
+/* 上一排：4 个图标按钮横向一排 */
+.tb-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.top-bar-left.collapsed .tb-body { display: none; }
+
+/* 左栏展开开关即监控区本身（无独立箭头）；监控区触控目标/点击态由 monitor.css 的 .monitor-bar 承担 */
+
+/* 尊重减弱动效偏好 */
+@media (prefers-reduced-motion: reduce) {
+    .tb-body { animation: none; }
+}
+
