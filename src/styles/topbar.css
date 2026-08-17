@@ -57,7 +57,7 @@
     flex-direction: column;       /* 竖向展开：按钮行 + 色块选择器行 上下堆叠 */
     align-items: flex-start;
     gap: 10px;
-    animation: dropdownFadeIn 0.18s ease;
+    animation: fadeIn 0.18s ease;
 }
 /* 上一排：4 个图标按钮横向一排 */
 .tb-row {

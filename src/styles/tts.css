@@ -42,14 +42,14 @@
     cursor: pointer;
     -webkit-tap-highlight-color: transparent;
     transition: background var(--transition-fast), border-color var(--transition-fast), transform var(--transition-fast), box-shadow var(--transition-fast);
-    animation: vtIn .42s var(--transition-smooth) both;
+    animation: fadeIn .42s var(--transition-smooth) both;
 }
 .vt:hover {
     transform: translateY(-1px);
     border-color: color-mix(in srgb, var(--color-ai) 40%, var(--white-a20));
     box-shadow: 0 4px 14px rgba(0, 0, 0, .28);
 }
-@keyframes vtIn { from { opacity: 0; transform: translateY(8px) scale(.98); } to { opacity: 1; transform: none; } }
+/* 语音条入场统一复用 chat.css @keyframes fadeIn（原 vtIn 已合并移除） */
 
 /* 最后一条语音条收底（与 waifu .waifu-bubble:last-of-type 对齐），避免消息尾部多出 8px */
 .vt:last-of-type { margin-bottom: 0; }
@@ -418,12 +418,9 @@
     padding-left: 2px;
 }
 
-/* ====================== waifu 模式（W2：套用普通布局）+ 专属圆润观感 ======================
-   W2 起 waifu 模式不再分句气泡，内容与普通模式一致；此处仅给语音条 / 都显示行加一点
-   「妻子感」圆润皮肤，让模式开关仍有可辨识的视觉差异（超量打磨）。 */
-#chat.waifu-mode .vt {
-    border-radius: 18px 18px 18px 5px;
-}
+/* ====================== waifu 模式（W2：套用普通布局）专属微调 ======================
+   W2 起 waifu 模式不再分句气泡，内容与普通模式一致；此处仅对「都显示」行做极轻量微调
+   （缩进 / 字号）。语音条尖角方向已统一为左上角，与正常模式一致（不再翻到左下，避免跨模式两种气泡）。 */
 #chat.waifu-mode .vt-both-row {
     padding-left: 8px; /* 侧边条已移除，仅保留更小的缩进 */
 }

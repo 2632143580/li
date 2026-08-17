@@ -53,13 +53,10 @@
     overflow-y: auto;
     z-index: 10;
     display: none;
-    animation: dropdownFadeIn 0.15s ease;
+    animation: fadeIn 0.15s ease;
 }
 
-@keyframes dropdownFadeIn {
-    from { opacity: 0; transform: translateY(-4px); }
-    to { opacity: 1; transform: translateY(0); }
-}
+/* 下拉/浮层入场统一复用 chat.css @keyframes fadeIn（淡入+上滑）；原 dropdownFadeIn 已合并移除 */
 
 .custom-select-options.show {
     display: block;

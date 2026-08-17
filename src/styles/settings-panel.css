@@ -15,7 +15,7 @@
     max-width: 560px;
     max-height: 88vh;
     overflow-y: auto;
-    animation: modalSlideUp 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+    animation: modalIn 0.3s cubic-bezier(0.22, 1, 0.36, 1);
     scrollbar-width: none;
     -ms-overflow-style: none;
 }

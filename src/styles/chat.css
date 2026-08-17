@@ -48,9 +48,16 @@
        这样主题插件覆盖 animation 时(即使不带 forwards)，气泡也会回落到基线可见态，不会在动画结束后变透明消失。 */
     opacity: 1;
     transform: translateY(0);
-    animation: fadeIn 0.8s cubic-bezier(0.22, 1, 0.36, 1) both;
+    animation: fadeIn 0.35s cubic-bezier(0.22, 1, 0.36, 1) both;
     word-break: break-word;
     white-space: pre-wrap;
+}
+
+/* 语音条消息（含 .vt 子元素）只由子 .vt 各自入场动画表达，关闭外层 .msg 的 fadeIn，
+   避免「外层淡入上滑 + 内层语音条再入场」的双重入场（简约化，用户拍板优化）。
+   与 waifu 模式 .msg.ai{animation:none} 同一思路：容器不重复入场。 */
+.msg:has(.vt) {
+    animation: none;
 }
 
 /* 颜色加 !important 抗主题覆盖：主题的 body { color } 或 通配 color 会压过 .ai/.user，
@@ -92,7 +99,9 @@
 }
 
 /* 错误样式：.chat-bubble--ai 的错误变体（P6）。
-   .error-msg 挂在 bubble 外层（带 .chat-bubble--ai），共享气泡结构，只覆盖颜色/边框/动画。
+   .error-msg 挂在 bubble 外层（带 .chat-bubble--ai），共享气泡结构，只覆盖颜色/边框。
+   入场动画已清零：错误靠配色 + 虚线边框表达，不再叠加抖动/淡入（简约化，用户拍板"清0"）。
+   注：@keyframes shake 仍保留，供 modal.css .js-shake 与 quick-theme.js 无效输入提示复用。
    max-width:85% 覆盖 waifu 模式下 #chat.waifu-mode .msg.ai 的 100%，让错误气泡收缩显示。 */
 .error-msg {
     max-width: 85%;
@@ -103,7 +112,7 @@
     /* 不对称圆角——错误气泡恒为 AI（居左），收 top-left（与 .chat-bubble--ai 一致） */
     border-radius: var(--radius-sm) var(--radius-lg) var(--radius-lg) var(--radius-lg);
     background: color-mix(in srgb, var(--color-error) 6%, transparent);
-    animation: shake 0.4s ease;
+    animation: none;
 }
 
 @keyframes fadeIn {

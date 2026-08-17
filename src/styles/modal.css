@@ -53,10 +53,11 @@ body.modal-open *:not(.modal-overlay):not(.modal-overlay *):not(#fs-editor):not(
     overflow-y: auto;
     /* 阻断滚动链：面板自身滚到边界即停，不向上传播——即便 .modal-overlay 未拦截也不会穿透到背后 #chat */
     overscroll-behavior: contain;
-    animation: modalSlideUp 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+    animation: modalIn 0.3s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-@keyframes modalSlideUp {
+/* 模态框 / 浮层统一入场：淡入 + 轻微上滑缩放。替代原 modalSlideUp 与 contextMenuIn（合并去重，用户拍板） */
+@keyframes modalIn {
     from { opacity: 0; transform: translateY(20px) scale(0.96); }
     to { opacity: 1; transform: translateY(0) scale(1); }
 }
@@ -173,10 +174,9 @@ body.modal-open *:not(.modal-overlay):not(.modal-overlay *):not(#fs-editor):not(
     flex: 0 0 auto;
 }
 .wc-status.loading { color: var(--color-accent); }
-.wc-status.loading::before { animation: wc-blink 1s ease-in-out infinite; }
+/* 加载态：圆点常亮 + 主题色表达，不做无限闪烁（简约化，用户拍板移除 wc-blink） */
 .wc-status.ok { color: var(--color-accent); }
 .wc-status.fail { color: var(--color-error); }
-@keyframes wc-blink { 50% { opacity: 0.35; } }
 
 /* 查询结果条：独立整行、带底纹，命中/未命中/加载三种状态同一位（不闪位置） */
 .wc-result {

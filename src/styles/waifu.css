@@ -21,7 +21,7 @@
     padding: 10px 14px;
     /* 同 .msg：可见态为基线，入场动画用 both 填充，主题覆盖 animation 也不会让分句泡消失 */
     opacity: 1;
-    animation: bubbleIn 0.5s ease both;
+    animation: fadeIn 0.5s ease both;
 }
 
 /* 默认气泡皮肤（无主题时）：user / 普通 AI / waifu 分句泡统一有底色边框，
@@ -44,10 +44,7 @@ body:not(.theme-active) .chat-bubble--ai {
     margin-bottom: 0;
 }
 
-@keyframes bubbleIn {
-    from { opacity: 0; transform: translateY(8px); }
-    to { opacity: 1; transform: translateY(0); }
-}
+/* 分句气泡入场统一复用 chat.css @keyframes fadeIn（原 bubbleIn 已合并移除） */
 
 .waifu-toggle-btn {
     transition: all var(--transition-normal);
