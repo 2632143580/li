@@ -2,6 +2,10 @@ import { defineConfig } from 'vite';
 import { viteSingleFile } from 'vite-plugin-singlefile';
 import depsPlugin from './vite-plugin-deps.js';
 
+// 构建环境标记：GitHub Actions 运行时**自动**置 GITHUB_ACTIONS='true'，本地无此变量 → 默认"本地"。
+// 注入为 import.meta.env.VITE_BUILD_ENV（类型：'github' | '本地'），供 document.title 等区分构建来源。
+const BUILD_ENV = process.env.GITHUB_ACTIONS === 'true' ? 'github' : '本地';
+
 /**
  * 构建目标：把 index.html + 全部 ES Module + style.css 压回**一个**双击可运行的 HTML。
  *
@@ -15,6 +19,10 @@ import depsPlugin from './vite-plugin-deps.js';
  */
 export default defineConfig({
   base: './',
+  // 将构建环境标记静态注入客户端：构建期即确定，运行时直接读取，无需运行时判断。
+  define: {
+    'import.meta.env.VITE_BUILD_ENV': JSON.stringify(BUILD_ENV),
+  },
   // depsPlugin 仅在 dev 服务器生效（configureServer），build 时不执行，对单文件产物零侵入。
   plugins: [viteSingleFile(), depsPlugin({
     coreFiles: [

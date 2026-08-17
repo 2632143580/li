@@ -10,7 +10,7 @@ dist/
 
 # 日志
 *.log
-*.md
+
 
 # ===== CI 排错残留（调试缓存，非源码，绝不入库）=====
 allc.json
@@ -22,11 +22,11 @@ runs.json
 
 # ===== 个人工作草稿（非 LI 源码，不公开到仓库，本地保留）=====
 经验.md
+新经验.md
 启动LI.bat
 启动LI-deps.bat
 启动LI-构建.bat
 文档/
-TOOL/
+问题/
 preview/
-旧/
-PRE/
+

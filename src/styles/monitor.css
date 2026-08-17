@@ -268,18 +268,16 @@
     color: color-mix(in srgb, var(--color-error) 90%, transparent);
 }
 
-/* 二次点击确认「待确认」态：红色脉冲环 + 实心警示色（图标按钮） */
+/* 二次点击确认「待确认」态：红色警示色（图标/文本按钮共用，无脉冲环，用户拍板：脉冲非必要） */
 .danger-icon-btn.armed {
     color: var(--color-error);
-    animation: arm-pulse 1.1s ease-out infinite;
 }
 
-/* 文本按钮「待确认」态（如删除配色）复用同一脉冲环 */
+/* 文本按钮「待确认」态（如删除配色）共用红色警示色 */
 .cs-item-del.armed {
     background: var(--color-error);
     color: var(--white-a90);
     border-color: var(--color-error);
-    animation: arm-pulse 1.1s ease-out infinite;
 }
 
 /* 清空按钮：把 <svg> 图标包进 <button>，待确认态直接把图标换成「?」（不再浮气泡）。 */
@@ -304,20 +302,16 @@
     line-height: 1;
 }
 
-/* 色块点待确认态：底色上叠一个「?」问号（白字 + 深色描边保证任意底色可读），红脉冲环 */
+/* 色块点待确认态：底色上叠一个「?」问号（白字 + 深色描边保证任意底色可读），红色警示 */
 .qt-dot.armed {
     font-size: 11px;
     font-weight: 700;
     color: var(--white-a90);
     text-shadow: 0 0 3px var(--black-a60), 0 0 4px var(--black-a60);
-    animation: arm-pulse 1.1s ease-out infinite;
 }
 .qt-dot.armed::after {
     content: none; /* 与 .active 的 ✓ 互斥，避免「?」与「✓」重叠 */
 }
 
-@keyframes arm-pulse {
-    0%   { box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-error) 60%, transparent); }
-    100% { box-shadow: 0 0 0 7px color-mix(in srgb, var(--color-error) 0%, transparent); }
-}
+/* arm-pulse 关键帧已移除：待确认态不再使用脉冲环（用户拍板） */
 

@@ -69,12 +69,13 @@ export function renderVoiceTiles(contentEl, node, isStreaming) {
  *  不调用 stopCurrent（修①：避免流结束重建截断自动朗读音频 / 抹掉动画）。
  *  自动朗读跨重建应续播，手动停止由 clearAutoQueue 负责。 @param {HTMLElement} contentEl @param {Array<string>} tiles */
 function rebuild(contentEl, tiles) {
-    const playingText = (playingTile && contentEl.contains(playingTile)) ? playingTile.dataset.text : null;
+    const playingIdx = (playingTile && contentEl.contains(playingTile)) ? playingTile.dataset.idx : null;
     if (playingTile && contentEl.contains(playingTile)) playingTile = null; // 仅清追踪，不停音频
     contentEl.innerHTML = '';
     tiles.forEach((t, i) => addTile(contentEl, t, i));
-    if (playingText) {
-        const live = Array.from(contentEl.querySelectorAll('.vt')).find(t => t.dataset.text === playingText);
+    if (playingIdx !== null) {
+        // 按句序 idx 转移（非文本）：重复句也能精确续播到原句，不误定位到同文本第一句
+        const live = Array.from(contentEl.querySelectorAll('.vt')).find(t => t.dataset.idx === playingIdx);
         if (live) { playingTile = live; live.classList.add('is-playing'); } // 续播句动画不丢
     }
 }
@@ -145,7 +146,7 @@ function maybeAutoRead(node, isStreaming, contentEl) {
     // 去重键含句序（idx:text），避免"好的。好的。"这类合法重复句被纯文本去重跳过（修⑦）
     const enq = (text, idx) => {
         const key = idx + ':' + text;
-        if (!seen.has(key)) { seen.add(key); enqueueAutoSentence(text, buildTileCb(contentEl, text)); }
+        if (!seen.has(key)) { seen.add(key); enqueueAutoSentence(text, buildTileCb(contentEl, text, idx)); }
     };
     if (isStreaming) {
         node._autoReadArmed = true;
@@ -170,12 +171,12 @@ function addBothRow(contentEl, row, idx = 0) {
 
 /** 全量重建「都显示」（结构变化 / 首次）：同 rebuild，重建后转移 is-playing（修①） @param {HTMLElement} contentEl @param {Array<{raw:string,clean:string}>} rows */
 function rebuildBoth(contentEl, rows) {
-    const playingText = (playingTile && contentEl.contains(playingTile)) ? playingTile.dataset.text : null;
+    const playingIdx = (playingTile && contentEl.contains(playingTile)) ? playingTile.dataset.idx : null;
     if (playingTile && contentEl.contains(playingTile)) playingTile = null; // 仅清追踪，不停音频
     contentEl.innerHTML = '';
     rows.forEach((r, i) => addBothRow(contentEl, r, i));
-    if (playingText) {
-        const live = Array.from(contentEl.querySelectorAll('.vt')).find(t => t.dataset.text === playingText);
+    if (playingIdx !== null) {
+        const live = Array.from(contentEl.querySelectorAll('.vt')).find(t => t.dataset.idx === playingIdx);
         if (live) { playingTile = live; live.classList.add('is-playing'); } // 续播句动画不丢
     }
 }
@@ -190,6 +191,7 @@ function makeTileEl(text, idx = 0, allowReveal = true) {
     const tile = document.createElement('div');
     tile.className = 'vt';
     tile.dataset.text = text;
+    tile.dataset.idx = String(idx); // 句序唯一标识：供 buildTileCb/rebuild 精确匹配，同消息内重复句（如"好的。好的。"）也能区分
     tile.style.animationDelay = (idx * 55) + 'ms'; // 流式逐条错峰淡入
     // 气泡宽度随句子长度（长句宽、短句窄，一眼可辨句子长短）——原 22 根波形条靠条数撑宽，
     // 现 3 点固定，改由句长直接驱动宽度；封顶 320px（CSS max-width:82% 兜底）
@@ -232,12 +234,21 @@ function addTile(contentEl, text, idx = 0) {
  * 关键修复（2026-08-17）：不再闭包捕获 tile 引用——流式增量渲染会替换 DOM 节点，
  * 捕获的旧节点会脱离文档，导致 onStart 的 is-playing 被静默跳过（"自动朗读没动画"根因②）。
  * 改为持有 contentEl + text，播放时按 dataset.text 重新查找当前 live 节点。
- * @param {HTMLElement} contentEl 装载层（.bubble-content） @param {string} text 清洗后文本
+ * @param {HTMLElement} contentEl 装载层（.bubble-content） @param {string} text 清洗后文本 @param {number} [idx] 句序（唯一标识，用于重复句精确匹配）
  * @returns {{onStart:function,onProgress:function,onEnd:function}}
  */
-function buildTileCb(contentEl, text) {
+function buildTileCb(contentEl, text, idx) {
     let t0 = 0;
-    const resolve = () => Array.from(contentEl.querySelectorAll('.vt')).find(t => t.dataset.text === text) || null;
+    // 精确匹配：优先按句序 idx（唯一）定位，避免同消息内完全重复句（如"好的。好的。"）误匹配到第一句；
+    // idx 缺失（旧节点无 dataset.idx）时回退按文本匹配。
+    const resolve = () => {
+        const all = Array.from(contentEl.querySelectorAll('.vt'));
+        if (idx !== undefined) {
+            const byIdx = all.find(t => t.dataset.idx === String(idx));
+            if (byIdx) return byIdx;
+        }
+        return all.find(t => t.dataset.text === text) || null;
+    };
     return {
         onStart: () => {
             const tile = resolve();
@@ -271,7 +282,10 @@ function toggleTile(tile) {
         return;
     }
     clearAutoQueue(); // 用户手动点 = 抢回控制权，停止自动朗读（用户直达铁律）
-    speakSentence(tile.dataset.text, buildTileCb(tile));
+    // 修（2026-08-17）：buildTileCb 签名是 (contentEl, text)，旧调用误传 tile 当 contentEl、text 为 undefined，
+    // 导致 resolve() 查不到节点 → onStart 不加 is-playing（点击无动画）+ playingTile 永不记录（再点落进重播分支，看似「重头再播」）。
+    // 用 tile.closest('.bubble-content') 取回装载层（「只显示语音」时 tile 父即 contentEl，「都显示」时父是 .vt-both-row）。
+    speakSentence(tile.dataset.text, buildTileCb(tile.closest('.bubble-content'), tile.dataset.text, tile.dataset.idx));
 }
 
 /** 展开/收起文字时同步显示文本（textContent 已写入，无需额外操作；保留钩子便于将来扩展） @param {HTMLElement} tile */

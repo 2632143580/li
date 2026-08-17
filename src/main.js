@@ -125,8 +125,8 @@ export function init() {
 
     // 背景引擎就绪。默认背景底色由 :root --color-bg 兜底（CSS 已设置），不挂任何 Canvas 动画插件——
     // 星空插件已移除：满屏动画画布是移动端常态 GPU 的持续帧驱动源之一（实测约贡献 70%→60% 的 10%）。
-    // 真正的大头是「持续帧生产」本身：永不停的 rAF 循环 + box-shadow 无限动画（现均已消除，
-    // 见下方 loop 按需驱动与 tts.css ttsGlowPulse）。现默认背景为纯 CSS 底色，零持续动画。
+    // 真正的大头是「持续帧生产」本身：永不停的 rAF 循环 + box-shadow 无限动画（rAF 已改为按需驱动；
+    // 顶栏语音图标呼吸光晕 ttsGlowPulse、待确认脉冲环 arm-pulse/resetPulse 均已移除）。现默认背景为纯 CSS 底色，零持续动画。
     // 默认主题(default_theme)仅作为导出模板保留在 availableThemes，不挂载、不占生效槽。
 
     // 加载本地数据或初始化新对话

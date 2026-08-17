@@ -13,18 +13,8 @@
 .tts-toggle-btn.tts-on {
     color: var(--color-accent-solid);
     background: color-mix(in srgb, var(--color-accent) 14%, transparent);
-    box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent) 16%, transparent), 0 0 14px var(--color-accent-glow);
     transform: scale(1.04);
-    /* 呼吸光晕：仅在开启瞬间呼吸 2 次（切换反馈），随后静止为静态光晕——不保留无限动画。
-       原因（控制变量实测）：无限 opacity 脉动是页面唯一持续帧驱动源——
-       ① idle 下逼合成器 60fps 持续出帧（40% 基线的来源）；
-       ② 模态框全屏 backdrop-filter 打开时，背后每帧变化 → 全屏模糊每帧重算（40%→77% 的放大器）。
-       静态后状态指示不变（图标 + 颜色 + 静态光晕）。 */
-    animation: ttsGlowPulse 1.8s ease-in-out 2;
-}
-@keyframes ttsGlowPulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: .6; }
+    /* 开启态仅靠颜色 + 底色 + 轻微放大表达，不使用呼吸/光晕动画（用户拍板：非必要；无限动画是持续帧驱动源）。 */
 }
 
 /* ====================== 语音条（.vt） ======================
@@ -64,13 +54,8 @@
 /* 最后一条语音条收底（与 waifu .waifu-bubble:last-of-type 对齐），避免消息尾部多出 8px */
 .vt:last-of-type { margin-bottom: 0; }
 
-/* 播放中：整条切到强调色语义（无图标，仅靠色彩/波形/进度线传达状态） */
-.vt.is-playing {
-    background: var(--color-accent-soft);
-    border-color: var(--color-accent-dim);
-    color: var(--color-accent-solid);
-    box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-accent) 22%, transparent), 0 6px 20px color-mix(in srgb, var(--color-accent) 22%, transparent);
-}
+/* 播放态仅靠「三颗点跳动」(vtDot) 表达；原整条高亮发光已删除（用户拍板：与跳动重复，非必要）。
+   「都显示」模式仍用 .vt-both-row:has(.vt.is-playing) 把正在听的句子文字染强调色，作辅助定位。 */
 
 /* 播放态反馈：三颗错峰跳动小点（纯排版，零图形依赖）——原 22 根假波形条已移除（波形是"假"的）；
    播放时三点依次跳起（transform 走合成器、无逐帧重绘），未播放时静止半透明。 */
@@ -106,7 +91,7 @@
     margin-left: auto;
     letter-spacing: .2px;
 }
-.vt.is-playing .vt-dur { color: currentColor; }
+/* 播放态时长沿用 .vt 默认色，不再单独强调（原 .vt.is-playing 整条高亮已删） */
 
 /* 底部进度线已移除（估时不准确，化繁为简，用户拍板）：原 .vt-progress / vtProgress / real-progress 规则全部删除 */
 
@@ -130,7 +115,6 @@
 @media (prefers-reduced-motion: reduce) {
     .vt { animation: none !important; }
     .vt.is-playing .vt-wave i { animation: none; }
-    .tts-toggle-btn.tts-on { animation: none; }
 }
 
 /* ====================== 语音条右键菜单（转文字 / 隐藏文字） ====================== */

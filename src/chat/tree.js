@@ -194,7 +194,8 @@ export function editAndResend(node, parentNode, newText) {
 /** 应用设置到 UI 和状态 */
 export function applySettings() {
     if (state.chatTree) state.chatTree.content = state.settings.sysPrompt;
-    document.title = state.settings.aiName + " · Nature's Voice";
+    // 构建来源后缀：本地构建=本地，GitHub Actions 构建=github（由 vite.config.js 经 import.meta.env.VITE_BUILD_ENV 注入）
+    document.title = state.settings.aiName + ' · ' + (import.meta.env.VITE_BUILD_ENV || '本地');
     // --msg-font-size 已由 tokens.css 提供默认 16px（chat.css 消费），字号设置移除后不再用 JS 覆写（2026-08-16）
     state.waifuMode = state.settings.waifuMode || false;
     DOM.chat.classList.toggle('waifu-mode', state.waifuMode);

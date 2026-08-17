@@ -91,12 +91,6 @@
 .mini-btn.llm-reset:hover { border-color: var(--white-a30); color: var(--white-a90); }
 .mini-btn.llm-reset.armed {
     border-color: var(--color-error); color: var(--color-error);
-    box-shadow: 0 0 0 2px var(--color-error);
-    animation: resetPulse 1s ease infinite;
-}
-@keyframes resetPulse {
-    0%, 100% { box-shadow: 0 0 0 2px var(--color-error); }
-    50% { box-shadow: 0 0 0 5px transparent; }
 }
 
 .prompt-textarea {
