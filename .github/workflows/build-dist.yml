@@ -32,23 +32,32 @@ jobs:
         run: cd dist && zip -r ../li-dist.zip . && cd ..
 
       # 用 runner 自带 gh CLI 发布（比第三方 action 稳定）；
+      # GitHub 服务端偶发 503，循环重试 4 次（每次间隔 60 秒）自动自愈；
       # stderr 落盘 publish_err.log，失败时由「上报失败」步经提交评论回传（Azure 日志通道对远程诊断不可用）
       - name: Publish Release
         id: publish
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release create dist-${{ github.run_number }} li-dist.zip \
-            --title "LI 网页构建 #${{ github.run_number }}" \
-            --notes "自动构建产物（push main 触发）" \
-            --repo "$GITHUB_REPOSITORY" 2> publish_err.log
-          CODE=$?
-          if [ $CODE -ne 0 ]; then
-            echo "===== gh release create 失败 (exit $CODE) ====="
+          set +e
+          CODE=1
+          for attempt in 1 2 3 4; do
+            echo "=== gh release create 尝试 $attempt/4 ==="
+            gh release create dist-${{ github.run_number }} li-dist.zip \
+              --title "LI 网页构建 #${{ github.run_number }}" \
+              --notes "自动构建产物（push main 触发）" \
+              --repo "$GITHUB_REPOSITORY" 2> publish_err.log
+            CODE=$?
+            if [ $CODE -eq 0 ]; then
+              echo "Release dist-${{ github.run_number }} 已发布"
+              break
+            fi
+            echo "发布失败(exit $CODE)，60 秒后重试..."
             cat publish_err.log
-            exit $CODE
-          fi
-          echo "Release dist-${{ github.run_number }} 已发布"
+            sleep 60
+          done
+          set -e
+          exit $CODE
 
       # 失败：把关键错误以「提交评论」形式回传（api.github.com 可达通道，避免 Azure 日志被沙箱拦截）
       - name: 上报失败
