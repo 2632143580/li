@@ -45,7 +45,7 @@ jobs:
             echo "=== gh release create 尝试 $attempt/4 ==="
             gh release create dist-${{ github.run_number }} li-dist.zip \
               --title "LI 网页构建 #${{ github.run_number }}" \
-              --notes "自动构建产物（push main 触发）" \
+              --generate-notes \
               --repo "$GITHUB_REPOSITORY" 2> publish_err.log
             CODE=$?
             if [ $CODE -eq 0 ]; then
