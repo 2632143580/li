@@ -29,9 +29,9 @@ const ROOT = path.resolve(__dirname, '..');
 const STYLES_DIR = path.join(ROOT, 'src/styles');
 const QUICK_THEMES = path.join(ROOT, 'src/plugins/quick-themes.js');
 
-// 模态框相关样式文件（经诊断：承载弹窗/设置/下拉/沙盒等浮层 UI）
+// 模态框相关样式文件（经诊断：承载弹窗/设置/下拉/上下文菜单/全屏编辑等浮层 UI）
 const MODAL_CSS_FILES = [
-    'modal.css', 'settings-panel.css', 'sandbox.css', 'form-controls.css',
+    'modal.css', 'settings-panel.css', 'form-controls.css',
     'dropdown.css', 'fs-editor.css', 'context-menu.css', 'plugin-manager.css', 'quick-theme.css',
 ];
 
@@ -60,11 +60,14 @@ const allowed = new Set([
 // ---- 扫描模态框 CSS 的 var(--x) 引用 ----
 /** @type {Array<{file:string, ln:number, v:string}>} */
 const violations = [];
+/** @type {string[]} */
+const missingFiles = [];
 /** @type {Map<string, Set<string>>} */
 const colorInfo = new Map();
 for (const f of MODAL_CSS_FILES) {
     const p = path.join(STYLES_DIR, f);
-    if (!fs.existsSync(p)) { console.log(`!! 缺失文件: ${f}`); continue; }
+    // 缺失文件从「警告」升级为「硬错误」：被删/改名却不更新清单会静默放行，故构建直接红
+    if (!fs.existsSync(p)) { missingFiles.push(f); continue; }
     const lines = fs.readFileSync(p, 'utf8').split('\n');
     for (let i = 0; i < lines.length; i++) {
         const vars = [...lines[i].matchAll(/var\((--[a-z][a-z0-9-]*)\)/g)].map((m) => m[1]);
@@ -82,6 +85,16 @@ for (const f of MODAL_CSS_FILES) {
 
 // ---- 输出 ----
 let exitCode = 0;
+
+// 缺失文件：硬错误（门禁），先于变量违规输出
+if (missingFiles.length > 0) {
+    exitCode = 1;
+    console.log(`modal-theme-lint: 发现 ${missingFiles.length} 个清单内的模态框 CSS 文件缺失（硬错误）：`);
+    for (const f of missingFiles) {
+        console.log(`  [FAIL] MODAL_CSS_FILES 含 ${f}，但 ${f} 不存在（被删/改名？请同步更新清单或恢复文件）`);
+    }
+}
+
 if (violations.length > 0) {
     exitCode = 1;
     console.log(`modal-theme-lint: 发现 ${violations.length} 处「配色无法控制的变量」（模态框引用了既不在 tokens.css 全局默认、也不在 quick-themes 注入的变量）：`);
@@ -89,7 +102,7 @@ if (violations.length > 0) {
         console.log(`  ${x.file}:${x.ln}  var(${x.v})`);
     }
     console.log('\n处理：改用已有 token，或在 quick-themes.js 的 tokens 里注入该变量（须同步 hooks.json 白名单）。');
-} else {
+} else if (missingFiles.length === 0) {
     console.log('modal-theme-lint: 通过 — 模态框引用的变量均在配色管控范围内（无未管控变量）。');
 }
 

@@ -254,6 +254,9 @@
     <input type="file" id="file-import-bg-image" accept="image/png, image/jpeg, image/webp, image/svg+xml" multiple style="display:none">
     <input type="file" id="file-import-bg-config" accept=".json,application/json" style="display:none">
 
+    <!-- 当前背景常驻指示器（需求十九：固定位置显示背景名/来源） -->
+    <div id="bg-current-indicator"></div>
+
     <!-- 全屏编辑器入口按钮 -->
     <svg id="fs-trigger-btn" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.8)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
         <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"></path>
@@ -263,28 +266,41 @@
     <div id="bg-modal" class="modal-overlay">
         <div class="modal-content">
             <div class="setting-group">
-                <div class="group-title">背景插件栈 (可多选叠加)</div>
+                <div class="group-title">背景插件栈</div>
                 <div id="plugin-list-container"></div>
             </div>
             <div class="setting-group">
-                <div class="group-title">主题插件栈 (可多选叠加)</div>
+                <div class="group-title">主题插件栈</div>
                 <div id="theme-list-container"></div>
             </div>
-            <div class="setting-group">
-                <div class="group-title">图片背景</div>
-                <button id="btn-upload-image" class="fs-btn primary" style="width: 100%; padding: 8px; font-size: 12px;">上传本地图片作为背景</button>
-                <button id="btn-edit-bg" class="fs-btn" style="width: 100%; padding: 8px; font-size: 12px; margin-top: 8px;" disabled>编辑当前背景（缩放 / 移动）</button>
-            </div>
-            <div class="setting-group">
-                <div class="group-title">代码级操作</div>
-                <button id="btn-import-code" class="fs-btn primary" style="width: 100%; padding: 8px; font-size: 12px;">导入新插件代码 (自动识别背景/主题)</button>
-                <p class="ps-tip" style="margin-top:10px;">粘贴 AI 给的插件 .txt 代码，点「装载」直接生效（跳过建文件/导入），下方显示解析类型与归因告警。</p>
-                <textarea id="ps-code" placeholder="在此粘贴插件代码…" style="margin-top:8px;"></textarea>
-                <div class="ps-actions" style="margin-top:8px;">
-                    <button id="ps-load">装载</button>
-                    <button id="ps-clear">清空</button>
+            <div class="setting-group bg-mgmt">
+                <div class="group-title">背景管理（AI 回复触发自动切换）</div>
+                <div class="bg-mgmt-toolbar">
+                    <div id="bg-mode-select" class="segmented" role="group" aria-label="触发词匹配模式" title="触发词匹配模式">
+                        <button type="button" class="segmented__item" data-mode="exact">精确</button>
+                        <button type="button" class="segmented__item" data-mode="wildcard">通配符</button>
+                        <button type="button" class="segmented__item" data-mode="regex">正则</button>
+                    </div>
+                    <button id="btn-upload-bg-img" class="fs-btn primary" style="padding: 8px 12px; font-size: 12px;">上传图片</button>
+                    <button id="btn-edit-bg" class="fs-btn" style="padding: 8px 12px; font-size: 12px;" disabled>编辑当前背景</button>
+                    <button id="btn-bg-pin" class="fs-btn" style="padding: 8px 12px; font-size: 12px;" disabled>固定当前</button>
+                    <button id="btn-bg-clear" class="fs-btn" style="padding: 8px 12px; font-size: 12px;">清除背景</button>
                 </div>
-                <div id="ps-log" class="ps-log" style="margin-top:8px;"></div>
+                <div id="bg-storage-info" class="bg-storage-info"></div>
+                <button id="btn-bg-clean-old" class="fs-btn" style="width: 100%; padding: 8px; font-size: 12px; margin-top: 8px; display: none;">清理最旧图片</button>
+                <div id="bg-img-grid" class="bg-img-grid"></div>
+                <!-- 批量加词区块：先点缩略图选中多张，输入词后一次应用到全部选中图（省去逐张填触发词） -->
+                <div class="bg-batch-add">
+                    <div class="bg-batch-add-row">
+                        <input id="bg-batch-words" class="bg-batch-input" type="text" placeholder="触发词，逗号/换行分隔多个" />
+                        <button id="btn-bg-batch-apply" class="fs-btn primary" disabled>应用词到选中图</button>
+                    </div>
+                    <div id="bg-batch-status" class="bg-batch-status">点缩略图选中图片（可多选）</div>
+                </div>
+                <div class="bg-mgmt-foot" style="margin-top: 10px; display: flex; gap: 8px;">
+                    <button id="btn-bg-export" class="fs-btn" style="flex: 1; padding: 8px; font-size: 12px;">导出配置</button>
+                    <button id="btn-bg-import" class="fs-btn" style="flex: 1; padding: 8px; font-size: 12px;">导入配置</button>
+                </div>
             </div>
             <button id="bg-modal-close" class="fs-btn primary" style="width: 100%; padding: 12px; margin-top: 10px;">关闭</button>
         </div>

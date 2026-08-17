@@ -5,11 +5,10 @@
  *   （solid 等不透明底色会遮住 img 层）、显示 img/遮罩层、应用已保存浓度与变换。裁剪编辑器与
  *   AI 触发器都只调用这里的 mountImage / clearBackground，不再各自造一套。
  *
- * 导出：currentBgSrc, mountImage, clearBackground, applyBgTransform, pinBackground, unpinBackground
+ * 导出：currentBgSrc, mountImage, clearBackground, applyBgTransform
  * 依赖：core/dom, core/store, core/storage, engines/bg-engine
  */
 import { DOM } from '../core/dom.js';
-import { state } from '../core/store.js';
 import { saveToLocal } from '../core/storage.js';
 import { BgEngine } from '../engines/bg-engine.js';
 
@@ -34,7 +33,9 @@ export function mountImage(src) {
     const imgPlugin = {
         meta: { name: '本地图片背景' },
         init: function (ctx, W, H, pluginState) {
-            DOM.bgImgLayer.src = src;
+            const s = currentBgSrc; // 读活变量：避免闭包持有已吊销 objectURL（clearBackground 后重挂会显示破图占位符）
+            if (!s) { DOM.bgImgLayer.style.display = 'none'; return; }
+            DOM.bgImgLayer.src = s;
             DOM.bgImgLayer.style.display = 'block';
             document.body.style.background = 'transparent';
             // 应用已保存浓度（来自 state.settings，刷新后保留用户设置）
@@ -60,7 +61,7 @@ export function mountImage(src) {
     BgEngine.mount('custom_image');
 }
 
-/** 清除背景：卸载 custom_image、隐藏图层、复位 body 底色与固定状态。 */
+/** 清除背景：卸载 custom_image、隐藏图层、复位 body 底色。固定/当前状态由调用方在 IDB 设置里维护。 */
 export function clearBackground() {
     const existing = BgEngine.activePlugins.find((p) => p.id === 'custom_image');
     if (existing) BgEngine.unmount('custom_image');
@@ -74,12 +75,11 @@ export function clearBackground() {
         URL.revokeObjectURL(currentObjectUrl);
         currentObjectUrl = null;
     }
-    state.settings.bgPinnedId = null;
     saveToLocal('背景已清除');
 }
 
 /**
- * 切换背景到指定 Blob（供 AI 触发器调用）：建 object URL → mountImage → 记录以便后续回收。
+ * 切换背景到指定 Blob（供 AI 触发器 / 手动应用 调用）：建 object URL → mountImage → 记录以便后续回收。
  * @param {Blob} blob - 原图 Blob
  * @returns {Promise<void>}
  */
@@ -87,16 +87,4 @@ export async function applyBlob(blob) {
     if (currentObjectUrl) URL.revokeObjectURL(currentObjectUrl);
     currentObjectUrl = URL.createObjectURL(blob);
     mountImage(currentObjectUrl);
-}
-
-/** 固定当前背景（锁定，AI 触发不再覆盖）。 @param {string} id */
-export function pinBackground(id) {
-    state.settings.bgPinnedId = id;
-    saveToLocal('背景已固定');
-}
-
-/** 取消固定。 */
-export function unpinBackground() {
-    state.settings.bgPinnedId = null;
-    saveToLocal('已取消固定');
 }

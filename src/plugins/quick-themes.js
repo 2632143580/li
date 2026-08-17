@@ -77,7 +77,7 @@ export function buildModalTokens(baseHex, isLight) {
 /** 浅色组把 --white-a* 覆盖为同透明度黑色（浅背景上白色透明文字不可见） @type {object} */
 export const LIGHT_WHITE_ALPHA = {
     '--white-a03': 'rgba(0,0,0,.05)', '--white-a05': 'rgba(0,0,0,.08)', '--white-a06': 'rgba(0,0,0,.10)',
-    '--white-a08': 'rgba(0,0,0,.13)', '--white-a10': 'rgba(0,0,0,.16)', '--white-a20': 'rgba(0,0,0,.32)',
+    '--white-a08': 'rgba(0,0,0,.13)', '--white-a10': 'rgba(0,0,0,.16)', '--white-a12': 'rgba(0,0,0,.19)', '--white-a20': 'rgba(0,0,0,.32)',
     '--white-a30': 'rgba(0,0,0,.48)', '--white-a35': 'rgba(0,0,0,.55)', '--white-a40': 'rgba(0,0,0,.6)', '--white-a45': 'rgba(0,0,0,.65)', '--white-a50': 'rgba(0,0,0,.7)',
     '--white-a60': 'rgba(0,0,0,.8)', '--white-a70': 'rgba(0,0,0,.85)', '--white-a80': 'rgba(0,0,0,.9)', '--white-a90': 'rgba(0,0,0,.95)'
 }

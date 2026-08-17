@@ -49,9 +49,11 @@ export const DOM = {};
         'set-disp-text', 'set-disp-both', 'set-disp-voice',
         // 语音条右键菜单（转文字）
         'vt-ctx',
-        'btn-upload-image', 'btn-import-code', 'btn-edit-bg',
+        'btn-edit-bg', 'bg-mode-select', 'btn-upload-bg-img', 'btn-bg-pin', 'btn-bg-clear',
+        'bg-storage-info', 'btn-bg-clean-old', 'bg-img-grid', 'btn-bg-export', 'btn-bg-import',
+        'bg-batch-words', 'btn-bg-batch-apply', 'bg-batch-status',
         'crop-modal', 'crop-frame', 'crop-preview', 'crop-zoom', 'crop-zoom-val', 'crop-fit', 'crop-reset', 'crop-cancel', 'crop-confirm',
-        'file-import-all', 'file-import-prompt', 'file-import-code', 'file-import-bg-image',
+        'file-import-all', 'file-import-prompt', 'file-import-bg-image', 'file-import-bg-config', 'bg-current-indicator',
         'sys-prompt-import',
         // 监控信息栏：消息灯 + 缓存灯 + 上下文占用圆环（点击弹编辑气泡改上限）；监控区即展开开关
         'top-bar-left', 'monitor-bar',

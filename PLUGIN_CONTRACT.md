@@ -45,7 +45,7 @@
 - 颜色：`--color-bg` `--color-user` `--color-ai` `--color-accent` `--color-accent-soft` `--color-error` `--color-accent-bright` `--color-accent-solid` `--color-accent-glow` `--color-accent-dim` `--color-user-bright` `--color-waifu-active`（waifu 开关激活态，默认粉）
 - 圆角：`--radius-sm`(4px) `--radius-md`(8px) `--radius-lg`(12px)
 - 过渡：`--transition-fast` `--transition-normal` `--transition-smooth`
-- 白色透明度序列：`--white-a03` ~ `--white-a90`（03/05/06/08/10/20/30/35/40/45/50/60/70/80/90）
+- 白色透明度序列：`--white-a03` ~ `--white-a90`（03/05/06/08/10/12/20/30/35/40/45/50/60/70/80/90）
 - 黑色透明度：`--black-a20` `--black-a30` `--black-a50` `--black-a60`
 - 输入框：`--input-ring-normal` `--input-ring-waiting` `--input-line` `--input-dot` `--input-text` `--input-cursor`
 - 背景层：`--bg-modal` `--bg-select` `--bg-input`

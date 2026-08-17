@@ -27,7 +27,7 @@
     gap: 15px;
     padding: 4px 10px;
     border-radius: 10px;
-    background: color-mix(in srgb, var(--color-bg) 72%, transparent);
+    background: color-mix(in srgb, var(--color-bg) 100%, transparent);
     border: 1px solid var(--white-a10);
     /* 毛玻璃已移除（用户拍板彻底无毛玻璃）；72% 实底色足够压住背后内容，文字可读性无虞 */
 }
@@ -52,11 +52,17 @@
    配色/圆角/动效全部走已有语义 token，不引入硬编码 RGB（避免触发 skin-lint）。 */
 
 /* 体：竖向展开（监控下方上下堆叠）——上一排 4 个图标按钮，下一排色块选择器 */
+/* 方案 A（用户拍板 2026-08-18）：整块浅底胶囊，与监控胶囊同款配方（color-mix 72% + white-a10 边框），
+   图标+色块落进同一底、左栏视觉成整体；圆角用 --radius-lg 与胶囊尺度匹配 */
 .tb-body {
     display: flex;
     flex-direction: column;       /* 竖向展开：按钮行 + 色块选择器行 上下堆叠 */
     align-items: flex-start;
     gap: 10px;
+    padding: 10px;
+    border-radius: var(--radius-lg);
+    background: color-mix(in srgb, var(--color-bg) 100%, transparent);
+    border: 1px solid var(--white-a10);
     animation: fadeIn 0.18s ease;
 }
 /* 上一排：4 个图标按钮横向一排 */
@@ -73,4 +79,3 @@
 @media (prefers-reduced-motion: reduce) {
     .tb-body { animation: none; }
 }
-

@@ -29,7 +29,7 @@ const STYLES_DIR = path.resolve(__dirname, '../src/styles');
 const STYLE_FILES = [
     'tokens.css', 'base.css', 'background.css', 'chat.css', 'waifu.css', 'topbar.css',
     'monitor.css', 'msg-footer.css', 'responsive.css', 'modal.css', 'settings-panel.css',
-    'sandbox.css', 'form-controls.css', 'dropdown.css', 'fs-editor.css', 'context-menu.css',
+    'form-controls.css', 'dropdown.css', 'fs-editor.css', 'context-menu.css',
     'plugin-manager.css', 'quick-theme.css',
 ];
 

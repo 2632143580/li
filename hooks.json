@@ -31,7 +31,7 @@
     "color": ["--color-bg", "--color-user", "--color-ai", "--color-accent", "--color-accent-soft", "--color-error", "--color-accent-bright", "--color-accent-solid", "--color-accent-glow", "--color-accent-dim", "--color-user-bright", "--color-waifu-active"],
     "radius": ["--radius-sm", "--radius-md", "--radius-lg"],
     "transition": ["--transition-fast", "--transition-normal", "--transition-smooth"],
-    "whiteAlpha": ["--white-a03", "--white-a05", "--white-a06", "--white-a08", "--white-a10", "--white-a20", "--white-a30", "--white-a35", "--white-a40", "--white-a45", "--white-a50", "--white-a60", "--white-a70", "--white-a90"],
+    "whiteAlpha": ["--white-a03", "--white-a05", "--white-a06", "--white-a08", "--white-a10", "--white-a12", "--white-a20", "--white-a30", "--white-a35", "--white-a40", "--white-a45", "--white-a50", "--white-a60", "--white-a70", "--white-a80", "--white-a90"],
     "blackAlpha": ["--black-a20", "--black-a30", "--black-a50", "--black-a60"],
     "input": ["--input-ring-normal", "--input-ring-waiting", "--input-line", "--input-dot", "--input-text", "--input-cursor"],
     "bg": ["--bg-modal", "--bg-select", "--bg-input", "--modal-elevation"],

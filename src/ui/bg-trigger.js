@@ -16,11 +16,11 @@
  */
 import { bus, EVENTS } from '../core/bus.js';
 import { DOM } from '../core/dom.js';
-import { state } from '../core/store.js';
+import { Logger } from '../core/logger.js';
 import {
     getAllImagesMeta, getImage, getSetting, putSetting, defaultSettings
 } from '../core/idb.js';
-import { applyBlob, pinBackground } from './bg-image.js';
+import { applyBlob } from './bg-image.js';
 
 const DEBOUNCE_MS = 500;
 
@@ -58,16 +58,25 @@ function baseScore(mode) {
     return mode === 'exact' ? 3 : mode === 'wildcard' ? 2 : 1;
 }
 
+/** 指示器自动隐藏定时器句柄（短暂确认后淡出，非长驻） @type {number|null} */
+let indicatorHideTimer = null;
+
 /**
- * 更新常驻指示器（需求十九：固定位置显示当前背景名称/来源）。
+ * 更新指示器（AI 触发/恢复时调用）：短暂显示"背景：NAME"后自动淡出（约 2.5s），非长驻。
+ * 此前设计为长驻导致「背景：X」永久贴在屏幕上，故改为短暂确认提示。
  * @param {string|null} name - 当前背景名；null 表示无背景
  */
 function updateIndicator(name) {
     const el = DOM.bgCurrentIndicator;
     if (!el) return;
+    if (indicatorHideTimer) { clearTimeout(indicatorHideTimer); indicatorHideTimer = null; }
     if (name) {
         el.textContent = '背景：' + name;
         el.classList.add('show');
+        indicatorHideTimer = setTimeout(() => {
+            el.classList.remove('show');
+            indicatorHideTimer = null;
+        }, 2500);
     } else {
         el.classList.remove('show');
     }
@@ -125,10 +134,13 @@ async function evaluate(text) {
 }
 
 /**
- * 初始化：订阅 AI 完成事件，做 500ms 防抖（last-wins）。
- * 由 main.js 在 init 阶段调用一次。
+ * 初始化：恢复刷新前的当前背景，并订阅 AI 完成事件做 500ms 防抖（last-wins）。
+ * 由 main.js 在 init 阶段调用一次（此时 BgEngine 已 init，可安全挂载）。
  */
 export function initBgTriggers() {
+    // 恢复上次选中的背景（需求一/十二：刷新后图片与配置保留）。失败静默跳过，不阻断启动。
+    restoreBackground().catch((e) => Logger.warn('[BgTrigger] 恢复背景失败', e));
+
     bus.on(EVENTS.ASSISTANT_DONE, (text) => {
         pendingText = text;
         if (debounceTimer) clearTimeout(debounceTimer);
@@ -139,14 +151,15 @@ export function initBgTriggers() {
     });
 }
 
-/** 供手动操作（固定/清除）后刷新指示器。 */
-export async function refreshTriggerIndicator() {
+/**
+ * 恢复刷新前的当前背景：读取设置中的 currentId → 取原图 → 应用（无动画）→ 更新指示器。
+ * @returns {Promise<void>}
+ */
+async function restoreBackground() {
     const settings = (await getSetting()) || defaultSettings();
-    if (settings.pinnedId) {
-        const meta = await getAllImagesMeta();
-        const cur = meta.find((m) => m.id === settings.pinnedId);
-        updateIndicator(cur ? cur.name : null);
-    } else {
-        updateIndicator(null);
-    }
+    if (!settings.currentId) return;
+    const rec = await getImage(settings.currentId);
+    if (!rec) return;
+    await applyBlob(rec.blob);
+    updateIndicator(rec.name);
 }

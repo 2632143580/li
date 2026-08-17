@@ -1,21 +1,28 @@
 /**
  * 背景插件面板事件绑定（Stage 3 解耦产出，原 bindPluginPanelEvents）。
- * 含背景图上传 + 缩放/移动裁剪编辑全套（applyBgTransform / mountImage / openCropEditor /
- * renderCropPreview / clampCrop / renderPluginList / createPluginItem 均为本函数体内嵌套函数）。
- * 模块级裁剪状态仅被本模块使用，原属 api.js，随 bindPluginPanelEvents 一并迁入。
+ * 现含两大部分：
+ *  1) 背景/主题插件栈开关列表（renderPluginList / createPluginItem）
+ *  2) 背景管理（多图库 + AI 触发词）：上传 / 列表 / 触发词编辑 / 删除 / 固定 / 清除 / 导出导入 / 存储提示
+ * 裁剪编辑器（缩放/移动）保留，复用共享 bg-image 的 mountImage。
+ *
+ * 依赖：core/dom, core/modal, core/store, core/utils, core/storage, core/toast, core/idb,
+ *       engines/bg-engine, engines/theme-engine, ui/bg-image
  */
 import { DOM } from '../../core/dom.js';
 import { openModal, closeAllModals } from '../../core/modal.js';
-import { Logger } from '../../core/logger.js';
 import { state } from '../../core/store.js';
 import { safeParseInt } from '../../core/utils.js';
 import { saveToLocal } from '../../core/storage.js';
+import { showToast } from '../../core/toast.js';
 import { BgEngine } from '../../engines/bg-engine.js';
 import { ThemeEngine } from '../../engines/theme-engine.js';
-import { applyPluginCode } from '../../chat/api.js';
+import {
+    putImage, deleteImage, getAllImagesMeta, getImage, getSetting, putSetting, defaultSettings
+} from '../../core/idb.js';
+import {
+    currentBgSrc, mountImage, clearBackground, applyBgTransform, applyBlob
+} from '../../ui/bg-image.js';
 
-/** 已上传的原始背景图 dataURL @type {string|null} */
-let bgOriginalSrc = null;
 /** 编辑中的临时变换（缩放+平移，相对百分比，分辨率无关） @type {{scale:number,xPct:number,yPct:number}} */
 let cropTmp = { scale: 1, xPct: 0, yPct: 0 };
 /** 当前图片恰好铺满屏幕所需的缩放倍数（object-fit:contain 基准下；scale=此值即无黑边铺满） @type {number} */
@@ -28,13 +35,21 @@ let cropContain = 1;
 let cropNatW = 1, cropNatH = 1, cropScrW = 1, cropScrH = 1;
 /** 编辑确认后的回调 @type {function|null} */
 let cropConfirmCallback = null;
+/** 被选中的卡片 id 集合（缩略图点击仅选中、不立即应用，避免误覆盖固定背景）。 @type {Set<string>} */
+const selectedIds = new Set();
+/** 背景指示器自动隐藏定时器句柄（短暂确认后淡出，非长驻） @type {number|null} */
+let indicatorHideTimer = null;
 
 import { registerUI } from '../../core/registry.js';
 registerUI('plugin-panel', bindPluginPanelEvents);
 
 export function bindPluginPanelEvents() {
     DOM.btnBgPlugin.addEventListener('click', () => {
+        // 每次打开面板重置批量选择与输入，避免上一轮残留选中误导
+        selectedIds.clear();
+        DOM.bgBatchWords.value = '';
         renderPluginList();
+        renderBgLibrary();
         openModal('bg-modal');
     });
     DOM.bgModalClose.addEventListener('click', () => {
@@ -48,96 +63,41 @@ export function bindPluginPanelEvents() {
         if (e.target === DOM.cropModal) closeAllModals(['bg-modal']);
     });
 
-    // 导入代码插件 (自动识别背景/主题；支持一次多选多个文件批量导入)
-    DOM.btnImportCode.addEventListener('click', () => DOM.fileImportCode.click());
+    // ---------- 背景管理：上传 / 模式 / 固定 / 清除 / 导出导入 ----------
+    DOM.btnUploadBgImg.addEventListener('click', () => DOM.fileImportBgImage.click());
+    DOM.fileImportBgImage.addEventListener('change', onUploadBgImages);
 
-    DOM.fileImportCode.addEventListener('change', async (e) => {
-        // 先快照文件列表再清空：multiple 时可能多个；清空避免同文件二次选择不触发 change
-        const files = Array.from(e.target.files || []);
-        e.target.value = '';
-        if (files.length === 0) return;
-
-        const readText = (file) => new Promise((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onload = () => resolve(String(reader.result));
-            reader.onerror = () => reject(reader.error || new Error('文件读取失败'));
-            reader.readAsText(file);
+    // 匹配模式：自绘分段按钮（禁用原生 select，符合项目 UI 铁律）；点哪个立即生效
+    const modeItems = DOM.bgModeSelect.querySelectorAll('.segmented__item');
+    function syncModeButtons(mode) {
+        modeItems.forEach((b) => b.classList.toggle('segmented__item--active', b.dataset.mode === mode));
+    }
+    modeItems.forEach((b) => {
+        b.addEventListener('click', async () => {
+            const mode = b.dataset.mode;
+            const s = (await getSetting()) || defaultSettings();
+            s.globalMode = mode;
+            await putSetting(s);
+            syncModeButtons(mode);
         });
-
-        // 逐个读取并导入，任一失败不影响其余；收集结果后统一汇报
-        const results = await Promise.all(files.map(async (file) => {
-            try {
-                const codeString = await readText(file);
-                const desc = applyPluginCode(codeString);
-                return { name: file.name, ok: true, desc };
-            } catch (err) {
-                return { name: file.name, ok: false, msg: err.message };
-            }
-        }));
-
-        renderPluginList();
-        const okCount = results.filter(r => r.ok).length;
-        const failed = results.filter(r => !r.ok);
-        if (files.length === 1) {
-            const r = results[0];
-            if (r.ok) alert(r.desc);
-            else { alert('插件导入失败: ' + r.msg); Logger.error('[Import] 插件导入失败', r.msg); }
-        } else {
-            let msg = `批量导入完成：${okCount}/${files.length} 个成功`;
-            if (failed.length) msg += '\n失败：' + failed.map(f => `${f.name}（${f.msg}）`).join('；');
-            alert(msg);
-            if (failed.length) Logger.error('[Import] 批量导入部分失败', failed);
-        }
     });
 
-    // 解析+分发挂载逻辑已抽到模块级 applyPluginCode（文件导入、批量导入、沙盒 __loadPlugin 共用）
+    DOM.btnBgPin.addEventListener('click', onPin);
+    DOM.btnBgClear.addEventListener('click', onClear);
+    DOM.btnBgCleanOld.addEventListener('click', onCleanOld);
+    DOM.btnBgExport.addEventListener('click', exportConfig);
+    DOM.btnBgImport.addEventListener('click', () => DOM.fileImportBgConfig.click());
+    DOM.fileImportBgConfig.addEventListener('change', importConfig);
 
-    // -------- 背景图片：上传 → 缩放/移动编辑（CSS 变换，保留 WebP 动画） --------
+    // 批量加词：输入词 + 选中多图 → 一次应用到全部选中图（免逐张填写）
+    DOM.btnBgBatchApply.addEventListener('click', onBatchAddWords);
+    DOM.bgBatchWords.addEventListener('input', syncBatchApplyState);
+    DOM.bgBatchWords.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') onBatchAddWords(); // 输入直达：回车即应用（内部有空的选中/无词守卫）
+    });
+
+    // -------- 裁剪编辑器（缩放/移动编辑，复用共享 mountImage） --------
     const IMG_PLUGIN_ID = 'custom_image';
-
-    // 将背景变换（缩放+平移，相对百分比）应用到 <img> 层；与编辑预览框共用同一变换，所见即所得
-    function applyBgTransform(t) {
-        DOM.bgImgLayer.style.transformOrigin = 'center center';
-        DOM.bgImgLayer.style.transform = `scale(${t.scale}) translate(${t.xPct}%, ${t.yPct}%)`;
-    }
-
-    // 挂载图片插件（动画图由 <img> 原生播放；遮罩用 CSS 层；并应用已保存的缩放/平移）
-    function mountImage(src) {
-        const imgPlugin = {
-            meta: { name: '本地图片背景' },
-            init: function (ctx, W, H, state) {
-                // 动画图由 <img> 层原生播放；遮罩改用独立 CSS 层，避免 Canvas 每帧 fillRect 导致掉帧
-                DOM.bgImgLayer.src = src;
-                DOM.bgImgLayer.style.display = 'block';
-                // body 背景透明，让 z-index:-1 的 <img> 层可见
-                document.body.style.background = 'transparent';
-                // 应用已保存浓度：state 由 mount 注入（= 全局 state.settings），刷新后保留用户设置，无需再读闭包全局
-                const opacity = (state && state.bgDimOpacity) ?? 0.4;
-                // 遮罩用实底黑 + opacity（纯黑 opacity α == rgba(0,0,0,α) 视觉一致，但 opacity 走合成器、零重绘，
-                // 滑块拖动/浓度变化不再触发全屏重绘——原 rgba 写法是「拖动遮罩滑块 77% GPU」的重绘来源）
-                DOM.bgDimLayer.style.opacity = opacity;
-                DOM.bgDimLayer.style.display = 'block';
-                // 应用已保存的缩放/平移：同样来自注入的 state
-                applyBgTransform(state.bgTransform || { scale: 1, xPct: 0, yPct: 0 });
-            },
-            // animate 置空：遮罩已是 CSS 合成层，无需 Canvas 每帧重绘（掉帧根因在此）
-            animate: function () {},
-            onUnmount: function () {
-                // 卸载时隐藏 <img> 层与 CSS 遮罩层，恢复 body 底色
-                DOM.bgImgLayer.style.display = 'none';
-                DOM.bgImgLayer.removeAttribute('src');
-                DOM.bgImgLayer.style.transform = ''; // 复位变换，下次挂载由 init 重新应用
-                DOM.bgDimLayer.style.display = 'none';
-                document.body.style.background = '';
-            }
-        };
-        BgEngine.registerPlugin(IMG_PLUGIN_ID, imgPlugin);
-        // 卸载所有现有插件（含 solid），因为 solid 画不透明底色会遮住 <img> 层
-        [...BgEngine.activePlugins].forEach((p) => BgEngine.unmount(p.id));
-        BgEngine.mount(IMG_PLUGIN_ID);
-        renderPluginList();
-        DOM.btnEditBg.disabled = false; // 已上传，允许再次编辑
-    }
 
     // 打开缩放/移动编辑：预览框=屏幕比例，框内所见即最终背景
     function openCropEditor(src, onConfirm, fresh) {
@@ -195,31 +155,14 @@ export function bindPluginPanelEvents() {
         cropTmp.yPct = Math.max(-maxYPct, Math.min(maxYPct, cropTmp.yPct));
     }
 
-    // 上传
-    DOM.btnUploadImage.addEventListener('click', () => DOM.fileImportBgImage.click());
-    DOM.fileImportBgImage.addEventListener('change', (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
-        const reader = new FileReader();
-        reader.onload = (event) => {
-            bgOriginalSrc = event.target.result; // 保存原始图，供再次编辑（不做 Canvas 重编码，保留动画）
-            openCropEditor(bgOriginalSrc, () => mountImage(bgOriginalSrc), true);
-            // 关掉底层面板但保留裁剪编辑器（crop-modal 已在 MODAL_IDS，直接全关会把裁剪器一起关掉）
-            closeAllModals(['crop-modal']);
-        };
-        reader.readAsDataURL(file);
-        e.target.value = '';
-    });
-
     // 编辑当前背景（缩放/移动）
     DOM.btnEditBg.addEventListener('click', () => {
-        if (!bgOriginalSrc) return; // 无背景图时按钮禁用
+        if (!currentBgSrc) return; // 无背景图时按钮禁用
         // 若图片插件未挂载（例如切到了其他背景），先挂载
         if (!BgEngine.activePlugins.find((p) => p.id === IMG_PLUGIN_ID)) {
-            mountImage(bgOriginalSrc);
+            mountImage(currentBgSrc);
         }
-        openCropEditor(bgOriginalSrc, null, false);
-        closeAllModals();
+        openCropEditor(currentBgSrc, null, false); // openCropEditor 内部已 openModal('crop-modal','bg-modal')，保持底层 bg-modal 开着，切勿再 closeAllModals 否则把刚开的裁剪器也关掉
     });
 
     // 缩放滑块
@@ -424,5 +367,376 @@ export function bindPluginPanelEvents() {
         header.appendChild(actions);
         item.appendChild(header);
         return item;
+    }
+
+    // ============================================================
+    // 背景管理（多图库 + AI 触发词）
+    // ============================================================
+
+    /** 生成小缩略图 dataURL（上传时调用，列表只渲缩略图不解码原图，满足"列表<1s"）。svg 无尺寸则回退原 blob url。 */
+    function makeThumb(blob, max = 240) {
+        return new Promise((resolve) => {
+            const url = URL.createObjectURL(blob);
+            const img = new Image();
+            img.onload = () => {
+                const nw = img.naturalWidth || img.width || 0;
+                const nh = img.naturalHeight || img.height || 0;
+                if (!nw || !nh) { URL.revokeObjectURL(url); resolve(url); return; } // svg 无尺寸 → 退回原 url
+                const scale = Math.min(1, max / Math.max(nw, nh));
+                const w = Math.max(1, Math.round(nw * scale));
+                const h = Math.max(1, Math.round(nh * scale));
+                const cv = document.createElement('canvas');
+                cv.width = w; cv.height = h;
+                const ctx = cv.getContext('2d');
+                try { ctx.drawImage(img, 0, 0, w, h); }
+                catch (_) { URL.revokeObjectURL(url); resolve(url); return; }
+                try {
+                    const t = cv.toDataURL('image/png');
+                    URL.revokeObjectURL(url);
+                    resolve(t);
+                } catch (_) { URL.revokeObjectURL(url); resolve(url); }
+            };
+            img.onerror = () => { URL.revokeObjectURL(url); resolve(null); };
+            img.src = url;
+        });
+    }
+
+    /** 渲染背景库（列表 + 存储提示 + 按钮可用态） */
+    async function renderBgLibrary() {
+        const meta = await getAllImagesMeta();
+        const settings = (await getSetting()) || defaultSettings();
+        syncModeButtons(settings.globalMode || 'exact');
+        DOM.bgImgGrid.innerHTML = '';
+        for (const m of meta) {
+            DOM.bgImgGrid.appendChild(createBgCard(m, settings));
+        }
+        updateStorageInfo(meta);
+        const hasCurrent = !!settings.currentId || BgEngine.activePlugins.find(p => p.id === IMG_PLUGIN_ID);
+        DOM.btnBgPin.disabled = !settings.currentId;
+        DOM.btnBgClear.disabled = !hasCurrent;
+        DOM.btnEditBg.disabled = !currentBgSrc;
+        syncBatchApplyState();
+    }
+
+    /** 构建单张图卡片 */
+    function createBgCard(m, settings) {
+        const card = document.createElement('div');
+        card.className = 'bg-card'
+            + (m.id === settings.currentId ? ' active' : '')
+            + (m.id === settings.pinnedId ? ' pinned' : '');
+
+        const thumb = document.createElement('img');
+        thumb.className = 'bg-card-thumb';
+        thumb.src = m.thumb || '';
+        thumb.alt = m.name;
+        thumb.title = '点击选中（不立即应用，用「应用」按钮切换背景）';
+        if (selectedIds.has(m.id)) card.classList.add('selected');
+        // 缩略图点击仅选中高亮，不立即应用——避免误覆盖当前/固定背景（bug：缩略图切换即应用会破坏固定）
+        thumb.addEventListener('click', () => toggleSelect(card, m.id));
+        card.appendChild(thumb);
+
+        const info = document.createElement('div');
+        info.className = 'bg-card-info';
+        const name = document.createElement('div');
+        name.className = 'bg-card-name';
+        name.textContent = m.name + (m.id === settings.pinnedId ? '（已固定）' : '');
+        info.appendChild(name);
+
+        const time = document.createElement('div');
+        time.className = 'bg-card-time';
+        time.textContent = new Date(m.uploadedAt).toLocaleString();
+        info.appendChild(time);
+
+        // 触发词编辑（逗号/换行分隔多个）
+        const tw = document.createElement('textarea');
+        tw.className = 'bg-card-words';
+        tw.placeholder = '触发词，逗号/换行分隔';
+        tw.value = m.triggerWords || '';
+        tw.addEventListener('change', () => updateTriggerWords(m.id, tw.value));
+        info.appendChild(tw);
+
+        card.appendChild(info);
+
+        const acts = document.createElement('div');
+        acts.className = 'bg-card-acts';
+        const applyBtn = document.createElement('button');
+        applyBtn.className = 'fs-btn';
+        applyBtn.textContent = '应用';
+        applyBtn.addEventListener('click', () => applyImageById(m.id));
+        const delBtn = document.createElement('button');
+        delBtn.className = 'fs-btn';
+        delBtn.textContent = '删除';
+        delBtn.addEventListener('click', () => deleteImageById(m.id));
+        acts.appendChild(applyBtn);
+        acts.appendChild(delBtn);
+        card.appendChild(acts);
+
+        return card;
+    }
+
+    /** 更新存储用量提示；接近需求容量下限时显示"清理最旧"入口 */
+    function updateStorageInfo(meta) {
+        const total = meta.reduce((s, m) => s + (m.size || 0), 0);
+        const mb = (total / 1024 / 1024).toFixed(1);
+        const capMB = 372; // 需求下限 62×6MB
+        DOM.bgStorageInfo.textContent = `已用 ${mb} MB（需求容量 ≥ ${capMB} MB）`;
+        const near = total > capMB * 1024 * 1024 * 0.94;
+        DOM.btnBgCleanOld.style.display = near ? 'block' : 'none';
+    }
+
+    /** 上传多图：校验类型/可渲染，生成缩略图，入库；首张立即设为当前背景 */
+    async function onUploadBgImages(e) {
+        const files = Array.from(e.target.files || []);
+        e.target.value = '';
+        if (!files.length) return;
+        let added = 0, skipped = 0;
+        let firstId = null, firstName = null;
+        for (const file of files) {
+            const okType = /image\/(png|jpeg|webp|svg\+xml)/.test(file.type)
+                || /\.(png|jpe?g|webp|svg)$/i.test(file.name);
+            if (!okType) { skipped++; continue; }
+            const thumb = await makeThumb(file); // 无法渲染（损坏）→ null，跳过
+            if (!thumb) { skipped++; continue; }
+            const id = 'bg_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+            await putImage({
+                id,
+                name: file.name,
+                type: file.type || 'image',
+                size: file.size,
+                uploadedAt: Date.now(),
+                triggerWords: '',
+                thumb,
+                blob: file
+            });
+            added++;
+            if (!firstId) { firstId = id; firstName = file.name; }
+        }
+        if (firstId) {
+            const rec = await getImage(firstId);
+            if (rec) {
+                await applyBlob(rec.blob); // 立即预览首张（保留旧"上传即见"）
+                const s = (await getSetting()) || defaultSettings();
+                s.currentId = firstId;
+                await putSetting(s);
+                setIndicator(firstName);
+            }
+        }
+        await renderBgLibrary();
+        if (skipped) showToast(`已添加 ${added} 张，跳过 ${skipped} 张（格式不支持或图片损坏）`, 'warn');
+        else if (added) showToast(`已添加 ${added} 张背景图`, 'info');
+    }
+
+    /** 手动应用某张图为背景 */
+    async function applyImageById(id) {
+        const rec = await getImage(id);
+        if (!rec) return;
+        await applyBlob(rec.blob);
+        const s = (await getSetting()) || defaultSettings();
+        s.currentId = id;
+        await putSetting(s);
+        await renderBgLibrary();
+        setIndicator(rec.name);
+    }
+
+    /** 更新某图的触发词（change 时落库，无需防抖） */
+    async function updateTriggerWords(id, value) {
+        const rec = await getImage(id);
+        if (!rec) return;
+        rec.triggerWords = value;
+        await putImage(rec); // 覆盖同 id
+    }
+
+    /** 删除某图：其触发词随记录一起消失（需求三十二）；若删的是当前/固定则清显示 */
+    async function deleteImageById(id) {
+        const s = (await getSetting()) || defaultSettings();
+        const wasCurrent = s.currentId === id;
+        const wasPinned = s.pinnedId === id;
+        await deleteImage(id);
+        if (wasCurrent || wasPinned) clearBackground(); // 卸载 + 隐藏图层
+        s.currentId = wasCurrent ? null : s.currentId;
+        s.pinnedId = wasPinned ? null : s.pinnedId;
+        await putSetting(s);
+        await renderBgLibrary();
+        setIndicator(null);
+    }
+
+    /** 固定当前背景（锁定，AI 触发不再覆盖） */
+    async function onPin() {
+        const s = (await getSetting()) || defaultSettings();
+        if (!s.currentId) return;
+        s.pinnedId = s.currentId;
+        await putSetting(s);
+        await renderBgLibrary();
+        setIndicatorName(s.currentId);
+    }
+
+    /** 清除背景 + 解除固定/当前 */
+    async function onClear() {
+        clearBackground();
+        const s = (await getSetting()) || defaultSettings();
+        s.pinnedId = null;
+        s.currentId = null;
+        await putSetting(s);
+        await renderBgLibrary();
+        setIndicator(null);
+    }
+
+    /** 清理最旧的一张图（存储接近上限时的兜底入口） */
+    async function onCleanOld() {
+        const meta = await getAllImagesMeta();
+        if (!meta.length) return;
+        const oldest = meta[0]; // 已按上传时间升序
+        await deleteImageById(oldest.id);
+        showToast('已清理最旧图片：' + oldest.name, 'info');
+    }
+
+    /** 导出全部背景配置（含原图 + 触发词 + 设置）为单个 JSON 包 */
+    async function exportConfig() {
+        const meta = await getAllImagesMeta();
+        const images = [];
+        for (const m of meta) {
+            const rec = await getImage(m.id);
+            if (!rec) continue;
+            images.push({
+                id: m.id, name: m.name, type: m.type, size: m.size,
+                uploadedAt: m.uploadedAt, triggerWords: m.triggerWords || '',
+                thumb: m.thumb || '', blob: await blobToBase64(rec.blob)
+            });
+        }
+        const settings = (await getSetting()) || defaultSettings();
+        const pkg = { version: 1, settings, images };
+        const blob = new Blob([JSON.stringify(pkg)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'li-bg-config.json';
+        a.click();
+        URL.revokeObjectURL(url);
+        showToast(`已导出 ${images.length} 张背景图配置`, 'info');
+    }
+
+    /** 从 JSON 包导入背景配置 */
+    async function importConfig(e) {
+        const file = e.target.files[0];
+        e.target.value = '';
+        if (!file) return;
+        try {
+            const text = await file.text();
+            const pkg = JSON.parse(text);
+            if (!pkg.images || !Array.isArray(pkg.images)) throw new Error('文件格式不正确');
+            if (pkg.settings) await putSetting(pkg.settings);
+            for (const img of pkg.images) {
+                await putImage({
+                    id: img.id, name: img.name, type: img.type, size: img.size,
+                    uploadedAt: img.uploadedAt, triggerWords: img.triggerWords || '',
+                    thumb: img.thumb || '', blob: base64ToBlob(img.blob, img.type)
+                });
+            }
+            await renderBgLibrary();
+            showToast(`已导入 ${pkg.images.length} 张背景图`, 'info');
+        } catch (err) {
+            showToast('导入失败：' + err.message, 'error');
+        }
+    }
+
+    // ---------- 小工具 ----------
+    function blobToBase64(blob) {
+        return new Promise((resolve, reject) => {
+            const r = new FileReader();
+            r.onload = () => resolve(String(r.result).split(',')[1]); // 去 data:...;base64, 前缀
+            r.onerror = () => reject(r.error);
+            r.readAsDataURL(blob);
+        });
+    }
+    function base64ToBlob(b64, type) {
+        const bin = atob(b64);
+        const arr = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+        return new Blob([arr], { type: type || 'application/octet-stream' });
+    }
+    /** 缩略图点击：仅切换卡片选中高亮，不立即应用（避免误覆盖固定背景）。 */
+    function toggleSelect(card, id) {
+        if (selectedIds.has(id)) { selectedIds.delete(id); card.classList.remove('selected'); }
+        else { selectedIds.add(id); card.classList.add('selected'); }
+        syncBatchApplyState();
+    }
+
+    /**
+     * 按触发词分隔规则解析输入（与单图 textarea / AI 匹配引擎同一套规则）。
+     * @param {string} input
+     * @returns {string[]} 去空白后的非空词条
+     */
+    function parseWords(input) {
+        return String(input || '').split(/[,\n，]/).map((s) => s.trim()).filter(Boolean);
+    }
+
+    /**
+     * 把新词合并进已有触发词串：词条级去重（与已有完全相同的词不重复添加），统一用半角逗号重排。
+     * @param {string} existing - 已有触发词串（可为空）
+     * @param {string[]} words - 待添加的词条
+     * @returns {string}
+     */
+    function mergeWords(existing, words) {
+        const set = new Set(parseWords(existing));
+        for (const w of words) set.add(w);
+        return [...set].join(',');
+    }
+
+    /** 刷新批量区块可用态与状态行（选中数 + 是否有输入词决定按钮是否可用）。 */
+    function syncBatchApplyState() {
+        const n = selectedIds.size;
+        const hasWords = parseWords(DOM.bgBatchWords.value).length > 0;
+        DOM.btnBgBatchApply.disabled = !(n > 0 && hasWords);
+        if (!n) DOM.bgBatchStatus.textContent = '点缩略图选中图片（可多选）';
+        else if (!hasWords) DOM.bgBatchStatus.textContent = `已选 ${n} 张图，输入触发词后可批量添加`;
+        else DOM.bgBatchStatus.textContent = `已选 ${n} 张图，点「应用词到选中图」批量添加`;
+    }
+
+    /** 批量添加触发词：把输入词合并进每张选中图的 triggerWords（词条级去重），完成后清输入、保留选中。 */
+    async function onBatchAddWords() {
+        const words = parseWords(DOM.bgBatchWords.value);
+        const ids = [...selectedIds];
+        if (!words.length || !ids.length) return;
+        let changed = 0;
+        for (const id of ids) {
+            const rec = await getImage(id);
+            if (!rec) continue;
+            const merged = mergeWords(rec.triggerWords || '', words);
+            if (merged !== (rec.triggerWords || '')) {
+                rec.triggerWords = merged;
+                await putImage(rec);
+                changed++;
+            }
+        }
+        DOM.bgBatchWords.value = '';
+        await renderBgLibrary(); // 重建卡片让各图 textarea 显示合并后的词；选中态由 selectedIds 恢复
+        showToast(changed > 0 ? `已添加触发词到 ${changed} 张图` : '所选图片已包含这些触发词，无需重复添加', changed > 0 ? 'info' : 'warn');
+    }
+
+    /**
+     * 更新背景指示器：短暂显示"背景：NAME"后自动淡出（约 2.5s），非长驻。
+     * 此前设计为长驻导致"背景：X"永久贴在屏幕上（用户反馈「toast 一直不消失」），
+     * 故改为短暂确认提示。
+     * @param {string|null} name
+     */
+    function setIndicator(name) {
+        const el = DOM.bgCurrentIndicator;
+        if (!el) return;
+        if (indicatorHideTimer) { clearTimeout(indicatorHideTimer); indicatorHideTimer = null; }
+        if (name) {
+            el.textContent = '背景：' + name;
+            el.classList.add('show');
+            indicatorHideTimer = setTimeout(() => {
+                el.classList.remove('show');
+                indicatorHideTimer = null;
+            }, 2500);
+        } else {
+            el.classList.remove('show');
+        }
+    }
+    async function setIndicatorName(id) {
+        const meta = await getAllImagesMeta();
+        const m = meta.find((x) => x.id === id);
+        setIndicator(m ? m.name : null);
     }
 }

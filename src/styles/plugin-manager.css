@@ -89,3 +89,160 @@ input:checked + .toggle-slider:before {
     margin-top: 0;
 }
 
+/* ====================== 背景管理（多图库 + 触发词） ====================== */
+.bg-mgmt-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+}
+
+.bg-storage-info {
+    margin-top: 8px;
+    font-size: 11px;
+    color: var(--white-a50);
+}
+
+/* 批量加词区块：输入触发词 + 应用到多张选中图 */
+.bg-batch-add {
+    margin-top: 10px;
+    padding: 10px;
+    border: 1px solid var(--white-a10);
+    border-radius: var(--radius-sm);
+}
+.bg-batch-add-row {
+    display: flex;
+    gap: 8px;
+}
+.bg-batch-input {
+    flex: 1 1 auto;
+    min-width: 0; /* flex 铁律：子项默认 min-width:auto，长占位符会把行撑破 */
+    padding: 8px 10px;
+    font-size: 12px;
+    color: var(--white-a80);
+    background: var(--white-a05);
+    border: 1px solid var(--white-a10);
+    border-radius: var(--radius-sm);
+    outline: none;
+}
+.bg-batch-input:focus {
+    border-color: var(--color-accent);
+}
+.bg-batch-input::placeholder {
+    color: var(--white-a30);
+}
+.bg-batch-status {
+    margin-top: 6px;
+    font-size: 11px;
+    color: var(--white-a50);
+}
+
+.bg-img-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 10px;
+    margin-top: 10px;
+}
+
+.bg-card {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 8px;
+    background: var(--white-a03);
+    border: 1px solid var(--white-a08);
+    border-radius: var(--radius-md);
+    transition: border-color var(--transition-fast), background var(--transition-fast);
+}
+
+.bg-card.active {
+    border-color: var(--color-accent);
+    background: color-mix(in srgb, var(--color-accent) 8%, transparent);
+}
+
+.bg-card.pinned {
+    border-color: var(--color-accent-solid);
+}
+
+/* 缩略图点击选中态（仅高亮，不立即应用；与应用按钮区分） */
+.bg-card.selected {
+    border-color: var(--white-a30);
+    box-shadow: 0 0 0 1px var(--white-a30) inset;
+}
+
+.bg-card-thumb {
+    width: 100%;
+    height: 84px;
+    object-fit: cover;
+    border-radius: var(--radius-sm);
+    background: var(--black-a20);
+    cursor: pointer;
+}
+
+.bg-card-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.bg-card-name {
+    font-size: 12px;
+    color: var(--white-a80);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.bg-card-time {
+    font-size: 10px;
+    color: var(--white-a40);
+}
+
+.bg-card-words {
+    width: 100%;
+    min-height: 38px;
+    margin-top: 2px;
+    padding: 4px 6px;
+    font-size: 11px;
+    color: var(--white-a80);
+    background: var(--white-a05);
+    border: 1px solid var(--white-a10);
+    border-radius: var(--radius-sm);
+    resize: vertical;
+}
+
+.bg-card-acts {
+    display: flex;
+    gap: 6px;
+}
+
+.bg-card-acts .fs-btn {
+    flex: 1;
+    padding: 6px;
+    font-size: 11px;
+}
+
+/* 当前背景短暂确认指示器（显示约 2.5s 后自动淡出，非长驻；需求十九：固定位置显示背景名/来源） */
+#bg-current-indicator {
+    position: fixed;
+    left: 50%;
+    bottom: 64px;
+    transform: translateX(-50%);
+    z-index: 5;
+    max-width: 80vw;
+    padding: 6px 14px;
+    font-size: 12px;
+    color: var(--white-a80);
+    background: var(--bg-modal);
+    border: 1px solid var(--white-a12);
+    border-radius: var(--radius-md);
+    box-shadow: 0 4px 16px var(--black-a30);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity var(--transition-normal);
+}
+
+#bg-current-indicator.show {
+    opacity: 1;
+}
+

@@ -29,7 +29,8 @@ import {
 import { bindEvents, applyQuickTheme } from './ui/event-bindings/index.js';
 // 来自 api.js 的流式请求能力（triggerProactive 复用）
 import { streamChat } from './chat/api.js';
-import { initPluginSandbox } from './ui/plugin-sandbox.js';
+import { bus, EVENTS } from './core/bus.js';
+import { initBgTriggers } from './ui/bg-trigger.js';
 
 // 性能诊断模式：URL 带 ?perf=1 时加载诊断 overlay（手机访问 http://<本机IP>:5173/?perf=1）
 // 仅观测不改业务；生产构建不带该参数时不加载。
@@ -141,7 +142,7 @@ export function init() {
 
     // 绑定所有事件
     bindEvents();
-    initPluginSandbox(); // 初始化插件速测沙盒（开发用）
+    initBgTriggers(); // 初始化 AI 触发背景切换引擎（订阅 ASSISTANT_DONE）
 
     // 恢复上次选择的快速配色（若已选）：挂载 token 主题
     if (state.settings.quickTheme) applyQuickTheme(state.settings.quickTheme);
@@ -188,6 +189,7 @@ export function init() {
                     updateMsgContent(aiNode, full);
                     ingestUsage(usage); // 合并 usage 到监控统计并刷新 UI
                     BgEngine.triggerMessage('assistant', full);
+                    bus.emit(EVENTS.ASSISTANT_DONE, full); // 广播 AI 完成文本，供背景触发器按触发词切换
                     saveToLocal(null, true);
                 },
                 (err) => {

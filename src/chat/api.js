@@ -177,6 +177,7 @@ export function executeStreamRequest(apiMessages, aiNode) {
             updateMsgContent(aiNode, full);
             ingestUsage(usage); // 合并 usage 到监控统计并刷新 UI
             BgEngine.triggerMessage('assistant', full);
+            bus.emit(EVENTS.ASSISTANT_DONE, full); // 广播 AI 完成文本，供背景触发器按触发词切换
             // 语音回复（句句发语音）：不在到达时自动朗读，改为 renderContent 把 AI 回复渲染成语音条，
             // 由用户点击语音条播放（符合「点击气泡播放、再点停止」的交互，避免浏览器自动播放策略拦截）。
             saveToLocal(null, true);

@@ -21,7 +21,9 @@ export const EVENTS = Object.freeze({
     /** 树 → API：请求发送一条流式消息。载荷 = { apiMessages:Array, aiNode:object } */
     STREAM_REQUEST: 'stream:request',
     /** 渲染层 → 树：错误气泡内联重试（tree-render 不 import tree.js，避免循环依赖）。载荷 = { node:object, parent:object } */
-    RETRY_REQUEST: 'retry:request'
+    RETRY_REQUEST: 'retry:request',
+    /** API/发送层 → 背景触发器：AI 流式回复完成，载荷 = 完整 AI 文本 string（需求：回复显示完成后扫描触发） */
+    ASSISTANT_DONE: 'assistant:done'
 });
 
 /**
