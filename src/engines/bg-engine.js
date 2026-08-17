@@ -90,7 +90,7 @@ export const BgEngine = {
         const plugin = this.availablePlugins[id];
         if (!plugin) {
             Logger.warn(`[BgEngine] 插件 "${id}" 不存在`);
-            return;
+            return false;   // 返回状态：调用方（applyPluginCode）据 false 判失败/回滚
         }
         // 注入全局 state.settings 的只读代理给插件，防止插件直接修改污染全局状态
         const readOnlyState = new Proxy(state.settings, {
@@ -108,14 +108,31 @@ export const BgEngine = {
             // 记录 onMount 前专属背景层的子节点集合，用于卸载时兜底清理：
             // 防止插件 onUnmount 未清理其注入节点(如浮动光斑)导致"关不掉、背景残留"。
             const beforeNodes = new Set(DOM.bgDomLayer.children);
-            Logger.safe('BgEngine.onMount(DOM)', () => plugin.onMount?.(DOM.bgDomLayer, instance.state));
+            // 不再用 Logger.safe 吞掉 onMount 异常：吞错会让调用方（applyPluginCode）误判成功、
+            // 把"半初始化脏实例"推进 activePlugins 占槽。改为显式捕获并据真值上报。
+            try {
+                plugin.onMount?.(DOM.bgDomLayer, instance.state);
+            } catch (e) {
+                Logger.error(`[BgEngine] DOM 背景 onMount 失败：${e?.message || e}`);
+                return false;   // 初始化失败：上报 false，调用方据以判失败并回滚
+            }
             const afterNodes = new Set(DOM.bgDomLayer.children);
             instance.domNodes = [...afterNodes].filter(n => !beforeNodes.has(n));
-        } else {
-            Logger.safe('BgEngine.onMount', () => plugin.onMount?.(this.domRefs, instance.state));
-            Logger.safe('BgEngine.init', () => plugin.init?.(this.ctx, W, H, instance.state));
-            if (!this.animationId) this.startLoop();
+            return true;
         }
+
+        // Canvas 型：onMount + init 任一抛错都视为挂载失败。
+        // 旧实现分两处 Logger.safe 各自吞错 → init 抛错被静默、mount 不抛 → 调用方拿到"假成功"、
+        // 脏实例进 activePlugins。现显式捕获并据真值上报，使 applyPluginCode 能据 false 触发回滚。
+        try {
+            plugin.onMount?.(this.domRefs, instance.state);
+            plugin.init?.(this.ctx, W, H, instance.state);
+        } catch (e) {
+            Logger.error(`[BgEngine] 背景插件初始化失败（onMount/init 抛错）：${e?.message || e}`);
+            return false;   // 初始化失败：上报 false，调用方据以判失败并回滚
+        }
+        if (!this.animationId) this.startLoop();
+        return true;
     },
 
     /** 停用插件 — 清理状态并可能停止渲染循环 */

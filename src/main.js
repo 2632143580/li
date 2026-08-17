@@ -19,10 +19,11 @@ import { ThemeEngine } from './engines/theme-engine.js';
 import { initTTS } from './engines/tts-engine.js'; // 语音引擎：加载音色列表（无副作用）
 import { inputRenderer, drawInputArea, updateInputColors, updateInputLayout } from './ui/input-renderer.js';
 import { inputManager } from './ui/input-manager.js';
-// 来自 tree.js 的全局可见函数
+    // 来自 tree.js 的全局可见函数
 import {
     applySettings, initChatTree, renderChat,
-    buildApiMessages, sendMessage, createNode, getCurrentPath, updateMsgContent, ingestUsage, setNodeError, updateMonitorUI
+    buildApiMessages, sendMessage, createNode, getCurrentPath, updateMsgContent, ingestUsage, setNodeError, updateMonitorUI,
+    ensureCurrentEndNode
 } from './chat/tree.js';
 // 全局事件注册聚合（bindEvents）已迁至 ui/event-bindings（stage3）
 import { bindEvents, applyQuickTheme } from './ui/event-bindings/index.js';
@@ -160,7 +161,8 @@ export function init() {
             inputRenderer.markDirty();
 
             // 1. 构建上下文（包含历史对话）
-            const apiMessages = buildApiMessages(state.currentEndNode);
+            const parent = ensureCurrentEndNode();
+            const apiMessages = buildApiMessages(parent);
 
             // 2. 在 API 请求层面注入指令，但不写入 DOM 树（system 角色权重更高，且不会和 user 混淆）
             apiMessages.push({
@@ -170,7 +172,6 @@ export function init() {
 
             // 3. 直接创建 AI 节点（跳过 User 节点创建）
             const aiNode = createNode("assistant", "");
-            const parent = state.currentEndNode;
 
             // 挂载到树末端
             parent.children.push(aiNode);

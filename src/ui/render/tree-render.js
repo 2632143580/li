@@ -30,7 +30,7 @@ import { state } from '../../core/store.js';
 import { formatTokens } from '../../core/utils.js';
 import { saveToLocal } from '../../core/storage.js';
 import { splitSentences } from '../../core/text-split.js';
-import { cleanForSpeech } from '../../engines/tts-engine.js';
+import { clearAutoQueue } from '../../engines/tts-engine.js'; // 分支切换即停当前自动朗读（tree-render 不依赖 cleanForSpeech，断句清洗在 voice-tiles 内完成）
 import { getCurrentPath, getLastNodeInPath } from '../../core/tree-core.js';
 import { bus, EVENTS } from '../../core/bus.js';
 import { showContextMenu } from '../context-menu.js';
@@ -261,6 +261,7 @@ export function refreshFooter(div, node, parentNode) {
         if (parentNode.selectedChildIndex > 0) {
             parentNode.selectedChildIndex--;
             state.currentEndNode = getLastNodeInPath(state.chatTree);
+            clearAutoQueue(); // 修⑥：切换分支即停当前自动朗读（旧分支消息从视图消失，避免后台继续读）
             renderChat();
             saveToLocal(null, true);
         }
@@ -279,6 +280,7 @@ export function refreshFooter(div, node, parentNode) {
         if (parentNode.selectedChildIndex < total - 1) {
             parentNode.selectedChildIndex++;
             state.currentEndNode = getLastNodeInPath(state.chatTree);
+            clearAutoQueue(); // 修⑥：切换分支即停当前自动朗读（旧分支消息从视图消失，避免后台继续读）
             renderChat();
             saveToLocal(null, true);
         }

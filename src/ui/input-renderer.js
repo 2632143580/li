@@ -1,7 +1,7 @@
 /**
  * Canvas 输入渲染器（每帧重绘）
  *
- * 职责：在 UI 画布上绘制「呼吸圆环 + 输入线条 + 装饰点 + 文本 + 光标 + IME 下划线」。
+ * 职责：在 UI 画布上绘制「呼吸圆环 + 输入线条 + 装饰点 + 文本 + 光标」。
  *       提供文本测量缓存 textCache，避免每帧重复 measureText。
  *       提供 inputColors 缓存（从 CSS 变量读取），供 drawInputArea 与主题引擎刷新使用。
  *
@@ -115,10 +115,6 @@ export const textCache = {
     fullText: '',
     /** 完整文本宽度 @type {number} */
     fullWidth: 0,
-    /** IME 组合起点 X 偏移 @type {number} */
-    compStart: 0,
-    /** IME 组合文本宽度 @type {number} */
-    compLen: 0,
 
     /** 文本或布局参数变化时更新缓存 @param {string} fullText @param {number} fontSize @param {number} maxLen @param {CanvasRenderingContext2D} ctx */
     update(fullText, fontSize, maxLen, ctx) {
@@ -129,24 +125,26 @@ export const textCache = {
         this.fullText = fullText;
         ctx.font = `${fontSize}px Georgia,'KaiTi',serif`;
 
-        // 文本超长时从头尾部截取显示
-        let displayText = fullText;
         const maxTextWidth = maxLen - 24;
-        if (ctx.measureText(displayText).width > maxTextWidth) {
-            while (ctx.measureText(displayText).width > maxTextWidth && displayText.length > 1) {
-                displayText = displayText.slice(1);
+        const fullWidth = ctx.measureText(fullText).width;
+        this.fullWidth = fullWidth;
+
+        // 超长时截取「尾部最长、宽度不超 maxTextWidth 的子串」显示（保留正在输入的尾部，丢弃开头历史超长部分）。
+        // 旧实现逐字 displayText.slice(1) 后 measureText：每次 measure 内部要处理整串、共 O(n²) 字符测量，
+        // 长粘贴（maxCharsPerNode=50000）会卡顿且吃掉开头。现用二分定长，measureText 仅 O(log n) 次。
+        let displayText = fullText;
+        if (fullWidth > maxTextWidth && fullText.length > 1) {
+            let lo = 1, hi = fullText.length; // lo 从 1 起：至少保留 1 字（与原 slice(1) 兜底语义一致）
+            while (lo < hi) {
+                const mid = (lo + hi + 1) >> 1;
+                const w = ctx.measureText(fullText.slice(fullText.length - mid)).width;
+                if (w <= maxTextWidth) lo = mid;
+                else hi = mid - 1;
             }
+            displayText = fullText.slice(fullText.length - lo);
         }
         this.displayText = displayText;
         this.displayWidth = ctx.measureText(displayText).width;
-        this.fullWidth = ctx.measureText(fullText).width;
-    },
-
-    /** 更新 IME 组合输入相关测量（组合状态变化时调用） @param {CanvasRenderingContext2D} ctx @param {number} fontSize */
-    updateIME(ctx, fontSize) {
-        ctx.font = `${fontSize}px Georgia,'KaiTi',serif`;
-        this.compStart = ctx.measureText(inputManager.text).width;
-        this.compLen = ctx.measureText(inputManager.compData).width;
     },
 
     /** 清除缓存（强制下次重算） */
@@ -155,7 +153,7 @@ export const textCache = {
 
 /**
  * 绘制输入区域到 UI Canvas
- * 包含：脉冲圆环、输入线条、装饰点、文本、光标、IME 下划线
+ * 包含：脉冲圆环、输入线条、装饰点、文本、光标
  * @param {number} now - requestAnimationFrame 时间戳
  */
 export function drawInputArea(now) {

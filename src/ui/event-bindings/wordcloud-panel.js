@@ -420,20 +420,62 @@ function jiebaSegment(text) {
 }
 
 /**
+ * 分块跑词频统计：把消息节点数组按块拆分，逐块调用 analyzeWordFreq 并合并词频，
+ * 块间通过 setTimeout(0) 让出主线程，避免大对话点开词云时一次性长任务卡住 UI（D3 卡顿根因）。
+ * @param {Array<object>} nodes 消息节点数组（同 analyzeWordFreq 入参）
+ * @param {object} options analyzeWordFreq 选项
+ * @returns {Promise<Array<{word:string,count:number,byRole:Object<string,number>}>>} 合并降序词频表
+ */
+async function analyzeWordFreqChunked(nodes, options) {
+    const CHUNK = 200; // 每块消息数：约几 ms，块间让出主线程
+    /** 词 → { count, byRole:Map<role,count> } @type {Map<string, {count:number, byRole:Map<string,number>}>} */
+    const merged = new Map();
+    for (let i = 0; i < nodes.length; i += CHUNK) {
+        const part = analyzeWordFreq(nodes.slice(i, i + CHUNK), options);
+        for (const item of part) {
+            let acc = merged.get(item.word);
+            if (!acc) { acc = { count: 0, byRole: new Map() }; merged.set(item.word, acc); }
+            acc.count += item.count;
+            for (const [role, c] of Object.entries(item.byRole)) {
+                acc.byRole.set(role, (acc.byRole.get(role) || 0) + c);
+            }
+        }
+        // 让出主线程：把后续块推迟到下一个宏任务，避免长任务卡 UI
+        await new Promise((r) => setTimeout(r, 0));
+    }
+    const list = [...merged.entries()].map(([word, { count, byRole }]) => ({
+        word, count, byRole: Object.fromEntries(byRole)
+    }));
+    list.sort((a, b) => b.count - a.count || a.word.localeCompare(b.word));
+    return list;
+}
+
+/** 分析代次：每次 analyze 自增，落后（被新的分析取代）的结果丢弃，避免快速切换分词模式时结果错乱。 @type {number} */
+let analyzeSeq = 0;
+
+/**
  * 用当前分词模式重新分析全量词频：建反查表 → 渲染列表 → 刷新查询结果 → 更新提示。
+ * 改为异步分块（analyzeWordFreqChunked），分析期间列表显示"分析中…"占位，避免大对话主线程卡顿（D3）。
  * jieba 分词异常时回退轻量并如实提示，不让用户拿到残缺数据。
  */
-function analyze() {
+async function analyze() {
+    const mySeq = ++analyzeSeq;
+    if (DOM.wordcloudList) DOM.wordcloudList.innerHTML = '<div class="wc-empty">分析中…</div>';
+
     const path = getCurrentPath();
-    const seg = segmentMode === 'jieba' && jieba ? jiebaSegment : undefined;
+    const opts = { includeRoles: ['user', 'assistant'], topN: 0 };
     try {
-        currentFreq = analyzeWordFreq(path, { includeRoles: ['user', 'assistant'], topN: 0, segment: seg });
+        const seg = segmentMode === 'jieba' && jieba ? jiebaSegment : undefined;
+        currentFreq = await analyzeWordFreqChunked(path, { ...opts, segment: seg });
     } catch (e) {
+        if (mySeq !== analyzeSeq) return; // 已被更新的分析取代，丢弃本结果
         segmentMode = 'light';
         setSegActive('light');
-        currentFreq = analyzeWordFreq(path, { includeRoles: ['user', 'assistant'], topN: 0 });
+        currentFreq = await analyzeWordFreqChunked(path, opts);
         setNote('专业分词出错，已回退轻量分词。');
     }
+
+    if (mySeq !== analyzeSeq) return; // 已被更新的分析取代，丢弃本结果
 
     freqIndex.clear();
     for (const item of currentFreq) freqIndex.set(item.word, item);

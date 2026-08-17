@@ -23,15 +23,13 @@ import { saveToLocal, debouncedSave } from '../core/storage.js';
 import { BgEngine } from '../engines/bg-engine.js';
 import { ThemeEngine } from '../engines/theme-engine.js';
 import hooksData from '../../hooks.json'; // 宿主契约单一事实源：插件归因告警（通配/未命中钩子）从此读取
-import { inputRenderer, updateInputLayout } from '../ui/input-renderer.js';
+import { inputRenderer } from '../ui/input-renderer.js';
 import { openFSEditor } from '../ui/input-manager.js';
 import { onResize } from '../main.js';
 // 来自 tree.js 的纯函数 / 状态（循环引用安全：均为运行时调用 / 活绑定）
+// 仅保留本模块实际引用的名字；其余 tree.js 导出不再在此 import（避免死导入）。
 import {
-    applySettings, checkProviderMatch, populateModelSelect, showModelOptions, hideModelOptions,
-    updateCacheUI, updateMonitorUI, resetMonitorStats, initChatTree, findMaxId, migrateErrorFlags,
-    getLastNodeInPath, renderChat, sendMessage, regenerate, editAndResend,
-    updateMsgContent, ingestUsage, setNodeError, buildApiMessages, getCurrentPath
+    updateMonitorUI, updateMsgContent, ingestUsage, setNodeError
 } from './tree.js';
 
 // 应用级事件总线（零依赖）：订阅来自 tree.js 的 STREAM_REQUEST，解耦 tree→api 的循环依赖
@@ -172,7 +170,7 @@ export async function streamChat(messages, onChunk, onDone, onError) {
  */
 export function executeStreamRequest(apiMessages, aiNode) {
     updateMonitorUI();
-    streamChat(
+    return streamChat(
         apiMessages,
         (full) => updateMsgContent(aiNode, full),
         (full, usage) => {
@@ -194,7 +192,25 @@ export function executeStreamRequest(apiMessages, aiNode) {
 // 本模块不再被 tree 直接 import executeStreamRequest —— 循环依赖削掉一条边（stage2 解耦）。
 // 注册发生在 api.js 模块求值期（startup 即被 main.js 引入），用户首次发消息前订阅已就绪。
 bus.on(EVENTS.STREAM_REQUEST, ({ apiMessages, aiNode }) => {
-    executeStreamRequest(apiMessages, aiNode);
+    // 兜底：dispatchEvent 会吞掉 listener 抛出的同步异常（EventTarget 规范行为，异常不向调用方冒泡）。
+    // 若 executeStreamRequest 同步抛错，state.waiting 已置 true 却永远无法复位 → 输入框永久锁死。
+    // 故同步路径用 try/catch 复位；异步返回的 Promise 追加 .catch 兜底同一目标，两条路径都复位 waiting 并标记错误节点。
+    try {
+        const p = executeStreamRequest(apiMessages, aiNode);
+        if (p && typeof p.catch === 'function') {
+            p.catch((err) => {
+                Logger.error('[API] 流式处理被拒', err);
+                if (aiNode) setNodeError(aiNode, err.message || '请求处理失败');
+                state.waiting = false;
+                inputRenderer.markDirty();
+            });
+        }
+    } catch (err) {
+        Logger.error('[API] 处理 STREAM_REQUEST 失败', err);
+        if (aiNode) setNodeError(aiNode, err.message || '请求处理失败');
+        state.waiting = false;
+        inputRenderer.markDirty();
+    }
 });
 /**
  * 解析并挂载一个代码插件字符串（非模块 .txt，文件末尾 return 对象）。
@@ -291,30 +307,40 @@ export function applyPluginCode(codeString, onLog) {
             const bgId = 'bg_custom_' + Date.now();
             const themeId = 'theme_custom_' + Date.now();
             BgEngine.registerPlugin(bgId, bgPlugin);
-            BgEngine.mount(bgId);
+            const okBg = BgEngine.mount(bgId);
             mounted.push({ engine: 'bg', id: bgId });
+            if (!okBg) throw new Error('混合插件：背景子插件初始化失败（onMount/init 抛错，已回滚）');
             ThemeEngine.register(themeId, themePlugin);
-            ThemeEngine.mount(themeId);
+            const okTheme = ThemeEngine.mount(themeId);
             mounted.push({ engine: 'theme', id: themeId });
+            if (!okTheme) throw new Error('混合插件：主题子插件初始化失败（onMount 抛错，已回滚）');
             log('info', '混合插件：背景 + 主题 均已挂载');
             return "混合插件导入成功！已自动嗅探并拆分为背景 + 主题两部分。";
         } else if (hasCanvasBg) {
             if (!pluginObj.meta) pluginObj.meta = { bgColor: 'transparent' };
             const customName = 'bg_custom_' + Date.now();
             BgEngine.registerPlugin(customName, pluginObj);
-            BgEngine.mount(customName);
+            const ok = BgEngine.mount(customName);
+            // 补追踪：旧实现单态分支从不 push mounted，回滚机制对单态插件形同虚设（D1）。
+            mounted.push({ engine: 'bg', id: customName });
+            // mount 现返回真值；init/onMount 抛错 → false → 抛出让外层 catch 触发回滚，根除"假成功"。
+            if (!ok) throw new Error('Canvas 背景插件初始化失败（onMount/init 抛错，已回滚）');
             log('info', 'Canvas 背景已挂载');
             return "Canvas 背景插件导入成功！";
         } else if (hasDomBg) {
             const customName = 'bg_dom_' + Date.now();
             BgEngine.registerPlugin(customName, pluginObj);
-            BgEngine.mount(customName);
+            const ok = BgEngine.mount(customName);
+            mounted.push({ engine: 'bg', id: customName });
+            if (!ok) throw new Error('DOM 背景插件初始化失败（onMount 抛错，已回滚）');
             log('info', 'DOM 背景已挂载');
             return "DOM 背景插件导入成功！";
         } else if (hasTheme) {
             const customName = 'theme_custom_' + Date.now();
             ThemeEngine.register(customName, pluginObj);
-            ThemeEngine.mount(customName);
+            const ok = ThemeEngine.mount(customName);
+            mounted.push({ engine: 'theme', id: customName });
+            if (!ok) throw new Error('主题插件初始化失败（onMount 抛错，已回滚）');
             if (cssText) log('info', '主题 CSS 已注入 <head>');
             log('info', '主题已挂载');
             return "主题插件导入成功！";

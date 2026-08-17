@@ -55,6 +55,7 @@ export function showContextMenu(x, y, node, parentNode) {
     DOM.contextMenu.style.display = 'block';
     const rect = DOM.contextMenu.getBoundingClientRect();
     let left = x, top = y;
+    // 钳制到右/下视口内：菜单贴边时整体内移，避免溢出屏幕；左/上因 clientX/clientY ≥ 0 不会越界
     if (left + rect.width > W) left = W - rect.width - 10;
     if (top + rect.height > H) top = H - rect.height - 10;
     DOM.contextMenu.style.left = left + 'px';

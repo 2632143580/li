@@ -48,6 +48,8 @@ export function splitSentences(text) {
         }
     }
     if (buf) arr.push(buf);
-    if (!arr.length) return [text];
+    // 全换行输入（如 "\n\n\n"）：buf 始终为空、arr 为空，切不可返回原串（会让调用方渲染出带裸换行的气泡）。
+    // 与空串契约一致，返回 ['']，调用方据此跳过空气泡。
+    if (!arr.length) return [''];
     return arr;
 }

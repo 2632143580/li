@@ -8,6 +8,7 @@ import { DOM, H } from '../../core/dom.js';
 import { closeAllModals } from '../../core/modal.js';
 import { saveToLocal } from '../../core/storage.js';
 import { onResize } from '../../main.js';
+import { clearAutoQueue } from '../../engines/tts-engine.js';   // 关闭页面前清空自动朗读队列（避免后台继续响）
 
 /** 窗口 / 全局键盘 */
 import { registerUI } from '../../core/registry.js';
@@ -25,12 +26,14 @@ export function bindGlobalEvents() {
         if (e.clientY > H - 80) DOM.hiddenInput.focus();
     });
 
-    // 页面卸载前保存
+    // 页面卸载前：保存 + 清空自动朗读队列（与「清空对话/切换分支/切到后台/关闭语音」一致，避免后台继续响）
     window.addEventListener('beforeunload', () => {
         saveToLocal(null, true);
+        clearAutoQueue();
     });
 
-    // Escape 关闭弹窗
+    // Escape 关闭弹窗：覆盖全部主面板（原实现漏了词云/裁剪/语音三块，ESC 对它们完全无效）。
+    // 各面板的关闭点保持与点击「×/取消/确认」完全一致，避免两套关闭逻辑分叉。
     document.addEventListener('keydown', (e) => {
         if (e.key !== 'Escape') return;
         if (DOM.fsEditor.style.display === 'flex') {
@@ -41,6 +44,12 @@ export function bindGlobalEvents() {
             DOM.bgModalClose.click();
         } else if (DOM.customSchemeModal && DOM.customSchemeModal.style.display === 'flex') {
             closeAllModals();
+        } else if (DOM.wordcloudDialog && DOM.wordcloudDialog.style.display === 'flex') {
+            DOM.wordcloudClose.click();
+        } else if (DOM.cropModal && DOM.cropModal.style.display === 'flex') {
+            DOM.cropCancel.click();
+        } else if (DOM.voiceModal && DOM.voiceModal.style.display === 'flex') {
+            DOM.voiceModalCancel.click();
         }
     });
 }

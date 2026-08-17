@@ -9,6 +9,7 @@
  * 依赖：core/logger, core/state, core/dom, core/tree-core（migrateErrorFlags, getLastNodeInPath）
  */
 import { Logger } from './logger.js';
+import { showToast } from './toast.js'; // 保存/加载失败改为可见提示（不再仅 console.warn 静默）
 import { state } from './store.js';
 import { DEFAULT_SETTINGS, STORAGE_KEY } from './constants.js';
 import { ensureKeysObject } from './utils.js';
@@ -56,7 +57,14 @@ export function saveToLocal(message = '已保存', silent = false) {
             }, 1200);
         }
     } catch (e) {
-        Logger.warn('[Storage] 保存失败', e);
+        // 保存失败原仅 console.warn（用户无感知，属共因 B 静默失败）。
+        // 典型场景：localStorage 写满（大量聊天/语音缓存）→ QuotaExceededError。
+        // 改为可见 toast，让用户知道存档可能不完整。
+        if (e && e.name === 'QuotaExceededError') {
+            showToast('存档空间不足，部分对话或设置可能未能保存，建议清理对话或导出备份', 'error', 5000);
+        } else {
+            Logger.warn('[Storage] 保存失败', e);
+        }
     }
 }
 
@@ -104,7 +112,11 @@ export function loadFromLocal() {
         state.currentEndNode = getLastNodeInPath(state.chatTree); // 恢复到当前路径末端
         return true;
     } catch (e) {
-        Logger.warn('[Storage] 加载失败', e);
+        // 坏存档（半截 JSON / 结构非法）解析失败：若不清除，下次刷新仍读它 → 永久失败循环。
+        // 清档 + 提示，让用户从干净状态启动（聊天记录会丢，但能正常进入；留着坏档才会卡死）。
+        try { localStorage.removeItem(STORAGE_KEY); } catch (_) { /* 清不掉也无所谓，下一行已 return false */ }
+        showToast('本地存档已损坏，已重置为空白会话', 'warn', 5000);
+        Logger.warn('[Storage] 加载失败，已清除坏存档', e);
         return false;
     }
 }

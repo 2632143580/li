@@ -17,9 +17,9 @@
  *       renderContent / buildMsgDom / refreshFooter / renderMessage /
  *       renderChat / updateMsgContent / updateCacheUI / updateMonitorUI /
  *       ingestUsage / resetMonitorStats  ← 来自 ui/render/tree-render.js（stage4 迁出，整体 re-export 保持对外 API 不变）
- * 依赖：core/dom, core/logger, core/state, core/storage, core/bus（发消息改走事件总线）,
+ * 依赖：core/dom, core/logger, core/state, core/bus（发消息改走事件总线）,
  *       core/tree-core（6 个纯函数已下移，此处 re-export）,
- *       engines/bg-engine, ui/input-renderer, ui/context-menu, ui/input-manager,
+ *       engines/bg-engine, ui/input-renderer,
  *       ui/render/tree-render（渲染/监控显示函数已迁出，此处 re-export）,
  *       chat/api（不再 import；发消息走 core/bus，bind* 事件注册已迁 ui/event-bindings）, ui/event-bindings（tempSettings 活绑定）
  */
@@ -28,11 +28,8 @@ import { splitSentences } from '../core/text-split.js';
 import { Logger } from '../core/logger.js';
 import { state } from '../core/store.js';
 import { WELCOME, ERROR_PREFIX } from '../core/constants.js';
-import { formatTokens } from '../core/utils.js';
-import { saveToLocal, debouncedSave } from '../core/storage.js';
 import { BgEngine } from '../engines/bg-engine.js';
 import { inputRenderer } from '../ui/input-renderer.js';
-import { showContextMenu } from '../ui/context-menu.js';
 // 输入相关事件（openFSEditor / bindFsEditorEvents）已迁至 ui/event-bindings，本模块不再直接引用。
 // 来自事件绑定层 event-bindings 的「设置暂存」活绑定（stage3 解耦：bind* 事件注册已迁到 ui/event-bindings）。
 // 仅保留 tempSettings 这一个活绑定，供 checkProviderMatch / populateModelSelect 读取当前编辑中的设置。
@@ -40,7 +37,6 @@ import { tempSettings } from '../ui/event-bindings/index.js';
 
 // 应用级事件总线（零依赖）：发消息流程改走事件，消除 tree → api 的硬编码函数引用
 import { bus, EVENTS } from '../core/bus.js';
-import { openModal } from '../core/modal.js';
 
 // 纯数据逻辑已抽离到 core/tree-core.js（stage1：解除 core→chat 反向依赖 + 可 Node 单测）。
 // 此处仅 import 并 re-export，保持对外 API（api.js / main.js 的命名导入）不变。
@@ -64,7 +60,7 @@ export {
 // 视图层（对话 DOM 渲染 + 监控显示）已迁出至 ui/render/tree-render.js（stage4）。
 // tree.js 收尾为「数据操作 + 设置应用」；渲染函数经此 import 供内部调用，
 // 并整体 re-export 保持 main.js / api.js / event-bindings 的既有导入不变。
-import { renderChat, updateMsgContent, updateMonitorUI } from '../ui/render/tree-render.js';
+import { renderChat, updateMsgContent } from '../ui/render/tree-render.js';
 export * from '../ui/render/tree-render.js';
 
 // ================================================================
@@ -78,6 +74,7 @@ export * from '../ui/render/tree-render.js';
 /** 将节点标记为错误状态 @param {object} node @param {string} message */
 export function setNodeError(node, message) {
     node.isError = true;
+    node._autoReadArmed = false; // 修⑧：错误节点不再自动朗读（防 _autoReadArmed 残留 → 后续重渲染整条重读）
     updateMsgContent(node, `${ERROR_PREFIX}\n${message}`);
 }
 
@@ -96,6 +93,25 @@ export function initChatTree() {
 
 // getLastNodeInPath 已移至 core/tree-core.js（本文件 re-export，对外 API 不变）
 
+/**
+ * 兜底：确保 state.currentEndNode 始终指向有效节点。
+ * 异常/坏档/初始化竞态下 currentEndNode 可能为 null（state.js 初值即 null），
+ * 而 sendMessage / triggerProactive 都会对 currentEndNode.children 直接解引用——
+ * null 即抛 TypeError 把整条发消息链路打死。
+ * 恢复策略（不丢已有对话）：存在对话树时回落到当前路径末节点（getLastNodeInPath），
+ * 连树都没有才重建欢迎树（initChatTree 会渲染并落 welcome 节点）。
+ * @returns {object} 有效的末端节点
+ */
+export function ensureCurrentEndNode() {
+    if (state.currentEndNode) return state.currentEndNode;
+    if (state.chatTree) {
+        state.currentEndNode = getLastNodeInPath(state.chatTree) || state.chatTree;
+    } else {
+        initChatTree();
+    }
+    return state.currentEndNode;
+}
+
 // splitSentences 已抽离到 src/core/text-split.js（纯函数，便于单元测试）。
 // 旧实现把 ~ ～ … 也当句尾断句，导致 waifu 模式单行文本被拆成多行气泡（已修复）。
 // 此处仅重新导出，保持 tree.js 对外 API 不变。
@@ -111,7 +127,7 @@ export function sendMessage(text) {
 
     BgEngine.triggerMessage('user', text);
 
-    const parentUserNode = state.currentEndNode;
+    const parentUserNode = ensureCurrentEndNode();
     const userNode = createNode("user", text);
     parentUserNode.children.push(userNode);
     parentUserNode.selectedChildIndex = parentUserNode.children.length - 1;
@@ -272,5 +288,13 @@ export function hideModelOptions() {
 
 // 订阅：错误气泡内联重试（tree-render 发布 RETRY_REQUEST，本模块处理 regenerate；解耦 树↔渲染 的循环依赖）
 bus.on(EVENTS.RETRY_REQUEST, (detail) => {
-    if (detail && detail.node && detail.parent) regenerate(detail.node, detail.parent);
+    // 兜底：regenerate 内部会置 state.waiting=true 并发起流式；若它同步抛错，
+    // dispatchEvent 吞掉异常后 waiting 永不复位 → 输入框锁死。此处捕获并复位。
+    try {
+        if (detail && detail.node && detail.parent) regenerate(detail.node, detail.parent);
+    } catch (err) {
+        Logger.error('[Tree] 处理 RETRY_REQUEST 失败', err);
+        state.waiting = false;
+        inputRenderer.markDirty();
+    }
 });

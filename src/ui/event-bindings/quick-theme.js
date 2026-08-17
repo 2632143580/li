@@ -179,46 +179,6 @@ function saturation(rgb) {
 /** 数值夹取 @param {number} v @param {number} lo @param {number} hi @returns {number} */
 function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
 
-/** 两色按比例混合（t=0→c1，t=1→c2） @param {number[]} c1 @param {number[]} c2 @param {number} t @returns {number[]} */
-function mix(c1, c2, t) {
-    return [c1[0] + (c2[0] - c1[0]) * t, c1[1] + (c2[1] - c1[1]) * t, c1[2] + (c2[2] - c1[2]) * t];
-}
-
-/** [r,g,b] → [h(0~360), s(0~1), l(0~1)] @param {number[]} rgb @returns {number[]} */
-function rgbToHsl(rgb) {
-    const r = rgb[0] / 255, g = rgb[1] / 255, b = rgb[2] / 255;
-    const max = Math.max(r, g, b), min = Math.min(r, g, b);
-    const l = (max + min) / 2;
-    let h = 0, s = 0;
-    const d = max - min;
-    if (d !== 0) {
-        s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
-        switch (max) {
-            case r: h = (g - b) / d + (g < b ? 6 : 0); break;
-            case g: h = (b - r) / d + 2; break;
-            default: h = (r - g) / d + 4;
-        }
-        h /= 6;
-    }
-    return [h * 360, s, l];
-}
-
-/** [h,s,l] → [r,g,b] @param {number[]} hsl @returns {number[]} */
-function hslToRgb(hsl) {
-    const h = (((hsl[0] % 360) + 360) % 360) / 360, s = hsl[1], l = hsl[2];
-    if (s === 0) { const v = Math.round(l * 255); return [v, v, v]; }
-    const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
-    const p = 2 * l - q;
-    const hue2rgb = (t) => {
-        if (t < 0) t += 1; if (t > 1) t -= 1;
-        if (t < 1 / 6) return p + (q - p) * 6 * t;
-        if (t < 1 / 2) return q;
-        if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
-        return p;
-    };
-    return [Math.round(hue2rgb(h + 1 / 3) * 255), Math.round(hue2rgb(h) * 255), Math.round(hue2rgb(h - 1 / 3) * 255)];
-}
-
 /**
  * 把粘贴的颜色代码解析成完整配色对象（swatch / cssText / tokens）。
  * - 渐变约束：渐变只能进 cssText 的 body 规则，--color-bg 仍用纯色兜底（否则输入框 Canvas / color-mix 会崩）。
@@ -275,7 +235,10 @@ function buildSchemeFromCode(code, accentMix = 56) {
         let bestSat = -1;
         for (const c of rgbs) { const s = saturation(c); if (s > bestSat) { bestSat = s; accentRgb = c; } }
     }
-    const a = accentRgb.map(Math.round);
+    // 强调色 RGB 统一夹取 0–255：用户粘贴 rgb(300,0,0) 这类越界写法时，
+    // toRgb 不夹取会原样带出 300，使下方所有 rgba(${a[0]},...) token 变成非法 CSS（整组配色失效）。
+    // 此处一次性夹取，覆盖 accent-bright/soft/solid/glow/dim/user-bright 全部派生 token。
+    const a = accentRgb.map(v => Math.max(0, Math.min(255, Math.round(v))));
 
     const tokens = {};
     tokens['--color-bg'] = baseHex;
@@ -569,6 +532,7 @@ function saveCustomSchemeFromModal() {
     const scheme = buildSchemeFromCode(code, currentCreateMix);
     if (!scheme) {
         shakeSaveButton(); // 无效输入：保存按钮抖动提示（替代原生 alert）
+        showThemeFeedback('无效颜色代码'); // 文字提示：抖动只是动效，用户未必懂原因，补一句可读反馈
         return;
     }
     scheme.id = 'cs_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);

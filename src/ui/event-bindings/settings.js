@@ -42,6 +42,13 @@ import { registerUI } from '../../core/registry.js';
 registerUI('settings', bindSettingsEvents);
 
 export function bindSettingsEvents() {
+    // URL/KEY 标签（tag-url/tag-key）按实际值同步「已填」高亮：
+    // 未填时不带 llm-tag--set → CSS 显示虚线框（待填写提示）。与气泡保存逻辑同口径（url 非空 / key 长度>4）。
+    function syncTagStates() {
+        if (tagUrl) tagUrl.classList.toggle('llm-tag--set', !!String(tempSettings.apiUrl || '').trim());
+        if (tagKey) tagKey.classList.toggle('llm-tag--set', String(tempSettings.apiKey || '').trim().length > 4);
+    }
+
     // 打开
     DOM.settingsIcon.addEventListener('click', () => {
         setTempSettings(JSON.parse(JSON.stringify(state.settings)));
@@ -61,6 +68,7 @@ export function bindSettingsEvents() {
         populateModelSelect(tempSettings.availableModels, tempSettings.model);
         checkProviderMatch();
         syncSim();
+        syncTagStates(); // 打开即按当前值刷标签态（虚线框/实心框），不依赖 HTML 写死的 class
         openModal('modal');
     });
 
@@ -99,6 +107,7 @@ export function bindSettingsEvents() {
     DOM.setApiUrl.addEventListener('input', () => {
         tempSettings.apiUrl = DOM.setApiUrl.value;
         checkProviderMatch();
+        syncTagStates(); // 实时反映虚线框/实心框
     });
 
     // API Key 输入
@@ -107,6 +116,7 @@ export function bindSettingsEvents() {
         const provider = getProviderByUrl(tempSettings.apiUrl);
         ensureKeysObject(tempSettings);
         tempSettings.keys[provider] = tempSettings.apiKey;
+        syncTagStates(); // 实时反映虚线框/实心框
     });
 
     // AI 名字
@@ -144,6 +154,7 @@ export function bindSettingsEvents() {
         tempSettings.apiKey = tempSettings.keys[provider] || '';
         DOM.setApiKey.value = tempSettings.apiKey;
         DOM.providerHint.textContent = '';
+        syncTagStates(); // 切标签后 URL/KEY 都变了，刷新虚线框/实心框
     });
 
     // 重置 API（二次确认：首次点击进入「待确认」态，再次点击才执行；armClickConfirm 替代原生 confirm 弹窗）
@@ -161,6 +172,7 @@ export function bindSettingsEvents() {
         tempSettings.availableModels = [DEFAULT_SETTINGS.model];
         populateModelSelect(tempSettings.availableModels, DEFAULT_SETTINGS.model);
         checkProviderMatch();
+        syncTagStates(); // 重置后按默认值刷新标签态
     }
     armClickConfirm(DOM.btnResetApi, resetApi, { armedText: '确认重置?' });
 
@@ -282,9 +294,7 @@ export function bindSettingsEvents() {
     document.querySelectorAll('.llm-bubble__btn[data-close]').forEach(btn => btn.addEventListener('click', (e) => { e.stopPropagation(); closeAllBubbles(); }));
     document.querySelectorAll('.llm-bubble__btn[data-save]').forEach(btn => btn.addEventListener('click', (e) => {
         e.stopPropagation();
-        const type = btn.dataset.save;
-        if (type === 'url') { if (tagUrl) tagUrl.classList.toggle('llm-tag--set', !!DOM.setApiUrl.value.trim()); }
-        else if (type === 'key') { if (tagKey) tagKey.classList.toggle('llm-tag--set', DOM.setApiKey.value.trim().length > 4); }
+        syncTagStates(); // 保存后按当前输入值刷新标签态（虚线框/实心框）
         closeAllBubbles();
     }));
 

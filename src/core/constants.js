@@ -28,7 +28,7 @@ export const ERROR_PREFIX = '发生错误:';
  *
  * 字段类型：
  *   apiUrl          {string}  chat/completions 端点完整 URL
- *   apiKey          {string}  当前生效的 API Key（明文）
+ *   apiKey          {string}  当前生效的 API Key（明文，运行时由用户填写或从 keys 还原；默认空串，禁止硬编码真实值）
  *   model           {string}  模型标识
  *   maxWindow       {number}  上下文窗口上限（token 数，非 k）；监控面板以 k 为单位编辑
  *   aiName          {string}  AI 显示名，同时写入 document.title
@@ -51,7 +51,7 @@ export const ERROR_PREFIX = '发生错误:';
  */
 export const DEFAULT_SETTINGS = {
     apiUrl: "https://open.bigmodel.cn/api/paas/v4/chat/completions",
-    apiKey: "bc748b2759f64f79af82dc57b85013a7.jFnok7nEPcDuI3Jj",
+    apiKey: "", // 默认空串：密钥必须由用户填写或从 keys 还原，禁止在此硬编码真实 Key（原默认值为明文密钥，属安全缺陷）
     model: "glm-4-air",
     maxWindow: 32768,
     aiName: "Li",

@@ -63,11 +63,11 @@ export const ThemeEngine = {
 
     /** 激活主题 — 注入 CSS + 覆盖 Token */
     mount(id) {
-        if (this.activeThemes.find(t => t.id === id)) return;
+        if (this.activeThemes.find(t => t.id === id)) return true;   // 已挂载视为成功
         const theme = this.availableThemes[id];
         if (!theme) {
             Logger.warn(`[ThemeEngine] 主题 "${id}" 不存在`);
-            return;
+            return false;   // 返回状态：调用方（applyPluginCode）据 false 判失败/回滚
         }
 
         const readOnlyState = new Proxy(state.settings, {
@@ -96,13 +96,21 @@ export const ThemeEngine = {
         }
 
         // 3. 调用 onMount 生命周期
-        Logger.safe('ThemeEngine.onMount', () => theme.onMount?.(DOM.bgDomLayer, instance.state));
+        // 不再用 Logger.safe 吞掉 onMount 异常：吞错会让 applyPluginCode 误判成功、把脏主题推进 activeThemes 占槽。
+        // 改为显式捕获并据真值上报，使导入流程能据 false 触发回滚。
+        try {
+            theme.onMount?.(DOM.bgDomLayer, instance.state);
+        } catch (e) {
+            Logger.error(`[ThemeEngine] 主题 onMount 失败：${e?.message || e}`);
+            return false;   // 初始化失败：上报 false，调用方据以判失败并回滚
+        }
 
         this.activeThemes.push(instance);
         // 标记已有主题激活：用于门控 waifu 默认绿底皮肤(让主题统一接管 waifu 气泡外观)
         document.body.classList.add('theme-active');
         syncThemeLightClass(); // 主题挂载后同步浅色信号（驱动状态色双套系统翻转）
         updateInputColors(); // 主题挂载后刷新输入框颜色缓存
+        return true;
     },
 
     /** 停用主题 — 移除 CSS + 还原 Token */

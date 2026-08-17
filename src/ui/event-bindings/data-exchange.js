@@ -15,6 +15,7 @@ import {
     applySettings, findMaxId, migrateErrorFlags,
     getLastNodeInPath, renderChat, initChatTree, updateCacheUI, resetMonitorStats
 } from '../../chat/tree.js';
+import { clearAutoQueue } from '../../engines/tts-engine.js'; // 修⑥：清空对话即停播放 + 清空自动朗读队列
 
 /** 全量导入 / 导出 / 清空 */
 import { registerUI } from '../../core/registry.js';
@@ -30,8 +31,14 @@ export function bindDataExchangeEvents() {
         for (const key in state.settings) {
             if (allowedKeys.has(key)) cleanSettings[key] = state.settings[key];
         }
+        // 脱敏：导出备份不得含明文密钥（修 P0-2：原实现把 apiKey / keys / 云端 TTS Key 连同聊天记录写入 .json，随文件泄露）。
+        // 深拷贝纯 JSON 后清空敏感字段；导入方缺失密钥时回退到用户重新填写，避免密钥随备份文件落地。
+        const masked = JSON.parse(JSON.stringify(cleanSettings));
+        masked.apiKey = '';
+        if (masked.keys) for (const k in masked.keys) masked.keys[k] = '';
+        if (masked.ttsCloud) masked.ttsCloud.apiKey = '';
         const dataStr = JSON.stringify({
-            settings: cleanSettings,
+            settings: masked,
             chatTree: state.chatTree
         }, null, 2);
         const blob = new Blob([dataStr], { type: "application/json" });
@@ -55,7 +62,15 @@ export function bindDataExchangeEvents() {
             try {
                 const importedData = JSON.parse(event.target.result);
                 if (importedData.settings && typeof importedData.settings === 'object') {
-                    Object.assign(state.settings, importedData.settings);
+                    // 白名单合并：只接受 DEFAULT_SETTINGS 存在的键，防止备份文件夹带未知/恶意键污染运行时（修 P2 ⑤）。
+                    // 密钥字段（apiKey/keys/ttsCloud）不随导入覆盖——导出已脱敏为 ''，若回灌会清空用户当前真实 Key；
+                    // 用户导入后自行重填即可（你已确认「key 无所谓」）。
+                    const allowedKeys = new Set(Object.keys(DEFAULT_SETTINGS));
+                    const SECRET_KEYS = new Set(['apiKey', 'keys', 'ttsCloud']);
+                    for (const key in importedData.settings) {
+                        if (!allowedKeys.has(key) || SECRET_KEYS.has(key)) continue;
+                        state.settings[key] = importedData.settings[key];
+                    }
                     ensureKeysObject(state.settings);
                 }
                 if (importedData.chatTree && importedData.chatTree.role === 'system') {
@@ -80,6 +95,7 @@ export function bindDataExchangeEvents() {
 
     // 清空对话：二次点击确认（替代原生 confirm，避免打断操作流、移动端友好）
     armClickConfirm(DOM.btnClearChat, () => {
+        clearAutoQueue(); // 修⑥：清空对话即停当前播放 + 清空自动朗读队列（避免旧消息后台继续响）
         initChatTree();
         updateCacheUI(0);
         resetMonitorStats(); // 新一轮对话：累计 token / 缓存等归零

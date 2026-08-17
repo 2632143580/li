@@ -36,8 +36,9 @@ export const bus = {
      * @param {*} detail 任意载荷对象
      */
     emit(event, detail) {
-        const ev = new Event(event); // 原生 Event，浏览器/Node 均支持；不依赖 CustomEvent
-        ev.detail = detail;          // 附加载荷（Event 实例可扩展属性）
+        // 用 CustomEvent 承载 detail：原生 Event 虽可手动挂 detail 属性，但订阅方 handler(e) 按规范读取的是
+        // e.detail（CustomEvent 标准字段）。用 CustomEvent 才能保证载荷沿标准路径传递，避免「手动挂属性是否被读取」的歧义。
+        const ev = new CustomEvent(event, { detail });
         target.dispatchEvent(ev);
     },
 

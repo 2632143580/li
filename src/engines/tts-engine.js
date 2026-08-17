@@ -234,7 +234,7 @@ function speakSystem(text, cb = {}) {
     const mySeq = playSeq; // 抓取序号；下方 speakNow 在 60ms 延迟窗口内若被停止，playSeq 自增 → 放弃本次
 
     const speakNow = () => {
-        if (mySeq !== playSeq) return; // 60ms 窗口内被停止 / 切句 → 放弃本次系统播放
+        if (mySeq !== playSeq) { cb.onEnd?.(false); return; } // 60ms 窗口 / 异步等待中被停止 → 放弃本次并通知队列续播（修⑤：防 autoPlaying 卡死）
         const u = new SpeechSynthesisUtterance(cleaned);
         const voice = pickVoice();
         // 防御：个别浏览器/环境返回的 voice 对象不合规，赋值会抛 TypeError 直接中断播放；
@@ -333,7 +333,10 @@ async function speakCloud(text, cb = {}) {
     } catch (err) {
         showToast('云端合成失败（' + (err?.message || '未知错误') + '），已回退系统语音', 'error');
         Logger.warn('[TTS] 云端合成失败，回退系统语音', err?.message || String(err));
-        cb.onEnd?.(false); // 云端合成失败（非自然播完）→ 转系统语音继续，由后者回写
+        // 修③：失败回退只推进一次队列——先清 activeOnEnd，否则下方 speakSystem 内部 stopCurrent
+        // 会触发云端句的 wrapper onEnd（autoPlaying=false + processAutoQueue），与回退本句重叠串台。
+        // 回退本句由 speakSystem 播完后再经 wrapper onEnd 续播下一句，全程仅一次推进。
+        activeOnEnd = null;
         speakSystem(text, cb);
         return;
     }
@@ -359,7 +362,8 @@ async function speakCloud(text, cb = {}) {
         showToast('云端音频播放被拦截，已回退系统语音', 'warn');
         Logger.warn('[TTS] 云端音频播放被拦截，回退系统语音', e?.message || String(e));
         if (activeCloudAudio === audio) activeCloudAudio = null;
-        cb.onEnd?.(false); // 云端播放被拦截（非自然播完）→ 转系统语音继续，由后者回写
+        // 修③：同上，仅推进一次队列（先清 activeOnEnd 再回退系统音）
+        activeOnEnd = null;
         speakSystem(text, cb);
     }
 }
@@ -504,14 +508,29 @@ function processAutoQueue() {
     if (autoQueue.length === 0) return;
     autoPlaying = true;
     const { text, cb } = autoQueue.shift();
+    // 队列看门狗（修⑨）：speechSynthesis.onend / audio.onended 在后台标签页 / 失焦 pause 后
+    // 是已知不触发的坑，一旦不响 autoPlaying 卡死、队列停滞。按句长估算最大时长，
+    // 超时强制续播下一句，保证自动朗读不会整条卡死。
+    // settled 防「看门狗」与「真实 onEnd」重复推进：两者只会有一个真正推进队列。
+    const estMs = Math.min(60000, Math.max(4000, text.length * 350));
+    let settled = false;
+    const advance = (natural) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(watchdog);
+        cb.onEnd?.(natural);                 // 退播放态 + 进度条复位 + 自然播完回写真实秒数
+        autoPlaying = false;
+        processAutoQueue();                  // 自然播完 / 打断 / 超时都继续下一句
+    };
+    const watchdog = setTimeout(() => {
+        Logger.warn('[TTS] 自动朗读单句超时未收到 onEnd，强制续播下一句', text.slice(0, 16));
+        stopCurrent();                       // 掐掉卡死的音频（stopCurrent 会触发 advance，settled 防重复）
+        advance(false);                      // 兜底：若 stopCurrent 未触发 advance，仍强制续播
+    }, estMs);
     speakSentence(text, {
         onStart: () => cb.onStart?.(),                              // 进播放态（高亮 + 波形跳动）
         onProgress: (p) => cb.onProgress?.(p),                       // 真实进度条（云端 timeupdate / 系统 onboundary）
-        onEnd: (natural) => {
-            cb.onEnd?.(natural);                                     // 退播放态 + 进度条复位 + 自然播完回写真实秒数
-            autoPlaying = false;
-            processAutoQueue();                                      // 自然播完 / 打断都继续下一句
-        }
+        onEnd: (natural) => advance(natural)
     });
 }
 

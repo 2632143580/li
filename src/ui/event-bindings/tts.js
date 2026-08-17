@@ -340,4 +340,10 @@ export function bindVoiceSettings() {
             if (DOM.voiceModal && DOM.voiceModal.style.display !== 'none') populateVoices();
         });
     }
+
+    // 修⑥：标签页隐藏时停止自动朗读/播放。后台标签页浏览器会 pause speechSynthesis，
+    // 但自动朗读队列 / <audio> 不会自动停，留后台静默播放。隐藏即清，切回需用户重新触发。
+    document.addEventListener('visibilitychange', () => {
+        if (document.hidden) clearAutoQueue();
+    });
 }

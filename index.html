@@ -157,7 +157,7 @@
                 <span id="cache-hit-val" class="ml-num">--</span>
             </div>
             <!-- 上下文占用圆环：中心百分比 = 已用/上限；点击弹编辑气泡直接改上限（k） -->
-            <button id="ctx-ring" class="ctx-ring" type="button" aria-label="上下文占用" data-tip="上下文已用：点击编辑上限">
+            <button id="ctx-ring" class="ctx-ring" type="button" aria-label="上下文占用：点击编辑上限">
                 <svg class="ctx-ring-svg" viewBox="0 0 36 36">
                     <circle class="ctx-ring-track" cx="18" cy="18" r="15.5"></circle>
                     <circle id="ctx-ring-fill" class="ctx-ring-fill" cx="18" cy="18" r="15.5"></circle>
@@ -351,8 +351,6 @@
                         <button class="mini-btn" id="sys-prompt-import">导入文件</button>
                     </div>
                     <textarea class="prompt-textarea" id="set-sysPrompt" rows="4"></textarea>
-                    <input type="file" id="file-import-prompt" hidden>
-                    <input id="hiddenInput" hidden>
                 </div>
             </div>
 
@@ -369,8 +367,8 @@
                     </div>
                     <span class="provider-hint" id="provider-hint"></span>
                     <div class="llm-tags">
-                        <span class="llm-tag llm-tag--set" id="tag-url" data-type="url">URL</span>
-                        <span class="llm-tag llm-tag--set" id="tag-key" data-type="key">KEY</span>
+                        <span class="llm-tag" id="tag-url" data-type="url">URL</span>
+                        <span class="llm-tag" id="tag-key" data-type="key">KEY</span>
                     </div>
                     <div class="llm-actions">
                         <div class="llm-model">

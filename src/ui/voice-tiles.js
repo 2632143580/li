@@ -16,7 +16,7 @@
 import { DOM } from '../core/dom.js';
 import { state } from '../core/store.js';
 import { splitSentences } from '../core/text-split.js';
-import { cleanForSpeech, speakSentence, stopCurrent, enqueueAutoSentence, clearAutoQueue } from '../engines/tts-engine.js';
+import { cleanForSpeech, speakSentence, enqueueAutoSentence, clearAutoQueue } from '../engines/tts-engine.js';
 
 /** 当前播放中的语音条 DOM（互斥：新条播放前先停旧条） @type {HTMLElement|null} */
 let playingTile = null;
@@ -37,7 +37,6 @@ export function renderVoiceTiles(contentEl, node, isStreaming) {
         .map(s => cleanForSpeech(s))
         .filter(s => s.trim());
     if (!tiles.length) { contentEl.textContent = ''; return; }
-    maybeAutoRead(node, isStreaming, contentEl);
 
     const existing = Array.from(contentEl.querySelectorAll('.vt'));
 
@@ -51,6 +50,7 @@ export function renderVoiceTiles(contentEl, node, isStreaming) {
             existing[existing.length - 1].dataset.text = tiles[tiles.length - 1];
             syncRevealedText(existing[existing.length - 1]);
         }
+        maybeAutoRead(node, isStreaming, contentEl); // 语音条已入 DOM 后再入队（修①⑩：避免绑旧节点 / 新句延迟）
         return;
     }
 
@@ -62,13 +62,21 @@ export function renderVoiceTiles(contentEl, node, isStreaming) {
         }
     }
     if (mismatch) rebuild(contentEl, tiles);
+    maybeAutoRead(node, isStreaming, contentEl); // 同上：重建后 DOM 已稳定再入队
 }
 
-/** 全量重建（结构变化 / 首次）：重建前若正播放其中一条先停，避免悬空高亮 @param {HTMLElement} contentEl @param {Array<string>} tiles */
+/** 全量重建（结构变化 / 首次）：重建前记录正在播放的句，重建后把 is-playing 转移到新节点，
+ *  不调用 stopCurrent（修①：避免流结束重建截断自动朗读音频 / 抹掉动画）。
+ *  自动朗读跨重建应续播，手动停止由 clearAutoQueue 负责。 @param {HTMLElement} contentEl @param {Array<string>} tiles */
 function rebuild(contentEl, tiles) {
-    if (playingTile && contentEl.contains(playingTile)) { stopCurrent(); playingTile = null; }
+    const playingText = (playingTile && contentEl.contains(playingTile)) ? playingTile.dataset.text : null;
+    if (playingTile && contentEl.contains(playingTile)) playingTile = null; // 仅清追踪，不停音频
     contentEl.innerHTML = '';
     tiles.forEach((t, i) => addTile(contentEl, t, i));
+    if (playingText) {
+        const live = Array.from(contentEl.querySelectorAll('.vt')).find(t => t.dataset.text === playingText);
+        if (live) { playingTile = live; live.classList.add('is-playing'); } // 续播句动画不丢
+    }
 }
 
 /**
@@ -83,7 +91,6 @@ export function renderBoth(contentEl, node, isStreaming) {
         .map(s => ({ raw: s, clean: cleanForSpeech(s) }))
         .filter(r => r.clean.trim());
     if (!rows.length) { contentEl.textContent = ''; return; }
-    maybeAutoRead(node, isStreaming, contentEl);
 
     const existing = Array.from(contentEl.querySelectorAll('.vt-both-row'));
 
@@ -99,6 +106,7 @@ export function renderBoth(contentEl, node, isStreaming) {
             const txt = last.querySelector('.vt-both-text');
             if (txt) txt.textContent = rows[rows.length - 1].raw;
         }
+        maybeAutoRead(node, isStreaming, contentEl); // 语音条已入 DOM 后再入队（修①⑩）
         return;
     }
 
@@ -110,6 +118,7 @@ export function renderBoth(contentEl, node, isStreaming) {
         }
     }
     if (mismatch) rebuildBoth(contentEl, rows);
+    maybeAutoRead(node, isStreaming, contentEl); // 同上：重建后 DOM 已稳定再入队
 }
 
 /**
@@ -129,16 +138,20 @@ function maybeAutoRead(node, isStreaming, contentEl) {
     if (state.settings.ttsDisplayMode === 'text') return; // 纯文字模式无语音条，不自动读
     const tilesEls = Array.from(contentEl.querySelectorAll('.vt'));
     if (!tilesEls.length) return;
-    const seen = node._autoEnq || (node._autoEnq = new Set());
-    const enq = (tile) => {
-        const t = tile.dataset.text;
-        if (!seen.has(t)) { seen.add(t); enqueueAutoSentence(t, buildTileCb(tile)); }
+    // node._autoEnq 经 JSON 存档/恢复后会从 Set 退化为普通对象 {}（Set/Map 序列化即丢类型），
+    // 此时 seen.has 会抛 TypeError 崩溃。统一兜底：非 Set 实例则重建，保证去重集合类型正确可用。
+    if (!(node._autoEnq instanceof Set)) node._autoEnq = new Set();
+    const seen = node._autoEnq;
+    // 去重键含句序（idx:text），避免"好的。好的。"这类合法重复句被纯文本去重跳过（修⑦）
+    const enq = (text, idx) => {
+        const key = idx + ':' + text;
+        if (!seen.has(key)) { seen.add(key); enqueueAutoSentence(text, buildTileCb(contentEl, text)); }
     };
     if (isStreaming) {
         node._autoReadArmed = true;
-        for (let i = 0; i < tilesEls.length - 1; i++) enq(tilesEls[i]); // 末句未完不读
+        for (let i = 0; i < tilesEls.length - 1; i++) enq(tilesEls[i].dataset.text, i); // 末句未完不读
     } else if (node._autoReadArmed) {
-        for (const tile of tilesEls) enq(tile); // 流结束补齐末句
+        for (let i = 0; i < tilesEls.length; i++) enq(tilesEls[i].dataset.text, i); // 流结束补齐末句
         node._autoReadArmed = false;            // 解除武装，防历史重渲染重复读
     }
 }
@@ -155,11 +168,16 @@ function addBothRow(contentEl, row, idx = 0) {
     contentEl.appendChild(wrap);
 }
 
-/** 全量重建「都显示」（结构变化 / 首次） @param {HTMLElement} contentEl @param {Array<{raw:string,clean:string}>} rows */
+/** 全量重建「都显示」（结构变化 / 首次）：同 rebuild，重建后转移 is-playing（修①） @param {HTMLElement} contentEl @param {Array<{raw:string,clean:string}>} rows */
 function rebuildBoth(contentEl, rows) {
-    if (playingTile && contentEl.contains(playingTile)) { stopCurrent(); playingTile = null; }
+    const playingText = (playingTile && contentEl.contains(playingTile)) ? playingTile.dataset.text : null;
+    if (playingTile && contentEl.contains(playingTile)) playingTile = null; // 仅清追踪，不停音频
     contentEl.innerHTML = '';
     rows.forEach((r, i) => addBothRow(contentEl, r, i));
+    if (playingText) {
+        const live = Array.from(contentEl.querySelectorAll('.vt')).find(t => t.dataset.text === playingText);
+        if (live) { playingTile = live; live.classList.add('is-playing'); } // 续播句动画不丢
+    }
 }
 
 /**
@@ -210,23 +228,29 @@ function addTile(contentEl, text, idx = 0) {
 
 /**
  * 构建语音条播放回调（手动点击 / 自动朗读共用，保证「自动读」与「点击读」视觉完全一致：
- * 进播放态高亮 + 波形跳动 + 真实进度条 + 自然播完回写实测评测秒数）。
- * 视觉操作前均先判 tile.isConnected，避免流式重建后作用于已脱离文档的旧节点。
- * @param {HTMLElement} tile @returns {{onStart:function,onProgress:function,onEnd:function}}
+ * 进播放态高亮 + 波形跳动 + 自然播完回写实测评测秒数）。
+ * 关键修复（2026-08-17）：不再闭包捕获 tile 引用——流式增量渲染会替换 DOM 节点，
+ * 捕获的旧节点会脱离文档，导致 onStart 的 is-playing 被静默跳过（"自动朗读没动画"根因②）。
+ * 改为持有 contentEl + text，播放时按 dataset.text 重新查找当前 live 节点。
+ * @param {HTMLElement} contentEl 装载层（.bubble-content） @param {string} text 清洗后文本
+ * @returns {{onStart:function,onProgress:function,onEnd:function}}
  */
-function buildTileCb(tile) {
+function buildTileCb(contentEl, text) {
     let t0 = 0;
+    const resolve = () => Array.from(contentEl.querySelectorAll('.vt')).find(t => t.dataset.text === text) || null;
     return {
         onStart: () => {
+            const tile = resolve();
             t0 = performance.now();
             playingTile = tile; // 让手动点击「正在自动读的条」可再点停止
-            if (tile.isConnected) tile.classList.add('is-playing');
+            if (tile && tile.isConnected) tile.classList.add('is-playing');
         },
         // 进度条已移除（估时不准确，化繁为简），进度回调保留签名但不写 DOM
         onProgress: () => {},
         onEnd: (natural) => {
-            if (playingTile === tile) playingTile = null; // 先清追踪：避免流式重建后旧节点悬空引用卡死（先于 isConnected 判断）
-            if (!tile.isConnected) return; // 脱离文档（流式重建）则不再动 DOM
+            const tile = resolve();
+            if (playingTile === tile) playingTile = null; // 先清追踪：避免悬空引用卡死（先于 isConnected 判断）
+            if (!tile || !tile.isConnected) return; // 节点已重建/移除：不操作死节点
             tile.classList.remove('is-playing');
             // 仅自然播完（非打断）且真实时长合理（>=1s，排除静默误回）才回写秒数；展开文字时不覆盖布局
             if (natural && !tile.classList.contains('revealed')) {

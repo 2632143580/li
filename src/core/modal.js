@@ -4,8 +4,10 @@
 //   style.display='flex' 打开面板，互斥逻辑重复散落——新增面板要改所有旧函数。
 // 根治：注册制——openModal(id) 先关其他主面板，再开目标；closeAllModals() 全关。
 // 所有主面板均走 openModal/closeAllModals 互斥开关；已无 class 切换的悬浮面板。
-// 依赖：无（core 层零外部依赖硬约束）。
+// 依赖：core/logger（同属 core 层，满足「core 零外部依赖」硬约束）。
 // ============================================================
+
+import { Logger } from './logger.js';
 
 /** 参与互斥的主面板 id 清单（按需追加新面板，旧代码零改动） @type {string[]} */
 const MODAL_IDS = [
@@ -46,6 +48,9 @@ export function openModal(id, exclude) {
     if (el) {
         el.style.display = 'flex';
         syncBodyScrollLock();
+    } else {
+        // 未知 id：多为拼写错误或忘了在 MODAL_IDS 注册。原实现静默返回 null 难定位，改为显式告警。
+        Logger.warn(`[modal] openModal 未知面板 id: "${id}"（DOM 中未找到，已跳过打开）`);
     }
     return el;
 }

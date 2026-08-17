@@ -143,6 +143,8 @@
     border-radius: 30px; user-select: none;
 }
 .llm-tag--set { border-color: var(--color-accent-dim); color: var(--color-accent-bright); background: var(--color-accent-soft); }
+/* 未填（无 --set）：虚线框作为"待填写"醒目提示；hover 仅换色、不改虚线样式 */
+.llm-tag:not(.llm-tag--set) { border-style: dashed; border-color: var(--color-accent); }
 .llm-tag:hover { border-color: var(--white-a20); color: var(--white-a40); }
 
 .llm-model { background: var(--white-a03); border: 1px solid var(--white-a05); padding: 0 4px 0 14px; gap: 4px; }
