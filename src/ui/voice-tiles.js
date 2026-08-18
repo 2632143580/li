@@ -17,7 +17,6 @@ import { DOM } from '../core/dom.js';
 import { state } from '../core/store.js';
 import { splitSentences } from '../core/text-split.js';
 import { cleanForSpeech, speakSentence, enqueueAutoSentence, clearAutoQueue, preloadSentence } from '../engines/tts-engine.js';
-import { Logger } from '../core/logger.js';
 
 /** 当前播放中的语音条 DOM（互斥：新条播放前先停旧条） @type {HTMLElement|null} */
 let playingTile = null;

@@ -538,14 +538,13 @@ const preloadQueue = [];
 
 /** 后台预加载单句云端音频（限制并发，失败静默）。供「播当前句时预加载下一句」与「悬停预加载」调用。 */
 export function preloadSentence(text) {
-    if (state.settings.ttsSource !== 'cloud') { Logger.debug('[Preload] 跳过：非云端TTS源（本地合成无需预加载）'); return; }
+    if (state.settings.ttsSource !== 'cloud') return;       // 仅云端源需预加载（系统源本地合成无请求）
     const cfg = state.settings.ttsCloud || {};
-    if (!cfg.apiKey) { Logger.debug('[Preload] 跳过：未配置云端Key'); return; }
+    if (!cfg.apiKey) return;                                 // 未配 Key 不预加载
     const cleaned = cleanForSpeech(text);
     if (!cleaned) return;
     const key = cloudCacheKey(cleaned, cfg);
-    if (cloudCache.has(key) || cloudInflight.has(key)) { Logger.debug('[Preload] 命中缓存/在途，跳过：' + cleaned.slice(0, 16)); return; }
-    Logger.info('[Preload] 预加载：' + cleaned.slice(0, 16));
+    if (cloudCache.has(key) || cloudInflight.has(key)) return; // 已在缓存/请求中则跳过（fetchCloudAudioCached 内部亦有去重）
     preloadQueue.push({ text: cleaned, cfg });
     drainPreloadQueue();
 }
