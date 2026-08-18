@@ -252,7 +252,7 @@
     <input type="file" id="file-import-all" accept="application/json" style="display:none">
     <input type="file" id="file-import-prompt" accept=".txt,.md,text/plain,text/markdown" style="display:none">
     <input type="file" id="file-import-bg-image" accept="image/png, image/jpeg, image/webp, image/svg+xml" multiple style="display:none">
-    <input type="file" id="file-import-bg-config" accept=".json,application/json" style="display:none">
+
 
     <!-- 当前背景常驻指示器（需求十九：固定位置显示背景名/来源） -->
     <div id="bg-current-indicator"></div>
@@ -295,11 +295,10 @@
                         <input id="bg-batch-words" class="bg-batch-input" type="text" placeholder="触发词，逗号/换行分隔多个" />
                         <button id="btn-bg-batch-apply" class="fs-btn primary" disabled>应用词到选中图</button>
                     </div>
-                    <div id="bg-batch-status" class="bg-batch-status">点缩略图选中图片（可多选）</div>
-                </div>
-                <div class="bg-mgmt-foot" style="margin-top: 10px; display: flex; gap: 8px;">
-                    <button id="btn-bg-export" class="fs-btn" style="flex: 1; padding: 8px; font-size: 12px;">导出配置</button>
-                    <button id="btn-bg-import" class="fs-btn" style="flex: 1; padding: 8px; font-size: 12px;">导入配置</button>
+                    <div class="bg-batch-status-row">
+                        <div id="bg-batch-status" class="bg-batch-status">点缩略图选中图片（可多选）</div>
+                        <button id="btn-bg-clear-sel" class="fs-btn" style="display:none; padding:4px 10px; font-size:12px; flex-shrink:0;">清除选中</button>
+                    </div>
                 </div>
             </div>
             <button id="bg-modal-close" class="fs-btn primary" style="width: 100%; padding: 12px; margin-top: 10px;">关闭</button>
@@ -536,10 +535,14 @@
                 <div id="voice-cloud-panel" class="voice-subpanel" style="display:none">
                     <p class="vt-warn">云端走小米 MiMo-V2.5-TTS，浏览器直连、无需服务端；API Key 仅存本机（个人自用，勿公开部署分享存档）。当前限时免费。</p>
                     <div class="voice-row voice-row--cache">
-                        <span class="lab">本地语音缓存<small>重听同一句免请求，刷新即清空</small></span>
-                        <div class="voice-cache-ctrls">
-                            <span class="voice-cache-stat" id="set-cloud-cache-stat">0 句 · 0 KB</span>
-                            <button type="button" id="cloud-cache-clear" class="voice-preset">清空</button>
+                        <div class="vcache">
+                            <div class="vcache-head">
+                                <span class="vcache-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v6c0 1.66 3.58 3 8 3s8-1.34 8-3V5"/><path d="M4 11v6c0 1.66 3.58 3 8 3s8-1.34 8-3v-6"/></svg></span>
+                                <span class="lab">本地语音缓存<small>重听同一句免请求，刷新/重开仍在（持久化）</small></span>
+                                <button type="button" id="cloud-cache-clear" class="voice-preset">清空</button>
+                            </div>
+                            <div class="vcache-bar"><i id="set-cloud-cache-bar"></i></div>
+                            <span class="vcache-stat" id="set-cloud-cache-stat">0 句 · 已用 0 KB / 上限约 300 MB</span>
                         </div>
                     </div>
                     <div class="voice-row">

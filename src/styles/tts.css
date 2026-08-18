@@ -199,12 +199,16 @@
 
 .voice-body { padding: 8px 18px 6px; }
 
-/* 语音提示文案 */
+/* 语音提示文案：左侧强调竖线 + 极浅底色的「信息卡」，提升可读性与设计感（原纯淡字段落太轻、几乎读不清） */
 .vt-hint {
-    font-size: 11px;
-    color: var(--white-a35);
-    line-height: 1.5;
+    font-size: 11.5px;
+    color: var(--white-a60);
+    line-height: 1.6;
     margin: 0 0 14px;
+    padding: 9px 11px;
+    border-left: 2.5px solid var(--color-accent);
+    background: color-mix(in srgb, var(--color-accent) 7%, transparent);
+    border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
 }
 
 /* 设置行：标签左、控件右，行间分隔线 */
@@ -280,9 +284,36 @@
     margin-top: 2px;
 }
 
-/* 本地语音缓存行：统计文案 + 清空按钮（右对齐，控件组） */
-.voice-cache-ctrls { display: flex; align-items: center; gap: 10px; justify-content: flex-end; }
-.voice-cache-stat {
+/* 本地语音缓存：信息卡片 + 迷你容量进度条（设计小巧思，纯正向；一眼看出占用，不丢原统计信息） */
+.voice-row--cache { display: block; padding: 12px 0; }
+.vcache { display: flex; flex-direction: column; gap: 9px; }
+.vcache-head { display: flex; align-items: center; gap: 10px; }
+.vcache-ico {
+    width: 26px; height: 26px; flex: 0 0 auto;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 7px;
+    background: color-mix(in srgb, var(--color-accent) 14%, transparent);
+    color: var(--color-accent-solid);
+}
+.vcache-ico svg { width: 15px; height: 15px; }
+.vcache-head .lab { flex: 1 1 auto; min-width: 0; }
+.vcache-head .voice-preset { flex: 0 0 auto; margin-left: auto; }
+.vcache-bar {
+    position: relative;
+    height: 6px;
+    border-radius: 999px;
+    background: var(--white-a10);
+    overflow: hidden;
+}
+.vcache-bar i {
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 0;
+    border-radius: 999px;
+    background: linear-gradient(90deg, var(--color-accent), var(--color-accent-solid));
+    transition: width .5s var(--transition-smooth);
+}
+.vcache-stat {
     font-size: 12px;
     color: var(--white-a70);
     font-variant-numeric: tabular-nums;
@@ -373,22 +404,24 @@
 
 /* 发语音概率：快捷预设按钮（从不 0% / 总是 100%） */
 .voice-presets { display: flex; gap: 8px; justify-content: flex-end; }
+/* 预设 / 清空 / 测试等小操作按钮统一为圆角 chip，轻量精致 */
 .voice-preset {
     font: inherit;
     font-size: 12px;
-    color: var(--white-a70);
-    background: var(--white-a06);
-    border: 1px solid var(--white-a20);
-    border-radius: var(--radius-sm);
-    padding: 5px 12px;
+    color: var(--white-a75);
+    background: var(--white-a05);
+    border: 1px solid var(--white-a14);
+    border-radius: 999px;
+    padding: 5px 13px;
     cursor: pointer;
     transition: background var(--transition-fast), color var(--transition-fast), border-color var(--transition-fast);
+    -webkit-tap-highlight-color: transparent;
 }
-.voice-preset:hover { background: var(--white-a10); color: var(--white-a90); }
+.voice-preset:hover { background: var(--white-a10); color: var(--white-a95); border-color: var(--white-a22); }
 .voice-preset.active {
-    background: var(--color-accent-soft);
+    background: color-mix(in srgb, var(--color-accent) 16%, transparent);
     color: var(--color-accent-solid);
-    border-color: var(--color-accent-dim);
+    border-color: var(--color-accent);
 }
 
 /* ====================== 都显示：逐句「波形在上 + 文字在下」 ======================

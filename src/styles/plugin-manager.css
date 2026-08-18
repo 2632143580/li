@@ -137,6 +137,18 @@ input:checked + .toggle-slider:before {
     color: var(--white-a50);
 }
 
+.bg-batch-status-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 6px;
+}
+.bg-batch-status-row .bg-batch-status {
+    margin-top: 0;
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
 .bg-img-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
@@ -156,8 +168,24 @@ input:checked + .toggle-slider:before {
 }
 
 .bg-card.active {
-    border-color: var(--color-accent);
-    background: color-mix(in srgb, var(--color-accent) 8%, transparent);
+    /* 不再用细线边框标识「当前使用」，改用卡片内圆角矩形对号徽标（见 .bg-card-badge） */
+    background: color-mix(in srgb, var(--color-accent) 10%, transparent);
+}
+/* 「当前使用」徽标：圆角矩形包裹的对号，右对齐于卡片底部 */
+.bg-card-badge {
+    align-self: flex-end;
+    margin-top: 2px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 3px 9px;
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1;
+    color: var(--color-accent-solid);
+    background: color-mix(in srgb, var(--color-accent) 16%, transparent);
+    border: 1px solid var(--color-accent);
+    border-radius: 6px;
 }
 
 .bg-card.pinned {

@@ -1,0 +1,38 @@
+name: Build on Release
+
+# 当你在 GitHub 手动「发布（Publish）一个 Release」时，自动拉取该 Release 对应的提交、
+# 构建网页（npm run build → 单文件 dist/index.html），并把 dist/index.html 作为 asset
+# 附到这个 Release —— 发布即可得构建产物，无需手动上传。
+#
+# 与既有 build-dist.yml 互补：
+#   - build-dist.yml  → push 到 main 时自动发「网页构建 dist-N」Release（手机 App 热更新读取）
+#   - 本工作流        → 你手动发正式 Release 时，自动把网页构建产物附带进去
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build web (dist/index.html)
+        run: npm run build
+
+      - name: Attach dist to Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release upload "${{ github.event.release.tag_name }}" dist/index.html --clobber

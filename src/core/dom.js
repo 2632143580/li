@@ -44,16 +44,16 @@ export const DOM = {};
         'voice-system-panel', 'voice-cloud-panel',
         'set-cloudKey', 'cloud-key-toggle', 'cloud-voice-trigger', 'cloud-voice-text', 'cloud-voice-options',
         'set-cloudBase', 'set-cloudModel', 'cloud-test', 'cloud-test-result',
-        'set-cloud-cache-stat', 'cloud-cache-clear',
+        'set-cloud-cache-stat', 'set-cloud-cache-bar', 'cloud-cache-clear',
         // 文字消息显示模式（只显示文字 / 都显示 / 只显示语音）
         'set-disp-text', 'set-disp-both', 'set-disp-voice',
         // 语音条右键菜单（转文字）
         'vt-ctx',
         'btn-edit-bg', 'bg-mode-select', 'btn-upload-bg-img', 'btn-bg-pin', 'btn-bg-clear',
-        'bg-storage-info', 'btn-bg-clean-old', 'bg-img-grid', 'btn-bg-export', 'btn-bg-import',
-        'bg-batch-words', 'btn-bg-batch-apply', 'bg-batch-status',
+        'bg-storage-info', 'btn-bg-clean-old', 'bg-img-grid',
+        'bg-batch-words', 'btn-bg-batch-apply', 'bg-batch-status', 'btn-bg-clear-sel',
         'crop-modal', 'crop-frame', 'crop-preview', 'crop-zoom', 'crop-zoom-val', 'crop-fit', 'crop-reset', 'crop-cancel', 'crop-confirm',
-        'file-import-all', 'file-import-prompt', 'file-import-bg-image', 'file-import-bg-config', 'bg-current-indicator',
+        'file-import-all', 'file-import-prompt', 'file-import-bg-image', 'bg-current-indicator',
         'sys-prompt-import',
         // 监控信息栏：消息灯 + 缓存灯 + 上下文占用圆环（点击弹编辑气泡改上限）；监控区即展开开关
         'top-bar-left', 'monitor-bar',

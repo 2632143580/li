@@ -17,6 +17,7 @@ import { saveToLocal } from '../../core/storage.js';
 import { renderChat } from '../../chat/tree.js';
 import { openModal, closeAllModals } from '../../core/modal.js';
 import { getVoices, getCloudVoices, stopCurrent, testCloudTTS, clearAutoQueue, getCloudCacheStats, clearCloudCache, setCloudCacheChangeListener } from '../../engines/tts-engine.js';
+import { VOICE_CACHE_MAX_BYTES } from '../../core/voice-cache.js';
 import { registerUI } from '../../core/registry.js';
 
 registerUI('tts', bindVoiceSettings);
@@ -61,11 +62,17 @@ function fmtCacheBytes(bytes) {
     return (kb / 1024).toFixed(2) + ' MB';
 }
 
-/** 刷新「本地语音缓存」统计文案（条数 + 大小）；供模态框打开 / 缓存变化时调用 @returns {void} */
+/** 刷新「语音缓存」统计文案（已落盘条数 + 已用 / 上限）；供模态框打开 / 缓存变化时调用 @returns {void} */
 function refreshCloudCacheStat() {
     if (!DOM.setCloudCacheStat) return;
     const { count, bytes } = getCloudCacheStats();
-    DOM.setCloudCacheStat.textContent = count + ' 句 · ' + fmtCacheBytes(bytes);
+    // 复刻背景图持久化语义：显示「已用 X / 上限约 Y」，而非仅内存占用
+    DOM.setCloudCacheStat.textContent = count + ' 句 · 已用 ' + fmtCacheBytes(bytes) + ' / 上限约 ' + fmtCacheBytes(VOICE_CACHE_MAX_BYTES);
+    // 容量进度条（设计小巧思）：占用比例 = 已用 / 软上限，软上限内不会超 100%
+    if (DOM.setCloudCacheBar) {
+        const pct = VOICE_CACHE_MAX_BYTES > 0 ? Math.min(100, (bytes / VOICE_CACHE_MAX_BYTES) * 100) : 0;
+        DOM.setCloudCacheBar.style.width = pct.toFixed(1) + '%';
+    }
 }
 
 /** 填充并打开语音设置模态框 @returns {void} */
