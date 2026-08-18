@@ -16,7 +16,7 @@
 import { DOM } from '../core/dom.js';
 import { state } from '../core/store.js';
 import { splitSentences } from '../core/text-split.js';
-import { cleanForSpeech, speakSentence, enqueueAutoSentence, clearAutoQueue } from '../engines/tts-engine.js';
+import { cleanForSpeech, speakSentence, enqueueAutoSentence, clearAutoQueue, preloadSentence } from '../engines/tts-engine.js';
 
 /** 当前播放中的语音条 DOM（互斥：新条播放前先停旧条） @type {HTMLElement|null} */
 let playingTile = null;
@@ -42,6 +42,16 @@ export function renderVoiceTiles(contentEl, node, isStreaming) {
 
     if (isStreaming) {
         if (existing.length < tiles.length) {
+            // 修（自动朗读中段重播）：流式期某句上一帧是末句只显示半句，本帧长出新句后它不再是末句，
+            // 但原逻辑只 addTile 新句、从不回写旧句 dataset.text → 旧句停在半句陈旧态。
+            // 流式期 maybeAutoRead 用陈旧 dataset.text 入队一次、流结束 rebuild 用整句再入队一次，
+            // 去重键 idx:text 不同拦不住[exi 同一句被朗读两次（半句+整句）。先把它对齐成当前正确整句。
+            for (let i = 0; i < existing.length; i++) {
+                if (existing[i].dataset.text !== tiles[i]) {
+                    existing[i].dataset.text = tiles[i];
+                    syncRevealedText(existing[i]);
+                }
+            }
             for (let i = existing.length; i < tiles.length; i++) addTile(contentEl, tiles[i], i);
         } else if (existing.length > tiles.length) {
             rebuild(contentEl, tiles);
@@ -213,6 +223,7 @@ function makeTileEl(text, idx = 0, allowReveal = true) {
     textEl.textContent = text; // textContent 防 XSS，绝不用 innerHTML 注入 AI 文本
     tile.append(wave, durEl, textEl);
     tile.addEventListener('click', () => toggleTile(tile));
+    tile.addEventListener('mouseenter', () => preloadSentence(text)); // 悬停预加载（仅云端源+已配 Key 才真发请求，其余静默 return）
     if (allowReveal) {
         tile.addEventListener('contextmenu', (e) => {
             e.preventDefault();
