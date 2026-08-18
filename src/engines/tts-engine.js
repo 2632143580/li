@@ -531,6 +531,32 @@ export function stopCurrent() {
  * - 顺序播放：上一句 onEnd（自然播完或被打断）后才播下一句；打断时本句不回写秒数。
  * @type {string[]}
  */
+// —— 有限并发预加载（按需：播当前句时预加载下一句 + 悬停预加载），减小自动朗读/点击延迟 ——
+const PRELOAD_CONCURRENCY = 2;
+let preloadRunning = 0;
+const preloadQueue = [];
+
+/** 后台预加载单句云端音频（限制并发，失败静默）。供「播当前句时预加载下一句」与「悬停预加载」调用。 */
+export function preloadSentence(text) {
+    if (state.settings.ttsSource !== 'cloud') return;       // 仅云端源需预加载（系统源本地合成无请求）
+    const cfg = state.settings.ttsCloud || {};
+    if (!cfg.apiKey) return;                                 // 未配 Key 不预加载
+    const cleaned = cleanForSpeech(text);
+    if (!cleaned) return;
+    const key = cloudCacheKey(cleaned, cfg);
+    if (cloudCache.has(key) || cloudInflight.has(key)) return; // 已在缓存/请求中则跳过（fetchCloudAudioCached 内部亦有去重）
+    preloadQueue.push({ text: cleaned, cfg });
+    drainPreloadQueue();
+}
+function drainPreloadQueue() {
+    if (preloadRunning >= PRELOAD_CONCURRENCY) return;
+    if (preloadQueue.length === 0) return;
+    preloadRunning++;
+    const { text, cfg } = preloadQueue.shift();
+    // 复用播放同款缓存/落盘路径；失败静默——播放时再重试或回退系统音
+    fetchCloudAudioCached(text, cfg).catch(() => {}).finally(() => { preloadRunning--; drainPreloadQueue(); });
+}
+
 let autoQueue = [];
 /** 当前是否正在自动播（防并发重复播同一句） @type {boolean} */
 let autoPlaying = false;
