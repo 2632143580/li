@@ -31,6 +31,7 @@ import { bindEvents, applyQuickTheme } from './ui/event-bindings/index.js';
 import { streamChat } from './chat/api.js';
 import { bus, EVENTS } from './core/bus.js';
 import { initBgTriggers } from './ui/bg-trigger.js';
+import { initCompanionSay } from './companion-say.js'; // 外部"主动说话"入口（App 注入用）
 
 // 性能诊断模式：URL 带 ?perf=1 时加载诊断 overlay（手机访问 http://<本机IP>:5173/?perf=1）
 // 仅观测不改业务；生产构建不带该参数时不加载。
@@ -199,6 +200,9 @@ export function init() {
             );
         }
     };
+
+    // 外部"主动说话"入口（App 注入：插入消息 → li 用网页配置回复 → 回调回传）
+    initCompanionSay();
 }
 
 // ================================================================

@@ -142,6 +142,9 @@ export function sendMessage(text) {
     // 改走事件总线：本模块不再直接 import api.js 的 executeStreamRequest，循环依赖削掉一条边。
     // 载荷带齐发送所需的全部数据（消息体 + AI 节点引用），api.js 订阅后照常执行流式请求。
     bus.emit(EVENTS.STREAM_REQUEST, { apiMessages, aiNode });
+    // 返回用户节点 id：供外部调用方（companion-say 主动说话）定位本次插入的消息节点。
+    // 无外部调用方时返回值无副作用，不影响现有行为。
+    return userNode.id;
 }
 
 /** 重新生成 AI 回复 @param {object} node @param {object} parentNode */
