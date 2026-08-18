@@ -24,6 +24,8 @@
 import { state } from '../core/store.js';
 import { Logger } from '../core/logger.js';
 import { showToast } from '../core/toast.js';
+// 云端 TTS 音频持久化层（IndexedDB，复刻背景图持久化）：读路径命中磁盘、写路径落盘、容量统计
+import { loadMeta, getAudio, putAudio, clearAll as clearVoiceIdb, getVoiceStats } from '../core/voice-cache.js';
 
 /** MiMo-V2.5-TTS 预置音色清单（官方固定，与系统音色无关）。 @type {Array<{id:string,name:string,lang:string,gender:string}>} */
 export const MIMO_VOICES = [
@@ -67,9 +69,16 @@ const CLOUD_CACHE_MAX = 200;                    // 最多条数
 const CLOUD_CACHE_MAX_BYTES = 30 * 1024 * 1024; // 最多 ~30MB
 let onCloudCacheChange = null;         // tts.js 设置，缓存变化时刷新设置面板显示
 
-/** 缓存键：音色 + 模型 + 文本（同句不同音色须区分） @param {string} text @param {object} cfg */
+/**
+ * 缓存键：接口地址 + 模型 + 音色 + 文本（任一不同都须区分，否则改 baseUrl/音色后会命中错误音频）。
+ * 有效值归一：缺省项按 fetchCloudAudio 的实际兜底补齐，保证「同一请求 → 同一键」。
+ * @param {string} text @param {object} cfg
+ */
 function cloudCacheKey(text, cfg) {
-    return (cfg.voice || 'mimo_default') + '|' + (cfg.model || 'mimo-v2.5-tts') + '|' + text;
+    const voice = cfg.voice || 'mimo_default';
+    const model = cfg.model || 'mimo-v2.5-tts';
+    const base = (cfg.baseUrl || MIMO_DEFAULT_BASE).replace(/\/+$/, '');
+    return base + '|' + model + '|' + voice + '|' + text;
 }
 /** 写入缓存并触发 LRU 淘汰（超条数/字节丢最旧） @param {string} key @param {Blob} blob */
 function cachePut(key, blob) {
@@ -83,25 +92,62 @@ function cachePut(key, blob) {
     }
     onCloudCacheChange?.();
 }
-/** 取云端音频（缓存优先；并发同键去重）。返回 Blob。 @param {string} text @param {object} cfg */
+/**
+ * 取云端音频（缓存优先；并发同键去重；三级回退：内存 → 磁盘 IDB → 网络）。
+ * 网络取到后落盘 IndexedDB（异步、失败降级为内存，绝不阻塞播放）。
+ * @param {string} text @param {object} cfg @returns {Promise<Blob>}
+ */
 async function fetchCloudAudioCached(text, cfg) {
     const key = cloudCacheKey(text, cfg);
     const hit = cloudCache.get(key);
-    if (hit) { cloudCache.delete(key); cloudCache.set(key, hit); return hit; } // 命中 → 提到最新（刷新 LRU）
+    if (hit) { cloudCache.delete(key); cloudCache.set(key, hit); return hit; } // 内存命中 → 提到最新（刷新 LRU）
     const inf = cloudInflight.get(key);
     if (inf) return inf;                                            // 并发同句：复用进行中的请求，不重复抓
+    // 磁盘命中：读 IDB，命中则进内存工作集直接返回（免网络请求，刷新/重开页面仍在）
+    const idbBlob = await getAudio(key).catch(() => null);
+    if (idbBlob) {
+        cachePut(key, idbBlob);
+        return idbBlob;
+    }
+    // 并发锁二次复核：上面 await getAudio 让出执行权期间，可能已有同 key 请求抢先发起网络，此处复用之，避免重复请求 MiMo
+    const inf2 = cloudInflight.get(key);
+    if (inf2) return inf2;
+    // 三级：网络请求（fetchCloudAudioCached 的并发去重由上方 inflight 保证）
     const p = fetchCloudAudio(text, cfg).then(blob => {
         cloudInflight.delete(key);
-        cachePut(key, blob);
+        cachePut(key, blob); // 进内存工作集
+        // 落盘（异步，失败降级为内存缓存，不阻塞播放）；落盘成功后刷新面板统计
+        putAudio({
+            key, blob,
+            bytes: blob.size,
+            voice: cfg.voice || 'mimo_default',
+            model: cfg.model || 'mimo-v2.5-tts',
+            text,
+            savedAt: Date.now()
+        }).then(() => onCloudCacheChange?.()).catch(() => {});
         return blob;
     }).catch(err => { cloudInflight.delete(key); throw err; });
     cloudInflight.set(key, p);
     return p;
 }
-/** 缓存统计（设置面板显示用） @returns {{count:number, bytes:number}} */
-export function getCloudCacheStats() { return { count: cloudCache.size, bytes: cloudCacheBytes }; }
-/** 清空云端音频缓存 @returns {void} */
-export function clearCloudCache() { cloudCache.clear(); cloudInflight.clear(); cloudCacheBytes = 0; onCloudCacheChange?.(); }
+/**
+ * 缓存统计（设置面板显示用）。返回「磁盘持久化」容量（已落盘条数 / 字节），
+ * 复刻背景图的「已用 X / 上限约 Y」语义——这才是跨刷新真实占用的量。
+ * @returns {{count:number, bytes:number}}
+ */
+export function getCloudCacheStats() { return getVoiceStats(); }
+/**
+ * 清空云端音频缓存：内存 + 磁盘 IDB 一并清（含容量统计复位）。
+ * 异步清 IDB 不阻塞 UI；统计在 clearAll 内同步复位，面板立即归零。
+ * @returns {void}
+ */
+export function clearCloudCache() {
+    cloudCache.clear();
+    cloudInflight.clear();
+    cloudCacheBytes = 0;
+    clearVoiceIdb().catch(() => {});
+    onCloudCacheChange?.();
+}
 /** 注册缓存变化回调（tts.js 用于刷新设置面板显示） @param {function} cb */
 export function setCloudCacheChangeListener(cb) { onCloudCacheChange = cb; }
 
@@ -110,6 +156,8 @@ export function setCloudCacheChangeListener(cb) { onCloudCacheChange = cb; }
  * main.js init() 调用；无副作用，不支持时仅打一条日志。
  */
 export function initTTS() {
+    // 加载云端音频磁盘缓存元信息（独立于系统语音能力，故置于最前；失败仅日志，不阻塞音色加载）
+    loadMeta().catch(e => Logger.warn('[TTS] 语音缓存元信息加载失败', e?.message || String(e)));
     if (systemUnsupported()) {
         Logger.warn('[TTS] 当前环境不支持 speechSynthesis，语音播报不可用');
         return;

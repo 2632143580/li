@@ -22,3 +22,87 @@
     .typing-dots span { animation: none; opacity: 0.5; }
 }
 
+/* ====================== 插件面板（背景/主题管理）手机端适配 ====================== */
+/* 断点取 640px：覆盖主流手机竖屏（360~430）与小平板竖屏，解决面板内按钮过挤、误触问题。
+   仅调整布局/触控尺寸，不引入任何硬编码颜色（沿用现有 token），不触发 skin/modal-theme lint。 */
+@media (max-width: 640px) {
+    /* 模态框在窄屏尽量占满，留出更大操作区（通用规则已 width:94%，此处放宽宽度限制） */
+    #bg-modal .modal-content {
+        width: 96%;
+        max-width: 96vw;
+        max-height: 92vh;
+        padding: 16px;
+    }
+
+    /* 工具栏：模式选择独占一行，操作按钮排成 2×2 网格，触控目标放大到 ≥40px */
+    .bg-mgmt-toolbar {
+        gap: 8px;
+    }
+    .bg-mgmt-toolbar .segmented {
+        flex: 1 1 100%;
+    }
+    .bg-mgmt-toolbar .fs-btn {
+        flex: 1 1 calc(50% - 4px);
+        min-height: 40px;
+        font-size: 13px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    /* 批量加词：输入与按钮上下堆叠，按钮全宽、易点 */
+    .bg-batch-add-row {
+        flex-direction: column;
+    }
+    .bg-batch-add-row .bg-batch-input {
+        width: 100%;
+        font-size: 14px;
+        padding: 10px;
+    }
+    #btn-bg-batch-apply {
+        width: 100%;
+        min-height: 40px;
+        font-size: 13px;
+    }
+
+    /* 图库卡片：缩略图略增高、操作按钮放大，避免窄屏误触 */
+    .bg-img-grid {
+        grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+        gap: 8px;
+    }
+    .bg-card-thumb {
+        height: 96px;
+    }
+    .bg-card-words {
+        min-height: 48px;
+        font-size: 13px;
+    }
+    .bg-card-acts {
+        gap: 8px;
+    }
+    .bg-card-acts .fs-btn {
+        flex: 1;
+        min-height: 38px;
+        font-size: 12px;
+        padding: 8px;
+    }
+
+    /* 插件项：保护开关不被长名称挤压 */
+    .plugin-item {
+        padding: 10px 12px;
+    }
+    .plugin-name {
+        min-width: 0;
+        overflow: hidden;
+    }
+    .plugin-actions {
+        flex-shrink: 0;
+    }
+
+    /* 底部关闭按钮放大触控区 */
+    #bg-modal-close {
+        min-height: 44px;
+        font-size: 13px;
+    }
+}
+

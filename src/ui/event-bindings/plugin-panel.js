@@ -2,7 +2,7 @@
  * 背景插件面板事件绑定（Stage 3 解耦产出，原 bindPluginPanelEvents）。
  * 现含两大部分：
  *  1) 背景/主题插件栈开关列表（renderPluginList / createPluginItem）
- *  2) 背景管理（多图库 + AI 触发词）：上传 / 列表 / 触发词编辑 / 删除 / 固定 / 清除 / 导出导入 / 存储提示
+ *  2) 背景管理（多图库 + AI 触发词）：上传 / 列表 / 触发词编辑 / 删除 / 固定 / 清除 / 存储提示
  * 裁剪编辑器（缩放/移动）保留，复用共享 bg-image 的 mountImage。
  *
  * 依赖：core/dom, core/modal, core/store, core/utils, core/storage, core/toast, core/idb,
@@ -63,7 +63,7 @@ export function bindPluginPanelEvents() {
         if (e.target === DOM.cropModal) closeAllModals(['bg-modal']);
     });
 
-    // ---------- 背景管理：上传 / 模式 / 固定 / 清除 / 导出导入 ----------
+    // ---------- 背景管理：上传 / 模式 / 固定 / 清除 ----------
     DOM.btnUploadBgImg.addEventListener('click', () => DOM.fileImportBgImage.click());
     DOM.fileImportBgImage.addEventListener('change', onUploadBgImages);
 
@@ -85,15 +85,18 @@ export function bindPluginPanelEvents() {
     DOM.btnBgPin.addEventListener('click', onPin);
     DOM.btnBgClear.addEventListener('click', onClear);
     DOM.btnBgCleanOld.addEventListener('click', onCleanOld);
-    DOM.btnBgExport.addEventListener('click', exportConfig);
-    DOM.btnBgImport.addEventListener('click', () => DOM.fileImportBgConfig.click());
-    DOM.fileImportBgConfig.addEventListener('change', importConfig);
 
     // 批量加词：输入词 + 选中多图 → 一次应用到全部选中图（免逐张填写）
     DOM.btnBgBatchApply.addEventListener('click', onBatchAddWords);
     DOM.bgBatchWords.addEventListener('input', syncBatchApplyState);
     DOM.bgBatchWords.addEventListener('keydown', (e) => {
         if (e.key === 'Enter') onBatchAddWords(); // 输入直达：回车即应用（内部有空的选中/无词守卫）
+    });
+
+    // 清除批量选中：清空选中集合并重建卡片（同时刷新状态行与「清除选中」按钮可见性）
+    DOM.btnBgClearSel.addEventListener('click', () => {
+        selectedIds.clear();
+        renderBgLibrary();
     });
 
     // -------- 裁剪编辑器（缩放/移动编辑，复用共享 mountImage） --------
@@ -202,10 +205,9 @@ export function bindPluginPanelEvents() {
     // 触摸：单指平移、双指捏合缩放（适配手机端）
     let touchState = null;
     DOM.cropFrame.addEventListener('touchstart', (e) => {
-        e.preventDefault();
         if (e.touches.length === 1) {
             const t = e.touches[0];
-            touchState = { mode: 'pan', lastX: t.clientX, lastY: t.clientY };
+            cropDrag = { startX: t.clientX, startY: t.clientY };
         } else if (e.touches.length === 2) {
             const a = e.touches[0], b = e.touches[1];
             touchState = {
@@ -420,10 +422,12 @@ export function bindPluginPanelEvents() {
 
     /** 构建单张图卡片 */
     function createBgCard(m, settings) {
+        const isActive = m.id === settings.currentId;
+        const isPinned = m.id === settings.pinnedId;
         const card = document.createElement('div');
         card.className = 'bg-card'
-            + (m.id === settings.currentId ? ' active' : '')
-            + (m.id === settings.pinnedId ? ' pinned' : '');
+            + (isActive ? ' active' : '')
+            + (isPinned ? ' pinned' : '');
 
         const thumb = document.createElement('img');
         thumb.className = 'bg-card-thumb';
@@ -439,13 +443,21 @@ export function bindPluginPanelEvents() {
         info.className = 'bg-card-info';
         const name = document.createElement('div');
         name.className = 'bg-card-name';
-        name.textContent = m.name + (m.id === settings.pinnedId ? '（已固定）' : '');
+        name.textContent = m.name + (isPinned ? '（已固定）' : '');
         info.appendChild(name);
 
         const time = document.createElement('div');
         time.className = 'bg-card-time';
         time.textContent = new Date(m.uploadedAt).toLocaleString();
         info.appendChild(time);
+
+        // 「当前使用」标识：圆角矩形包裹的对号徽标，右对齐（替代原先不显眼的行内小对号）
+        if (isActive) {
+            const badge = document.createElement('span');
+            badge.className = 'bg-card-badge';
+            badge.textContent = '✓';
+            info.appendChild(badge);
+        }
 
         // 触发词编辑（逗号/换行分隔多个）
         const tw = document.createElement('textarea');
@@ -478,9 +490,11 @@ export function bindPluginPanelEvents() {
     function updateStorageInfo(meta) {
         const total = meta.reduce((s, m) => s + (m.size || 0), 0);
         const mb = (total / 1024 / 1024).toFixed(1);
-        const capMB = 372; // 需求下限 62×6MB
-        DOM.bgStorageInfo.textContent = `已用 ${mb} MB（需求容量 ≥ ${capMB} MB）`;
+        const capMB = 372; // 背景图存储上限（约值，原需求按 62×6MB 估算）
+        let info = `背景图已用 ${mb} MB / 上限约 ${capMB} MB`;
         const near = total > capMB * 1024 * 1024 * 0.94;
+        if (near) info += '（即将占满，可清理最旧图片）';
+        DOM.bgStorageInfo.textContent = info;
         DOM.btnBgCleanOld.style.display = near ? 'block' : 'none';
     }
 
@@ -590,70 +604,7 @@ export function bindPluginPanelEvents() {
         showToast('已清理最旧图片：' + oldest.name, 'info');
     }
 
-    /** 导出全部背景配置（含原图 + 触发词 + 设置）为单个 JSON 包 */
-    async function exportConfig() {
-        const meta = await getAllImagesMeta();
-        const images = [];
-        for (const m of meta) {
-            const rec = await getImage(m.id);
-            if (!rec) continue;
-            images.push({
-                id: m.id, name: m.name, type: m.type, size: m.size,
-                uploadedAt: m.uploadedAt, triggerWords: m.triggerWords || '',
-                thumb: m.thumb || '', blob: await blobToBase64(rec.blob)
-            });
-        }
-        const settings = (await getSetting()) || defaultSettings();
-        const pkg = { version: 1, settings, images };
-        const blob = new Blob([JSON.stringify(pkg)], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = 'li-bg-config.json';
-        a.click();
-        URL.revokeObjectURL(url);
-        showToast(`已导出 ${images.length} 张背景图配置`, 'info');
-    }
-
-    /** 从 JSON 包导入背景配置 */
-    async function importConfig(e) {
-        const file = e.target.files[0];
-        e.target.value = '';
-        if (!file) return;
-        try {
-            const text = await file.text();
-            const pkg = JSON.parse(text);
-            if (!pkg.images || !Array.isArray(pkg.images)) throw new Error('文件格式不正确');
-            if (pkg.settings) await putSetting(pkg.settings);
-            for (const img of pkg.images) {
-                await putImage({
-                    id: img.id, name: img.name, type: img.type, size: img.size,
-                    uploadedAt: img.uploadedAt, triggerWords: img.triggerWords || '',
-                    thumb: img.thumb || '', blob: base64ToBlob(img.blob, img.type)
-                });
-            }
-            await renderBgLibrary();
-            showToast(`已导入 ${pkg.images.length} 张背景图`, 'info');
-        } catch (err) {
-            showToast('导入失败：' + err.message, 'error');
-        }
-    }
-
     // ---------- 小工具 ----------
-    function blobToBase64(blob) {
-        return new Promise((resolve, reject) => {
-            const r = new FileReader();
-            r.onload = () => resolve(String(r.result).split(',')[1]); // 去 data:...;base64, 前缀
-            r.onerror = () => reject(r.error);
-            r.readAsDataURL(blob);
-        });
-    }
-    function base64ToBlob(b64, type) {
-        const bin = atob(b64);
-        const arr = new Uint8Array(bin.length);
-        for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
-        return new Blob([arr], { type: type || 'application/octet-stream' });
-    }
     /** 缩略图点击：仅切换卡片选中高亮，不立即应用（避免误覆盖固定背景）。 */
     function toggleSelect(card, id) {
         if (selectedIds.has(id)) { selectedIds.delete(id); card.classList.remove('selected'); }
@@ -687,6 +638,7 @@ export function bindPluginPanelEvents() {
         const n = selectedIds.size;
         const hasWords = parseWords(DOM.bgBatchWords.value).length > 0;
         DOM.btnBgBatchApply.disabled = !(n > 0 && hasWords);
+        DOM.btnBgClearSel.style.display = n > 0 ? '' : 'none';
         if (!n) DOM.bgBatchStatus.textContent = '点缩略图选中图片（可多选）';
         else if (!hasWords) DOM.bgBatchStatus.textContent = `已选 ${n} 张图，输入触发词后可批量添加`;
         else DOM.bgBatchStatus.textContent = `已选 ${n} 张图，点「应用词到选中图」批量添加`;
