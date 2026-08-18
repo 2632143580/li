@@ -1,0 +1,32 @@
+# 依赖（体积大、可由 npm install 重建，绝不入库）
+node_modules/
+
+# 构建产物（本地/CI 重新 build 生成，不入库）
+dist/
+
+# 项目记忆与本地缓存（不应上云）
+.workbuddy/
+.vite/
+
+# 日志
+*.log
+
+
+# ===== CI 排错残留（调试缓存，非源码，绝不入库）=====
+allc.json
+c_*.json
+comments_*.json
+cr_*.json
+cr_full.json
+runs.json
+
+# ===== 个人工作草稿（非 LI 源码，不公开到仓库，本地保留）=====
+经验.md
+新经验.md
+启动LI.bat
+启动LI-deps.bat
+启动LI-构建.bat
+文档/
+问题/
+preview/
+

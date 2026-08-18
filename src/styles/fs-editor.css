@@ -1,0 +1,110 @@
+/* ====================== 全屏编辑器 ====================== */
+#fs-editor {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: var(--bg-input);
+    /* 毛玻璃已移除（与 .modal-overlay 同批，化繁为简）：全屏浮层的 backdrop-filter 是 GPU 放大器 */
+    z-index: 200;
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    animation: overlayFadeIn 0.3s ease;
+}
+
+#fs-toolbar {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    display: flex;
+    gap: 15px;
+}
+
+.fs-tool-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--white-a40);
+    transition: color var(--transition-fast);
+    padding: 5px;
+    display: flex;
+    align-items: center;
+}
+
+.fs-tool-btn:hover {
+    color: var(--white-a90);
+}
+
+#fs-title {
+    color: color-mix(in srgb, var(--color-ai) 60%, transparent);
+    margin-bottom: 30px;
+    font-size: 14px;
+    letter-spacing: 4px;
+}
+
+#fs-textarea {
+    width: 100%;
+    max-width: 600px;
+    height: 60vh;
+    background: transparent;
+    border: none;
+    outline: none;
+    color: var(--color-user);
+    font-size: 18px;
+    line-height: 1.8;
+    text-align: center;
+    resize: none;
+    font-family: inherit;
+    caret-color: var(--input-cursor);
+}
+
+.fs-actions {
+    margin-top: 30px;
+    display: flex;
+    gap: 20px;
+    width: 100%;
+    max-width: 400px;
+}
+
+.fs-btn {
+    padding: 12px 30px;
+    background: transparent;
+    border: 1px solid var(--white-a20);
+    color: var(--white-a60);
+    cursor: pointer;
+    font-family: inherit;
+    letter-spacing: 2px;
+    font-size: 14px;
+    border-radius: var(--radius-sm);
+    transition: all var(--transition-fast);
+    flex: 1;
+    /* 微阴影定义悬浮：按钮浮于背景，浅底线框淡时仍可区分（不依赖描边对比） */
+    box-shadow: 0 1px 2px var(--black-a20);
+}
+
+.fs-btn:hover {
+    /* D 方案（用户选定）：hover 只加强悬浮——阴影增强 + 上移 1px，背景/文字不变，仅描边微变 */
+    border-color: var(--white-a50);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 10px var(--black-a30);
+}
+
+.fs-btn:active {
+    transform: scale(0.97);
+}
+
+.fs-btn.primary {
+    border-color: var(--color-accent-glow);
+    color: var(--color-accent-bright);
+    background: var(--color-accent-soft);
+}
+
+.fs-btn.primary:hover {
+    /* D 方案：背景保持 accent-soft 不变，仅描边提亮（悬浮由 .fs-btn:hover 提供） */
+    border-color: var(--color-accent-bright);
+}
+

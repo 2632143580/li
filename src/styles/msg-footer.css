@@ -1,0 +1,89 @@
+/* ====================== 全屏编辑器入口 ====================== */
+#fs-trigger-btn {
+    position: fixed;
+    bottom: 26px;
+    right: 20px;
+    z-index: 11;
+    width: 20px;
+    height: 20px;
+    opacity: 0.5;
+    cursor: pointer;
+    transition: opacity var(--transition-normal);
+}
+
+#fs-trigger-btn:hover {
+    opacity: 1;
+}
+
+/* ====================== 消息底部 ====================== */
+.msg-footer {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 5px;
+}
+
+.msg.user .msg-footer,
+/* 三层结构下 footer 移出 .msg.user 气泡(bubble 是 wrapper.firstChild、footer 是 wrapper 的兄弟节点)，
+   用相邻兄弟选择器命中"紧跟在 user 气泡后面"的 footer，让用户消息的分支导航右对齐贴边。
+   依赖 wrapper 的子节点顺序：[bubble, footer]——见 tree-render.js buildMsgDom。
+   命中间接覆盖普通模式和 waifu 模式的 user 角色（P3 后统一用 .msg.user）。 */
+.chat-bubble--user + .msg-footer {
+    justify-content: flex-end;
+}
+
+.branch-nav {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 12px;
+    color: var(--white-a30);
+}
+
+.branch-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--white-a40);
+    /* hit area 扩大（根治移动端误触）：padding 扩到 6px 8px，负 margin 抵消布局占用，
+       视觉位置/间距不变，可点区域变大 */
+    padding: 6px 8px;
+    margin: -6px -8px;
+    display: flex;
+    align-items: center;
+}
+
+.branch-btn:hover {
+    color: var(--color-accent-bright);
+}
+
+.branch-btn:disabled {
+    color: var(--white-a10);
+    cursor: not-allowed;
+}
+
+/* ====================== 保存指示器 ====================== */
+#save-indicator {
+    position: fixed;
+    bottom: 60px;
+    left: 50%;
+    background: var(--color-accent-soft);
+    color: var(--color-accent-bright);
+    border: 1px solid var(--color-accent-dim);
+    padding: 6px 16px;
+    border-radius: 20px;
+    font-size: 11px;
+    z-index: 30;
+    opacity: 0;
+    transform: translateX(-50%) translateY(8px);
+    transition: opacity var(--transition-normal), transform var(--transition-normal);
+    pointer-events: none;
+    letter-spacing: 1px;
+    /* 毛玻璃已移除（用户拍板彻底无毛玻璃） */
+}
+
+#save-indicator.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+}
+

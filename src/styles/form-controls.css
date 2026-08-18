@@ -1,0 +1,181 @@
+/* ====================== 步进器与滑块 ====================== */
+.compact-grid {
+    display: flex;
+    gap: 16px;
+}
+
+.stepper-row {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.stepper {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--white-a05);
+    border: 1px solid var(--white-a10);
+    border-radius: var(--radius-sm);
+    padding: 4px 8px;
+}
+
+.slider-row {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.slider {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 4px;
+    background: var(--white-a10);
+    border-radius: 2px;
+    outline: none;
+    touch-action: none; /* 手机端拖滑块时禁止模态框滚动抢手势 */
+}
+
+.slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--color-accent);
+    cursor: pointer;
+    border: 2px solid var(--color-bg);
+}
+
+.slider::-moz-range-thumb {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--color-accent);
+    cursor: pointer;
+    border: 2px solid var(--color-bg);
+}
+
+/* 裁剪弹窗操作按钮行：窄屏不再溢出框外 */
+.crop-actions {
+    display: flex;
+    flex-wrap: wrap;        /* 空间不够时换行，而非挤出框外 */
+    gap: 10px;
+    margin-top: 14px;
+}
+.crop-actions .fs-btn {
+    flex: 1 1 auto;
+    min-width: 0;           /* 允许收缩到内容宽以下，避免 min-content 把行撑爆 */
+    padding-left: 12px;
+    padding-right: 12px;
+}
+.crop-actions #crop-confirm {
+    flex: 2 1 auto;         /* 桌面端确认更宽、更醒目 */
+}
+/* 窄屏：填充|完整 / 取消|确认 两列排布，确认占整行 */
+@media (max-width: 480px) {
+    .crop-actions .fs-btn { flex: 1 1 calc(50% - 5px); }
+    .crop-actions #crop-confirm { flex: 1 1 100%; }
+}
+
+/* ====================== 折叠面板 ====================== */
+.collapsible-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: pointer;
+    user-select: none;
+}
+
+.collapsible-header span {
+    font-size: 11px;
+    color: var(--white-a30);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+}
+
+.arrow-icon {
+    transition: transform 0.3s ease;
+    color: var(--white-a30);
+}
+
+.collapsible-content {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height var(--transition-smooth), margin-top var(--transition-smooth);
+}
+
+.collapsible-content.open {
+    max-height: 600px;
+    margin-top: 16px;
+}
+
+/* ====================== 输入与操作按钮 ====================== */
+.input-with-action {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.input-with-action input {
+    flex: 1;
+}
+
+.mini-fs-btn {
+    background: none;
+    border: 1px solid var(--white-a20);
+    color: var(--white-a40);
+    font-size: 10px;
+    padding: 2px 6px;
+    border-radius: 3px;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.mini-fs-btn:hover {
+    color: var(--color-accent-bright);
+    border-color: var(--color-accent-glow);
+}
+
+.mini-fs-btn:active {
+    transform: scale(0.93);
+}
+
+/* ====================== 服务商标签 ====================== */
+.provider-tabs {
+    display: flex;
+    gap: 8px;
+    background: var(--white-a05);
+    border-radius: var(--radius-md);
+    padding: 4px;
+}
+
+.provider-tab {
+    flex: 1;
+    padding: 8px;
+    border: none;
+    background: transparent;
+    color: var(--white-a50);
+    font-size: 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    font-family: inherit;
+}
+
+.provider-tab:hover {
+    color: var(--white-a80);
+}
+
+.provider-tab:active {
+    transform: scale(0.95);
+}
+
+.provider-tab.segmented__item--active {
+    background: var(--color-accent-soft);
+    color: var(--color-accent-solid);
+    box-shadow: 0 0 10px color-mix(in srgb, var(--color-accent) 10%, transparent);
+}
+

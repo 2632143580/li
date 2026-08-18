@@ -1,0 +1,100 @@
+/* ====================== 自定义下拉菜单 ====================== */
+.custom-select-wrapper {
+    position: relative;
+    flex: 1;
+}
+
+.custom-select-trigger {
+    background: var(--white-a05);
+    border: 1px solid var(--white-a10);
+    color: var(--white-a90);
+    padding: 8px 10px;
+    border-radius: var(--radius-sm);
+    outline: none;
+    font-family: inherit;
+    font-size: 13px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: pointer;
+    transition: border-color var(--transition-fast);
+    height: 100%;
+    box-sizing: border-box;
+}
+
+.custom-select-trigger:hover {
+    border-color: var(--color-accent-glow);
+}
+
+.custom-select-trigger.open {
+    border-color: var(--color-accent-glow);
+}
+
+.custom-select-trigger svg {
+    width: 12px;
+    height: 12px;
+    color: var(--white-a50);
+    transition: transform var(--transition-fast);
+}
+
+.custom-select-trigger.open svg {
+    transform: rotate(180deg);
+}
+
+.custom-select-options {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    width: 100%;
+    background: var(--bg-select);
+    /* 简约化（用户拍板）：去描边与投影 */
+    border-radius: var(--radius-sm);
+    max-height: 150px;
+    overflow-y: auto;
+    z-index: 10;
+    display: none;
+    animation: fadeIn 0.15s ease;
+}
+
+/* 下拉/浮层入场统一复用 chat.css @keyframes fadeIn（淡入+上滑）；原 dropdownFadeIn 已合并移除 */
+
+.custom-select-options.show {
+    display: block;
+}
+
+.custom-select-options::-webkit-scrollbar {
+    display: none;
+}
+
+.custom-option {
+    padding: 8px 10px;
+    font-size: 13px;
+    color: var(--white-a80);
+    cursor: pointer;
+    transition: background var(--transition-fast);
+    border-radius: var(--radius-sm);
+    margin: 2px;
+}
+
+.custom-option:hover {
+    background: var(--white-a10);
+    color: var(--white-a90);
+}
+
+.custom-option.selected {
+    background: var(--color-accent-soft);
+    color: var(--color-accent-solid);
+}
+
+.custom-option.divider {
+    border-top: 1px solid var(--white-a10);
+    margin-top: 4px;
+    padding-top: 8px;
+    cursor: default;
+}
+
+.custom-option.divider:hover {
+    background: transparent;
+    color: var(--white-a80);
+}
+

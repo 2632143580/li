@@ -1,0 +1,78 @@
+name: Build LI web dist
+
+# 自动把 LI 网页构建成 dist 并发布成 GitHub Release。
+# 手机 App（LI-Android）启动时读取最新 Release，自动下载解压使用（热更新），
+# 因此改网页（ESM）只需推到本仓库，无需重新打包安装 App。
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install deps
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Pack dist
+        run: cd dist && zip -r ../li-dist.zip . && cd ..
+
+      # 用 runner 自带 gh CLI 发布（比第三方 action 稳定）；
+      # GitHub 服务端偶发 503，循环重试 4 次（每次间隔 60 秒）自动自愈；
+      # stderr 落盘 publish_err.log，失败时由「上报失败」步经提交评论回传（Azure 日志通道对远程诊断不可用）
+      - name: Publish Release
+        id: publish
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set +e
+          CODE=1
+          for attempt in 1 2 3 4; do
+            echo "=== gh release create 尝试 $attempt/4 ==="
+            gh release create dist-${{ github.run_number }} li-dist.zip \
+              --title "LI 网页构建 #${{ github.run_number }}" \
+              --generate-notes \
+              --repo "$GITHUB_REPOSITORY" 2> publish_err.log
+            CODE=$?
+            if [ $CODE -eq 0 ]; then
+              echo "Release dist-${{ github.run_number }} 已发布"
+              break
+            fi
+            echo "发布失败(exit $CODE)，60 秒后重试..."
+            cat publish_err.log
+            sleep 60
+          done
+          set -e
+          exit $CODE
+
+      # 失败：把关键错误以「提交评论」形式回传（api.github.com 可达通道，避免 Azure 日志被沙箱拦截）
+      - name: 上报失败
+        if: failure()
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          ERR=$(cat publish_err.log 2>/dev/null || echo "(无 publish_err.log)")
+          if [ -z "$ERR" ]; then ERR="构建或发布失败"; fi
+          ERR="${ERR:0:6000}"
+          BODY=$(printf '%s' "$ERR" | python3 -c 'import json,sys; print(json.dumps(sys.stdin.read()))')
+          curl -sk -f -X POST \
+            -H "Authorization: Bearer $GITHUB_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            -H "Content-Type: application/json" \
+            -d "{\"body\": $BODY}" \
+            "https://api.github.com/repos/$GITHUB_REPOSITORY/commits/$GITHUB_SHA/comments" \
+            -w "\nCOMMENT_HTTP=%{http_code}\n" || echo "comment_post_failed"

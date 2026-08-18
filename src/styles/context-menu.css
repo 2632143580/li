@@ -1,0 +1,32 @@
+/* ====================== 上下文菜单 ====================== */
+#context-menu {
+    position: fixed;
+    z-index: 50;
+    background: var(--bg-modal);
+    /* 毛玻璃已移除；简约化：去描边与投影（用户拍板） */
+    border-radius: 6px;
+    padding: 5px;
+    display: none;
+    animation: modalIn 0.15s ease;
+}
+
+#context-menu button {
+    display: block;
+    width: 100%;
+    text-align: left;
+    background: none;
+    border: none;
+    color: var(--white-a80);
+    padding: 8px 15px;
+    font-size: 13px;
+    cursor: pointer;
+    border-radius: var(--radius-sm);
+    font-family: inherit;
+    transition: background var(--transition-fast);
+}
+
+#context-menu button:hover {
+    background: var(--white-a10);
+    color: var(--white-a90);
+}
+

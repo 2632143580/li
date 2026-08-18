@@ -1,0 +1,316 @@
+/* ====================== 监控信息栏（状态灯 + 上下文圆环） ====================== */
+/* 常驻显示：消息数 + 缓存命中 + 上下文占用圆环（点击圆环弹编辑气泡改上限，非模态框）。 */
+.monitor-bar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 4px 10px;
+    border-radius: 10px;
+    cursor: pointer;               /* 监控区即左栏展开/收起开关（原箭头已移除）；圆环点击另弹编辑气泡 */
+    /* 背景用 var(--color-bg) 合成，深/浅主题自适应（原硬编码 rgba(8,11,20) 在浅色主题下残留深色） */
+    background: color-mix(in srgb, var(--color-bg) 100%, transparent);
+    border: 1px solid var(--white-a10);
+    /* 毛玻璃已移除（用户拍板彻底无毛玻璃）；72% 实底色足够 */
+    transition: background var(--transition-normal), border-color var(--transition-normal);
+}
+.monitor-bar:hover {
+    background: color-mix(in srgb, var(--color-bg) 85%, transparent);
+    border-color: var(--white-a20);
+}
+.monitor-light {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    color: var(--white-a70);
+    white-space: nowrap;
+    pointer-events: none; /* 点击穿透到 monitor-bar */
+}
+.monitor-light .ml-icon {
+    width: 15px;
+    height: 15px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.6;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+.monitor-light .ml-num {
+    color: var(--white-a90);
+    font-variant-numeric: tabular-nums;
+    font-size: 12px;
+    min-width: 1ch;
+}
+/* 待发送 / 消息 状态灯：走双套系统 var(--status-send)（深/浅由 .theme-light 翻转）。
+   仍用 color 属性驱动 currentColor，规避 <use>+<symbol> 下 currentColor 偶发回退为黑的问题。 */
+.monitor-light:not(.cache) .ml-icon { color: var(--status-send); }
+/* 缓存命中状态灯：走双套系统 var(--status-cache)；命中时发光（还原此前闪电设计） */
+.monitor-light.cache .ml-icon { color: var(--status-cache); }
+.monitor-light.cache.hit .ml-icon {
+    color: var(--status-cache);
+    filter: drop-shadow(0 0 5px var(--status-cache));
+}
+
+/* ====================== 通用面板标题（监控已删，词云等面板仍在用，勿删） ====================== */
+.monitor-title {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--white-a90);
+    margin-bottom: 4px;
+}
+
+/* ====================== 全局关闭叉（多个面板共用） ====================== */
+.modal-x {
+    cursor: pointer;
+    font-size: 18px;
+    line-height: 1;
+    color: var(--white-a60);
+    transition: color var(--transition-normal);
+}
+.modal-x:hover { color: var(--white-a90); }
+/* ====================== 上下文占用圆环（顶栏监控区） ====================== */
+/* 圆环 = 已用/上限 百分比；中心数字；颜色按占用分档（ok/warn/danger 与旧进度条同一套语义）。 */
+.ctx-ring {
+    position: relative;
+    width: 26px;
+    height: 26px;
+    border: none;
+    background: none;
+    padding: 0;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+}
+.ctx-ring-svg {
+    width: 26px;
+    height: 26px;
+    transform: rotate(-90deg);   /* 起点在顶部，顺时针增长 */
+}
+.ctx-ring-track {
+    fill: none;
+    stroke: var(--white-a10);
+    stroke-width: 3;
+}
+.ctx-ring-fill {
+    fill: none;
+    stroke: var(--status-bar-ok);
+    stroke-width: 3;
+    stroke-linecap: round;
+    stroke-dasharray: 97.4;      /* 2πr, r=15.5 → 97.39，JS 按百分比改 dashoffset */
+    transition: stroke-dashoffset 0.35s ease, stroke 0.25s ease;
+}
+.ctx-ring-fill.lvl-warn { stroke: var(--status-bar-warn); }
+.ctx-ring-fill.lvl-danger { stroke: var(--status-bar-danger); }
+.ctx-ring-pct {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 8px;
+    font-weight: 700;
+    color: var(--white-a90);
+    font-variant-numeric: tabular-nums;
+    pointer-events: none;        /* 点击穿透到 button */
+}
+
+/* ====================== 上下文上限编辑气泡 ====================== */
+/* 点圆环弹出：小浮层（非模态框），直接输 k 值改 maxWindow；深色小卡风格与 tooltip 一致 */
+.ctx-edit-pop {
+    position: fixed;
+    z-index: 999;
+    min-width: 168px;
+    background: var(--bg-select);
+    /* 简约化（用户拍板）：去描边与投影 */
+    border-radius: 10px;
+    padding: 8px 10px;
+    animation: ctxPopIn 0.15s ease;
+}
+@keyframes ctxPopIn {
+    from { opacity: 0; transform: translateY(-4px); }
+    to { opacity: 1; transform: none; }
+}
+.ctx-edit-title {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    font-size: 11px;
+    color: var(--white-a60);
+    margin-bottom: 6px;
+}
+/* 右上角已用值：当前上下文已用 token（k），打开气泡时由 JS 回填 */
+.ctx-edit-used {
+    font-size: 11px;
+    color: var(--white-a40);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+.ctx-edit-body {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.ctx-edit-input {
+    flex: 1 1 auto;
+    min-width: 0;
+    width: 72px;
+    font: inherit;
+    font-size: 13px;
+    color: var(--white-a90);
+    background: var(--bg-input);
+    border: 1px solid var(--white-a20);
+    border-radius: 6px;
+    padding: 4px 8px;
+    outline: none;
+    font-variant-numeric: tabular-nums;
+}
+.ctx-edit-input:focus { border-color: var(--color-accent); }
+.ctx-edit-unit {
+    font-size: 11px;
+    color: var(--white-a50);
+    flex: 0 0 auto;
+}
+.ctx-edit-save {
+    flex: 0 0 auto;
+    font: inherit;
+    font-size: 12px;
+    color: var(--white-a90);
+    background: var(--color-accent);
+    border: none;
+    border-radius: 6px;
+    padding: 4px 10px;
+    cursor: pointer;
+    transition: filter var(--transition-fast, 0.15s);
+}
+.ctx-edit-save:hover { filter: brightness(1.15); }
+
+.icon-btn {
+    width: 22px;
+    height: 22px;
+    cursor: pointer;
+    color: var(--white-a40);
+    transition: all var(--transition-normal);
+    display: block;
+    /* 移动端修复：裸 <svg> 图标直接绑 click，其指针命中默认只认「实际绘制的图形像素」
+       （镂空/描边间隙算空白不接收），移动端 WebKit/Android 比桌面严格 —— 点镂空处不触发 click，
+       表现就是「图标点不开」。pointer-events:all 让整个 22px 包围盒都可点（含镂空）；
+       touch-action:manipulation 消除移动端 300ms 点击延迟、更跟手。两者零副作用、桌面正常。 */
+    pointer-events: all;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+}
+
+.icon-btn:hover {
+    color: var(--white-a90);
+    transform: scale(1.1);
+}
+
+.icon-btn:active {
+    transform: scale(0.92);
+}
+
+/* 设置图标 = 旋转环（替换原齿轮 SVG）。尺寸/颜色继承自 .icon-btn（22px / --white-a40），
+   hover 颜色提亮由 .icon-btn:hover 提供；描边跟随 currentColor，自动适配深/浅主题。 */
+.settings-ring {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* 旋转环本体：常态静止，仅 hover 才旋转（见下方 :hover 规则）。
+   原因：原 6s infinite 让一颗 20px 装饰环在常态模式下持续重绘，是常态 GPU 占用的次要来源。
+   改为 hover 才转后，空闲态不再有常驻旋转动画占用合成器。 */
+.settings-ring .ring-spin {
+    position: absolute;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    border: 1px solid color-mix(in srgb, currentColor 35%, transparent);
+    border-top-color: currentColor;
+    transition: border-color 0.4s ease;
+}
+
+.settings-ring .ring-spin-2 {
+    width: 13px;
+    height: 13px;
+    border-top-color: color-mix(in srgb, currentColor 55%, transparent);
+    /* 反向慢转仅在 hover 时经 :hover 规则生效 */
+}
+
+.settings-ring .ring-dot {
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: color-mix(in srgb, currentColor 70%, transparent);
+    transition: all 0.4s ease;
+}
+
+/* hover：加速旋转 + 中心点亮（承接 .icon-btn:hover 的颜色提亮）。
+   仅在 hover 时赋予旋转动画，空闲态静止，消除常驻合成器开销。 */
+.settings-ring:hover .ring-spin { animation: settings-ring-spin 1.4s linear infinite; }
+.settings-ring:hover .ring-spin-2 { animation: settings-ring-spin 4.5s linear infinite reverse; }
+.settings-ring:hover .ring-dot { background: currentColor; }
+
+@keyframes settings-ring-spin {
+    to { transform: rotate(360deg); }
+}
+
+.danger-icon-btn {
+    /* 危险按钮红从 --color-error 派生（40% 透明度），跟随主题 */
+    color: color-mix(in srgb, var(--color-error) 40%, transparent);
+}
+
+.danger-icon-btn:hover {
+    color: color-mix(in srgb, var(--color-error) 90%, transparent);
+}
+
+/* 二次点击确认「待确认」态：红色警示色（图标/文本按钮共用，无脉冲环，用户拍板：脉冲非必要） */
+.danger-icon-btn.armed {
+    color: var(--color-error);
+}
+
+/* 文本按钮「待确认」态（如删除配色）共用红色警示色 */
+.cs-item-del.armed {
+    background: var(--color-error);
+    color: var(--white-a90);
+    border-color: var(--color-error);
+}
+
+/* 清空按钮：把 <svg> 图标包进 <button>，待确认态直接把图标换成「?」（不再浮气泡）。 */
+#btn-clear-chat {
+    border: none;
+    background: none;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+}
+#btn-clear-chat svg {
+    width: 22px;
+    height: 22px;
+    display: block;
+}
+/* 待确认态：图标变「?」实心警示，红脉冲环（颜色/脉冲由 .danger-icon-btn.armed 提供） */
+#btn-clear-chat.armed {
+    font-size: 17px;
+    font-weight: 700;
+    line-height: 1;
+}
+
+/* 色块点待确认态：底色上叠一个「?」问号（白字 + 深色描边保证任意底色可读），红色警示 */
+.qt-dot.armed {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--white-a90);
+    text-shadow: 0 0 3px var(--black-a60), 0 0 4px var(--black-a60);
+}
+.qt-dot.armed::after {
+    content: none; /* 与 .active 的 ✓ 互斥，避免「?」与「✓」重叠 */
+}
+
+/* arm-pulse 关键帧已移除：待确认态不再使用脉冲环（用户拍板） */

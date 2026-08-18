@@ -1,0 +1,174 @@
+/* ====================== 对话区域 ====================== */
+#chat {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    overflow-y: auto;
+    overflow-x: hidden;
+    z-index: 1;
+    padding: 60px 20px 100px 20px;
+}
+
+/* 底部渐变遮罩，柔化输入区过渡。用 var(--color-bg) 合成，深/浅主题自适应（原硬编码 rgba(8,11,20) 在浅色主题下残留深色） */
+#bottom-mask {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 80px;
+    background: linear-gradient(to bottom, transparent 0%, color-mix(in srgb, var(--color-bg) 75%, transparent) 55%, var(--color-bg) 100%);
+    z-index: 2;
+    pointer-events: none;
+}
+
+/* UI Canvas — 输入框绘制层 */
+#ui-canvas {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    z-index: 3;
+    pointer-events: none;
+}
+
+/* ====================== 消息样式 ====================== */
+.msg {
+    max-width: 85%;
+    /* 宽度收缩到内容宽度：block 元素 width:auto 会拉伸占满 85% 导致气泡拉满、文本贴一侧留白；
+       设为 fit-content 后气泡随文本长短自适应，配合 .user/.ai 的 margin auto 实现右/左对齐 */
+    width: fit-content;
+    margin-bottom: 28px;
+    font-size: var(--msg-font-size);
+    line-height: 1.8;
+    text-shadow: 0 2px 8px var(--black-a60);
+    /* 可见态作为基线(opacity:1)，入场动画只负责"从隐藏→可见"的过渡，不依赖 forwards 保持可见。
+       这样主题插件覆盖 animation 时(即使不带 forwards)，气泡也会回落到基线可见态，不会在动画结束后变透明消失。 */
+    opacity: 1;
+    transform: translateY(0);
+    animation: fadeIn 0.35s cubic-bezier(0.22, 1, 0.36, 1) both;
+    word-break: break-word;
+    white-space: pre-wrap;
+}
+
+/* 语音条消息（含 .vt 子元素）只由子 .vt 各自入场动画表达，关闭外层 .msg 的 fadeIn，
+   避免「外层淡入上滑 + 内层语音条再入场」的双重入场（简约化，用户拍板优化）。
+   与 waifu 模式 .msg.ai{animation:none} 同一思路：容器不重复入场。 */
+.msg:has(.vt) {
+    animation: none;
+}
+
+/* 颜色加 !important 抗主题覆盖：主题的 body { color } 或 通配 color 会压过 .ai/.user，
+   导致 ai/user 字体变黑/看不清（用户报告 bug）。气泡底色由主题 .chat-bubble--ai/--user 管，
+   文字颜色必须保持角色语义色，不可被主题 body color 覆盖。 */
+.msg.user {
+    margin-left: auto;
+    text-align: right;
+    color: var(--color-user) !important;
+}
+
+.msg.ai {
+    margin-right: auto;
+    text-align: left;
+    color: var(--color-ai) !important;
+}
+/* waifu 分句气泡内文字继承父 .msg.ai 颜色；同时子元素自身也加一层保险，
+   避免主题把 .waifu-bubble 的 color 覆盖成黑色。 */
+.msg.ai .waifu-bubble {
+    color: var(--color-ai) !important;
+}
+
+/* 语义化气泡类：统一普通模式与 waifu 模式的视觉契约。
+   结构外观(padding/border-radius)在此统一定义；配色由主题通过 .chat-bubble--ai/--user 覆盖，
+   默认无底色(普通模式 AI 透明、绿底仅 waifu 分句泡自带)，避免硬编码背景破坏普通模式默认外观。
+   不对称圆角(微信/iMessage 风)：朝向发送方的角收小、其余角放大——
+   user 居右→收 top-right；ai 居左→收 top-left。waifu 分句泡沿用 .chat-bubble--ai 同款不对称。 */
+.chat-bubble {
+    /* 对称兜底圆角；具体非对称值由下方 .chat-bubble--ai/--user 覆盖 */
+    border-radius: var(--radius-md);
+}
+.chat-bubble--user {
+    /* 语义钩子：仅供主题插件定位气泡；不对称圆角——收 top-right（发送方角） */
+    border-radius: var(--radius-lg) var(--radius-sm) var(--radius-lg) var(--radius-lg);
+}
+.chat-bubble--ai {
+    /* 语义钩子：仅供主题插件定位气泡；不对称圆角——收 top-left（发送方角） */
+    border-radius: var(--radius-sm) var(--radius-lg) var(--radius-lg) var(--radius-lg);
+}
+
+/* 错误样式：.chat-bubble--ai 的错误变体（P6）。
+   .error-msg 挂在 bubble 外层（带 .chat-bubble--ai），共享气泡结构，只覆盖颜色/边框。
+   入场动画已清零：错误靠配色 + 虚线边框表达，不再叠加抖动/淡入（简约化，用户拍板"清0"）。
+   注：@keyframes shake 仍保留，供 modal.css .js-shake 与 quick-theme.js 无效输入提示复用。
+   max-width:85% 覆盖 waifu 模式下 #chat.waifu-mode .msg.ai 的 100%，让错误气泡收缩显示。 */
+.error-msg {
+    max-width: 85%;
+    color: var(--color-error);
+    /* 边框/底色用 color-mix 从 --color-error 派生（30% / 6% 透明度），跟随主题 */
+    border: 1px dashed color-mix(in srgb, var(--color-error) 30%, transparent);
+    padding: 8px;
+    /* 不对称圆角——错误气泡恒为 AI（居左），收 top-left（与 .chat-bubble--ai 一致） */
+    border-radius: var(--radius-sm) var(--radius-lg) var(--radius-lg) var(--radius-lg);
+    background: color-mix(in srgb, var(--color-error) 6%, transparent);
+    animation: none;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(12px); }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-4px); }
+    75% { transform: translateX(4px); }
+}
+
+/* ====================== 打字指示器 ====================== */
+.typing-dots {
+    display: inline-flex;
+    gap: 5px;
+    align-items: center;
+    padding: 4px 0;
+}
+
+.typing-dots span {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    /* 从 --color-ai 派生（50% 透明度），跟随主题 */
+    background: color-mix(in srgb, var(--color-ai) 50%, transparent);
+    animation: typingPulse 1.4s infinite ease-in-out;
+}
+
+.typing-dots span:nth-child(2) { animation-delay: 0.2s; }
+.typing-dots span:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes typingPulse {
+    0%, 60%, 100% { opacity: 0.25; transform: translateY(0); }
+    30% { opacity: 0.9; transform: translateY(-4px); }
+}
+
+
+/* 错误气泡内联重试按钮（P11 根治：失败恢复一次点击，不打断气泡结构） */
+.msg-retry {
+    display: block;
+    margin-top: 8px;
+    background: none;
+    border: 1px solid var(--color-error);
+    color: var(--color-error);
+    border-radius: var(--radius-sm);
+    padding: 4px 12px;
+    font-size: 12px;
+    line-height: 1.5;
+    cursor: pointer;
+    font-family: inherit;
+}
+.msg-retry:hover {
+    background: color-mix(in srgb, var(--color-error) 10%, transparent);
+}

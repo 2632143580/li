@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LI 浏览器能力诊断</title>
+<style>
+  body { font-family: system-ui, sans-serif; margin: 16px; background: #0d1018; color: #e8ecf4; font-size: 14px; line-height: 1.7; }
+  h1 { font-size: 17px; }
+  .row { display: flex; justify-content: space-between; gap: 12px; padding: 7px 10px; border-bottom: 1px solid rgba(255,255,255,.08); }
+  .row .name { color: #9aa3b2; }
+  .ok { color: #4ade80; font-weight: bold; }
+  .bad { color: #ff5a5a; font-weight: bold; }
+  .ua { font-size: 12px; color: #9aa3b2; word-break: break-all; margin-top: 14px; padding: 8px; background: rgba(255,255,255,.05); border-radius: 6px; }
+  .tip { margin-top: 14px; padding: 10px; border-radius: 8px; background: rgba(255,255,255,.06); font-size: 13px; }
+</style>
+</head>
+<body>
+<h1>浏览器能力诊断（给 LI 用）</h1>
+<div id="out"></div>
+<div class="tip">如果某一项标红 <span style="color:#ff5a5a">不支持</span>，把它截图发给我。这页专为排查「Via 看不到云端音色」准备。</div>
+<div class="ua" id="ua"></div>
+<script>
+(function () {
+  function support(label, ok, extra) {
+    var el = document.createElement('div');
+    el.className = 'row';
+    el.innerHTML = '<span class="name">' + label + '</span><span class="' + (ok ? 'ok' : 'bad') + '">' + (ok ? '支持' : '不支持') + (extra ? ' · ' + extra : '') + '</span>';
+    document.getElementById('out').appendChild(el);
+  }
+  function jsOk(code) {
+    try { new Function(code); return true; } catch (e) { return false; }
+  }
+  function cssOk(decl) {
+    try { return window.CSS && CSS.supports(decl); } catch (e) { return false; }
+  }
+  function cssSelOk(sel) {
+    try { return window.CSS && CSS.supports('selector(' + sel + ')'); } catch (e) { return false; }
+  }
+
+  var ua = navigator.userAgent;
+  document.getElementById('ua').textContent = 'UA: ' + ua;
+
+  support('JS 可选链 a?.b（Chrome 80+）', jsOk('var a={b:1};return a?.b;'));
+  support('JS 空值合并 a ?? b（Chrome 80+）', jsOk('var a=null;return a ?? 1;'));
+  support('JS String.replaceAll（Chrome 85+）', jsOk('return "a".replaceAll("a","b");'));
+  support('JS Array.at()（Chrome 92+）', jsOk('return [1,2].at(-1);'));
+  support('CSS color-mix()（Chrome 111+）', cssOk('color: color-mix(in srgb, red, blue)'));
+  support('CSS :has()（Chrome 105+）', cssSelOk(':has(*)'));
+  support('CSS gap in flex（Chrome 84+）', cssOk('gap: 8px'));
+  support('CSS aspect-ratio（Chrome 88+）', cssOk('aspect-ratio: 1 / 1'));
+  support('CSS 嵌套', cssSelOk('.a .b'));
+  support('speechSynthesis 存在', !!(window.speechSynthesis), window.speechSynthesis ? 'getVoices=' + (window.speechSynthesis.getVoices ? window.speechSynthesis.getVoices().length : '?') : '');
+  support('CSS.supports 本身', typeof window.CSS !== 'undefined' && !!window.CSS.supports);
+
+  var core = '';
+  var c = window.speechSynthesis;
+  if (c && c.getVoices && c.getVoices().length === 0) {
+    var onv = function () { if (c.getVoices().length > 0) { document.getElementById('core').textContent = '声音就绪后音色数: ' + c.getVoices().length; } };
+    if (c.addEventListener) c.addEventListener('voiceschanged', onv);
+    core = '首次为空，等待 voiceschanged…';
+  }
+  var coreEl = document.createElement('div');
+  coreEl.className = 'row';
+  coreEl.innerHTML = '<span class="name">系统音色数量</span><span>' + (c && c.getVoices ? c.getVoices().length : '无 speechSynthesis') + '</span>';
+  document.getElementById('out').appendChild(coreEl);
+  if (core) {
+    var waitEl = document.createElement('div');
+    waitEl.id = 'core';
+    waitEl.className = 'row';
+    waitEl.innerHTML = '<span class="name">音色等待</span><span>' + core + '</span>';
+    document.getElementById('out').appendChild(waitEl);
+  }
+})();
+</script>
+</body>
+</html>

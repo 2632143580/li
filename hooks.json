@@ -1,0 +1,41 @@
+{
+  "version": 1,
+  "description": "LI 插件宿主契约 · 机器可读单一事实源。导出模板注释 / 静态校验器 / 导入时自检从此读取，不要手写死副本。",
+  "pluginTypes": {
+    "theme": { "signals": ["meta.cssText", "meta.tokens"], "engine": "ThemeEngine", "minSignals": 1 },
+    "bgCanvas": { "signals": ["init", "animate"], "engine": "BgEngine", "requireAll": true },
+    "bgDom": { "signals": ["type:dom", "onMount"], "engine": "BgEngine", "requireAll": true },
+    "hybrid": {
+      "signals": ["bgFeature", "themeFeature"],
+      "split": true,
+      "splitRule": "bg 取 init/animate/onMount/onUnmount；theme 取 meta.cssText/tokens"
+    }
+  },
+  "rules": {
+    "nonModule": true,
+    "requireReturn": true,
+    "forbiddenSyntax": ["import", "export"],
+    "forbiddenSelectors": ["*[class*=...]", "div[class*=\"ai\"]", "div[class*=\"bubble\"]", "[class*=\"msg\"]"],
+    "deadSelectors": [".msg-bubble", ".message-bubble"],
+    "requireBubbleHook": [".chat-bubble--ai", ".chat-bubble--user"]
+  },
+  "bubbleHooks": {
+    "ai": ".chat-bubble--ai",
+    "user": ".chat-bubble--user",
+    "coveredByAi": [".chat-bubble--ai", ".waifu-bubble"],
+    "note": ".waifu-bubble 已被 .chat-bubble--ai 覆盖；主题上色只瞄准 --ai/--user 即可同时管普通模式与看板娘模式，单独列 .waifu-bubble 易误导 AI 漏掉普通 .msg。"
+  },
+  "domLayerId": "#bg-dom-layer",
+  "radiusToken": "--radius-md",
+  "tokens": {
+    "color": ["--color-bg", "--color-user", "--color-ai", "--color-accent", "--color-accent-soft", "--color-error", "--color-accent-bright", "--color-accent-solid", "--color-accent-glow", "--color-accent-dim", "--color-user-bright", "--color-waifu-active"],
+    "radius": ["--radius-sm", "--radius-md", "--radius-lg"],
+    "transition": ["--transition-fast", "--transition-normal", "--transition-smooth"],
+    "whiteAlpha": ["--white-a03", "--white-a05", "--white-a06", "--white-a08", "--white-a10", "--white-a12", "--white-a20", "--white-a30", "--white-a35", "--white-a40", "--white-a45", "--white-a50", "--white-a60", "--white-a70", "--white-a80", "--white-a90"],
+    "blackAlpha": ["--black-a20", "--black-a30", "--black-a50", "--black-a60"],
+    "input": ["--input-ring-normal", "--input-ring-waiting", "--input-line", "--input-dot", "--input-text", "--input-cursor"],
+    "bg": ["--bg-modal", "--bg-select", "--bg-input", "--modal-elevation"],
+    "status": ["--status-send", "--status-cache", "--status-warn", "--status-error", "--status-bar-ok", "--status-bar-warn", "--status-bar-danger"]
+  },
+  "maintainer": "改 src/styles/tokens.css 的 :root 或 tree.js 的气泡类名后，必须同步本文件与 PLUGIN_CONTRACT.md"
+}
