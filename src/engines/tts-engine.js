@@ -538,13 +538,14 @@ const preloadQueue = [];
 
 /** 后台预加载单句云端音频（限制并发，失败静默）。供「播当前句时预加载下一句」与「悬停预加载」调用。 */
 export function preloadSentence(text) {
-    if (state.settings.ttsSource !== 'cloud') return;       // 仅云端源需预加载（系统源本地合成无请求）
+    if (state.settings.ttsSource !== 'cloud') { Logger.debug('[Preload] 跳过：非云端TTS源（本地合成无需预加载）'); return; }
     const cfg = state.settings.ttsCloud || {};
-    if (!cfg.apiKey) return;                                 // 未配 Key 不预加载
+    if (!cfg.apiKey) { Logger.debug('[Preload] 跳过：未配置云端Key'); return; }
     const cleaned = cleanForSpeech(text);
     if (!cleaned) return;
     const key = cloudCacheKey(cleaned, cfg);
-    if (cloudCache.has(key) || cloudInflight.has(key)) return; // 已在缓存/请求中则跳过（fetchCloudAudioCached 内部亦有去重）
+    if (cloudCache.has(key) || cloudInflight.has(key)) { Logger.debug('[Preload] 命中缓存/在途，跳过：' + cleaned.slice(0, 16)); return; }
+    Logger.info('[Preload] 预加载：' + cleaned.slice(0, 16));
     preloadQueue.push({ text: cleaned, cfg });
     drainPreloadQueue();
 }
@@ -568,12 +569,14 @@ let autoPlaying = false;
  * @param {string} text 单句文本（已清洗）
  * @param {{onStart?:function,onProgress?:function,onEnd?:function}} [cb] 视觉回调（手动点击的同款）
  */
-export function enqueueAutoSentence(text, cb = {}) {
-    const cleaned = cleanForSpeech(text);
-    if (!cleaned) return;
-    if (!state.settings.ttsAutoRead || !state.settings.ttsEnabled) return;
-    autoQueue.push({ text: cleaned, cb });
+export function enqueueAutoSentence(item) {
+    const cleaned = cleanForSpeech(item.text);
+    if (!cleaned) return null;
+    item.text = cleaned;
+    if (!state.settings.ttsAutoRead || !state.settings.ttsEnabled) return null;
+    autoQueue.push(item);
     processAutoQueue();
+    return item;
 }
 
 /** 顺次播放队列（互斥：上句在播则等待其 onEnd） @returns {void} */

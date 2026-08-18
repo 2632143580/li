@@ -33,7 +33,7 @@ export const DOM = {};
         'bg-modal', 'btn-bg-plugin', 'bg-modal-close', 'plugin-list-container', 'theme-list-container',
         'fs-editor', 'fs-textarea', 'fs-title', 'fs-confirm', 'fs-cancel',
         'fs-trigger-btn', 'fs-align-btn',
-        'btn-waifu-toggle', 'btn-clear-chat', 'btn-import-all', 'btn-export-all',
+        'btn-waifu-toggle', 'btn-log-toggle', 'btn-clear-chat', 'btn-import-all', 'btn-export-all',
         'btn-tts-toggle',
         // 语音设置模态框
         'voice-modal', 'voice-modal-close', 'voice-modal-cancel',

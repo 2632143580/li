@@ -17,6 +17,7 @@ import { DOM } from '../core/dom.js';
 import { state } from '../core/store.js';
 import { splitSentences } from '../core/text-split.js';
 import { cleanForSpeech, speakSentence, enqueueAutoSentence, clearAutoQueue, preloadSentence } from '../engines/tts-engine.js';
+import { Logger } from '../core/logger.js';
 
 /** 当前播放中的语音条 DOM（互斥：新条播放前先停旧条） @type {HTMLElement|null} */
 let playingTile = null;
@@ -153,10 +154,21 @@ function maybeAutoRead(node, isStreaming, contentEl) {
     // 此时 seen.has 会抛 TypeError 崩溃。统一兜底：非 Set 实例则重建，保证去重集合类型正确可用。
     if (!(node._autoEnq instanceof Set)) node._autoEnq = new Set();
     const seen = node._autoEnq;
-    // 去重键含句序（idx:text），避免"好的。好的。"这类合法重复句被纯文本去重跳过（修⑦）
+    // 维护 idx -> 队列项 映射：流式期同一句序号固定，但其文本会从半句增长到整句。
+    // 按 idx（而非 idx:text）去重，使同句只入队一次；文本变化时在队列项原地更新，
+    // 避免旧方案（idx:text 去重）在 text 变化时拦不住、导致同一句被多次入队 → 播到倒数第二句跳回重播。
+    if (!(node._autoIdxMap instanceof Map)) node._autoIdxMap = new Map();
+    const idxMap = node._autoIdxMap;
     const enq = (text, idx) => {
-        const key = idx + ':' + text;
-        if (!seen.has(key)) { seen.add(key); enqueueAutoSentence(text, buildTileCb(contentEl, text, idx)); }
+        if (seen.has(idx)) {
+            const item = idxMap.get(idx);
+            if (item) item.text = text; // 半句→整句：原地更新待播文本，不重复入队
+            return;
+        }
+        seen.add(idx);
+        const item = { text, idx, cb: buildTileCb(contentEl, text, idx) };
+        idxMap.set(idx, item);
+        enqueueAutoSentence(item);
     };
     if (isStreaming) {
         node._autoReadArmed = true;
