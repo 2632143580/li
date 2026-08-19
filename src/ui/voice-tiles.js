@@ -16,7 +16,7 @@
 import { DOM } from '../core/dom.js';
 import { state } from '../core/store.js';
 import { splitSentences } from '../core/text-split.js';
-import { cleanForSpeech, speakSentence, enqueueAutoSentence, clearAutoQueue, preloadSentence } from '../engines/tts-engine.js';
+import { cleanForSpeech, speakSentence, enqueueAutoSentence, clearAutoQueue } from '../engines/tts-engine.js';
 
 /** 当前播放中的语音条 DOM（互斥：新条播放前先停旧条） @type {HTMLElement|null} */
 let playingTile = null;
@@ -113,7 +113,10 @@ export function renderBoth(contentEl, node, isStreaming) {
         } else {
             const last = existing[existing.length - 1];
             const tile = last.querySelector('.vt');
-            if (tile) tile.dataset.text = rows[rows.length - 1].clean;
+            if (tile) {
+                tile.dataset.text = rows[rows.length - 1].clean;
+                syncRevealedText(tile); // 流式末句持续增长：同步 .vt-text，防「右键转文字」残留半句首字（与 renderVoiceTiles 同口径）
+            }
             const txt = last.querySelector('.vt-both-text');
             if (txt) txt.textContent = rows[rows.length - 1].raw;
         }
@@ -234,7 +237,6 @@ function makeTileEl(text, idx = 0, allowReveal = true) {
     textEl.textContent = text; // textContent 防 XSS，绝不用 innerHTML 注入 AI 文本
     tile.append(wave, durEl, textEl);
     tile.addEventListener('click', () => toggleTile(tile));
-    tile.addEventListener('mouseenter', () => preloadSentence(text)); // 悬停预加载（仅云端源+已配 Key 才真发请求，其余静默 return）
     if (allowReveal) {
         tile.addEventListener('contextmenu', (e) => {
             e.preventDefault();
