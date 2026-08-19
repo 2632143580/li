@@ -5,17 +5,15 @@
     align-items: center;
     gap: 12px;
     padding: 4px 10px;
-    border-radius: 10px;
+    border-radius: var(--pill-radius);
     cursor: pointer;               /* 监控区即左栏展开/收起开关（原箭头已移除）；圆环点击另弹编辑气泡 */
-    /* 背景用 var(--color-bg) 合成，深/浅主题自适应（原硬编码 rgba(8,11,20) 在浅色主题下残留深色） */
-    background: color-mix(in srgb, var(--color-bg) 100%, transparent);
-    border: 1px solid var(--white-a10);
-    /* 毛玻璃已移除（用户拍板彻底无毛玻璃）；72% 实底色足够 */
+    background: var(--bg-pill);
+    border: var(--pill-border);
     transition: background var(--transition-normal), border-color var(--transition-normal);
 }
 .monitor-bar:hover {
-    background: color-mix(in srgb, var(--color-bg) 85%, transparent);
-    border-color: var(--white-a20);
+    background: var(--bg-pill-hover);
+    border: var(--pill-border-hover);
 }
 .monitor-light {
     display: flex;

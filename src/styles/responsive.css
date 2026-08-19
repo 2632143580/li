@@ -114,6 +114,7 @@
  * 纯布局调整，沿用面板自身 token，无色值硬编码、不触发皮肤守卫。 */
 @media (max-width: 640px) {
     #log-panel .sheet-body, #msg-nav .sheet-body {
+        height: 70vh;
         max-height: 82vh;
     }
 }

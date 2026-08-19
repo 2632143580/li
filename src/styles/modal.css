@@ -376,7 +376,8 @@ body.modal-open *:not(.modal-overlay):not(.modal-overlay *):not(#fs-editor):not(
     width: 100%;
     max-width: 560px;
     margin: 0 auto;
-    min-height: 40vh;
+    height: 60vh;
+    min-height: 300px;
     border-radius: var(--radius-lg) var(--radius-lg) 0 0;
     max-height: 90vh;
     overflow: hidden;
