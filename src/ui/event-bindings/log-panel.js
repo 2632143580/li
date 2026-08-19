@@ -24,7 +24,9 @@ const UPDATES = [
             '【优化】云端 TTS 有限并发 ≤2 + 按需预加载（播当前句时预拉下一句 / 悬停预拉）；仅云端源生效，本地合成无需预加载',
             '【新增】更新日志页（waifu 按钮左侧）',
             '【优化】更新日志页与消息导航改为统一模态（互斥、锁背景滚动，修两者可同时打开 / 背景穿透滑动）',
-            '【优化】消息导航高频词跟随词云分词模式（轻量 ↔ 专业 jieba）切换'
+            '【优化】消息导航高频词跟随词云分词模式（轻量 ↔ 专业 jieba）切换',
+            '【修复】消息导航入场动画被模态滚动锁规则冻结在 opacity:0 导致「面板开了却看不见」：modal.css 已将该浮层排除出动画暂停规则',
+            '【修复】更新日志页浅色主题黑字黑底：补白值 token 重置（与消息导航同款处理）'
         ]
     },
     {
@@ -78,6 +80,10 @@ function setupLogPanel() {
     }).join('');
 
     panel.innerHTML = `
+        <style>
+            /* 面板表面恒为深色(--bg-modal 不随主题翻转)，故文本 token 强制白值，免疫浅色主题把 --white-a* 翻黑导致「黑字黑底」不可读（msg-nav 同款处理） */
+            #log-panel { --white-a06:rgba(255,255,255,.06); --white-a08:rgba(255,255,255,.08); --white-a10:rgba(255,255,255,.1); --white-a12:rgba(255,255,255,.12); --white-a15:rgba(255,255,255,.15); --white-a20:rgba(255,255,255,.2); --white-a35:rgba(255,255,255,.35); --white-a40:rgba(255,255,255,.4); --white-a45:rgba(255,255,255,.45); --white-a50:rgba(255,255,255,.5); --white-a60:rgba(255,255,255,.6); --white-a70:rgba(255,255,255,.7); --white-a75:rgba(255,255,255,.75); --white-a80:rgba(255,255,255,.8); --white-a85:rgba(255,255,255,.85); --white-a90:rgba(255,255,255,.9); --white-a95:rgba(255,255,255,.95); }
+        </style>
         <div style="display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid var(--white-a10);">
             <span style="font-weight:600;flex:1;color:var(--white-a90);">更新日志</span>
             <button id="log-close" style="padding:4px 10px;border:1px solid var(--white-a15);background:var(--white-a06);color:var(--white-a80);border-radius:6px;cursor:pointer;font:inherit;">✕</button>

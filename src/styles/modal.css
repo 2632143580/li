@@ -30,11 +30,13 @@ body.modal-open #chat { overflow: hidden !important; }
    否则背后任一动画（TTS 光晕 / 语音波形等）持续产生帧 → 即使 overlay 已无毛玻璃，合成器仍被钉在 60fps。
    模态框内容（.modal-overlay 内）动画不受影响。
    但「活动 UI 浮层」也可能是脱离 .modal-overlay 子树的元素——它们当前就是用户在操作的界面，
-   必须照常播放入场动画，否则会被钉在 opacity:0 而不可见。已知两个受害者：
+   必须照常播放入场动画，否则会被钉在 opacity:0 而不可见。已知四个受害者：
      - #fs-editor：全屏编辑器顶层 div，无 .modal-overlay class；
-     - #set-model-options：模型下拉框，被 tree.js 动态 appendChild 到 body，脱离 #modal 的 overlay 子树。
-   故在此显式排除这两个活动浮层（后续若再出现同类浮层，追加 :not(...) 即可）。 */
-body.modal-open *:not(.modal-overlay):not(.modal-overlay *):not(#fs-editor):not(#set-model-options) { animation-play-state: paused !important; }
+     - #set-model-options：模型下拉框，被 tree.js 动态 appendChild 到 body，脱离 #modal 的 overlay 子树；
+     - #msg-nav：消息导航面板（JS 注入 body，无 overlay），其 msgNavIn 入场动画会被冻结在 opacity:0 → 面板开了却看不见；
+     - #log-panel：更新日志页（同上，JS 注入 body，无 overlay）。
+   故在此显式排除这些活动浮层（后续若再出现同类浮层，追加 :not(...) 即可）。 */
+body.modal-open *:not(.modal-overlay):not(.modal-overlay *):not(#fs-editor):not(#set-model-options):not(#msg-nav):not(#msg-nav *):not(#log-panel):not(#log-panel *) { animation-play-state: paused !important; }
 
 @keyframes overlayFadeIn {
     from { opacity: 0; }
