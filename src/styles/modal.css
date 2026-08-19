@@ -365,6 +365,16 @@ body.modal-open *:not(.modal-overlay):not(.modal-overlay *):not(#fs-editor):not(
     padding: 0;
 }
 
+/* 统一 sheet 表面高度（单一事实来源）：覆盖 .modal-content 基础 max-height:85vh，
+   根治「静态三面板被截短 5vh」。height / max-height 集中此处，所有 sheet 表面
+   （设置/词云/语音的 .modal-content，消息导航/日志的 .sheet-body）自动获得 90vh 上限，
+   无需逐面板补写，杜绝遗漏 max-height 的隐性耦合。只动高度，不碰各面板 ID 级专属样式。 */
+.modal-overlay.sheet > .modal-content,
+.modal-overlay.sheet > .sheet-body {
+    height: 90vh;
+    max-height: 90vh;
+}
+
 /* 通用表面：JS 动态创建的 消息导航 / 日志 用 .sheet-body 包裹（内部列表各自滚动，表面自身不滚）。
  * 命名注意：原用 .sheet 同时作 overlay 修饰类和内部表面类，歧义严重——overlay 的 .sheet 表示「贴底」，
  *   内部的 .sheet 表示「表面体」。现内部类改名为 .sheet-body 消除歧义。 */
@@ -374,7 +384,6 @@ body.modal-open *:not(.modal-overlay):not(.modal-overlay *):not(#fs-editor):not(
     width: 100%;
     max-width: 560px;
     margin: 0 auto;
-    height: 90vh;
     border-radius: var(--radius-lg) var(--radius-lg) 0 0;
     overflow: hidden;
     background: var(--bg-modal);
@@ -400,7 +409,6 @@ body.modal-open *:not(.modal-overlay):not(.modal-overlay *):not(#fs-editor):not(
 }
 
 /* 静态面板表面覆盖：高 specificity 覆盖各自既有居中/尺寸样式，统一为底部抽屉
- * 全部 sheet 面板统一 height:90vh，不再各写各的 max-height
  * （不动 overflow：设置/语音/词云各自 .modal-content 的 overflow-y:auto / hidden 仍生效） */
 #modal.modal-overlay.sheet > .modal-content,
 #wordcloud-dialog.modal-overlay.sheet > .modal-content,
@@ -411,7 +419,6 @@ body.modal-open *:not(.modal-overlay):not(.modal-overlay *):not(#fs-editor):not(
     width: 100%;
     max-width: 560px;
     margin: 0 auto;
-    height: 90vh;
     box-shadow: var(--modal-elevation);
     animation: sheetIn 0.26s cubic-bezier(0.22, 1, 0.36, 1);
 }
