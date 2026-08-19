@@ -34,22 +34,11 @@ function setupMsgNav() {
 
     const panel = document.createElement('div');
     panel.id = 'msg-nav';
-    panel.style.cssText = [
-        'position:fixed', 'left:12px', 'bottom:64px',
-        'width:min(92vw,340px)', 'max-height:66vh', 'display:none',
-        'flex-direction:column', 'background:var(--bg-modal)',
-        'border:1px solid var(--white-a12)', 'border-radius:12px',
-        'box-shadow:0 8px 28px var(--black-a40)', 'z-index:60',
-        'font:12.5px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif',
-        'color:var(--white-a85)', 'overflow:hidden',
-        'animation:msgNavIn .16s ease-out'
-    ].join(';') + ';';
+    panel.className = 'modal-overlay sheet';   // 全屏 scrim + 底部抽屉：表面吃 --bg-modal / --white-a*，随主题自动深浅适配（不再写死定位/白值）
 
     panel.innerHTML = `
         <style>
-            /* 面板表面恒为深色(--bg-modal 不随主题翻转)，故文本 token 强制白值，免疫浅色主题把 --white-a* 翻黑导致「黑字黑底」不可读 */
-            #msg-nav { --white-a06:rgba(255,255,255,.06); --white-a08:rgba(255,255,255,.08); --white-a10:rgba(255,255,255,.1); --white-a12:rgba(255,255,255,.12); --white-a15:rgba(255,255,255,.15); --white-a20:rgba(255,255,255,.2); --white-a35:rgba(255,255,255,.35); --white-a40:rgba(255,255,255,.4); --white-a45:rgba(255,255,255,.45); --white-a50:rgba(255,255,255,.5); --white-a60:rgba(255,255,255,.6); --white-a70:rgba(255,255,255,.7); --white-a75:rgba(255,255,255,.75); --white-a80:rgba(255,255,255,.8); --white-a85:rgba(255,255,255,.85); --white-a90:rgba(255,255,255,.9); --white-a95:rgba(255,255,255,.95); }
-            @keyframes msgNavIn { from { opacity:0; transform:translateY(6px);} to {opacity:1; transform:none;} }
+            /* 内部样式沿用项目主题 token：浅色主题下 --white-a* 由 ThemeEngine 翻黑，故无需白值硬覆盖 */
             #msg-nav .mn-head { display:flex; align-items:center; gap:8px; padding:9px 12px; border-bottom:1px solid var(--white-a10); }
             #msg-nav .mn-title { font-weight:600; flex:1; color:var(--white-a90); letter-spacing:.02em; }
             #msg-nav .mn-close { padding:3px 9px; border:1px solid var(--white-a15); background:var(--white-a06); color:var(--white-a80); border-radius:6px; cursor:pointer; font:inherit; }
@@ -69,15 +58,24 @@ function setupMsgNav() {
             #msg-nav .hq { color:var(--color-accent); background:color-mix(in srgb, var(--color-accent) 26%, transparent); font-weight:600; border-radius:2px; }
             #msg-nav .mn-empty { padding:20px 12px; color:var(--white-a45); text-align:center; }
         </style>
-        <div class="mn-head">
+        <div class="sheet">
+            <div class="mn-head">
             <span class="mn-title">消息导航</span>
             <button class="mn-close" id="mn-close" aria-label="关闭">✕</button>
         </div>
         <input class="mn-search" id="mn-search" type="text" placeholder="查找消息…" autocomplete="off" />
         <div class="mn-sub" id="mn-sub"></div>
         <div class="mn-list" id="mn-list"></div>
+        </div>
     `;
     document.body.appendChild(panel);
+
+    // 遮罩点击关闭（与设置/词云/语音一致，统一 modal 行为）
+    panel.addEventListener('click', (e) => { if (e.target === panel) closeAllModals(); });
+    // Escape 关闭（统一模态交互）
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && getComputedStyle(panel).display !== 'none') closeAllModals();
+    });
 
     const closeBtn = panel.querySelector('#mn-close');
     const search = panel.querySelector('#mn-search');

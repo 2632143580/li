@@ -135,7 +135,6 @@ const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
 /**
  * 分色：三个语义角色固定色相（用户=暖橙 / AI=冷蓝 / 双方各半=绿），两两分离 ≥85°，
  * 任何主题下都明显可分；明度按面板明暗自动调整以保证可读。返回值供列表比例条上色
- * （图例已按用户要求移除，tab 色点用 CSS token 色，与此处派生色相互独立）。
  * @returns {{user:string, ai:string, both:string}}
  */
 function readRoleColors() {

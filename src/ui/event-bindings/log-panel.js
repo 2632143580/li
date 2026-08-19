@@ -54,16 +54,7 @@ function setupLogPanel() {
 
     const panel = document.createElement('div');
     panel.id = 'log-panel';
-    panel.style.cssText = [
-        'position:fixed', 'right:12px', 'bottom:64px',
-        'width:min(92vw,380px)', 'max-height:64vh', 'display:none',
-        'flex-direction:column', 'background:var(--bg-modal)',
-        'border:1px solid var(--white-a12)', 'border-radius:12px',
-        'box-shadow:0 8px 28px var(--black-a40)', 'z-index:60',
-        'font:12px/1.6 ui-monospace,SFMono-Regular,Menlo,monospace',
-        'color:var(--white-a85)', 'overflow:hidden'
-    ].join(';') + ';';
-
+    panel.className = 'modal-overlay sheet';   // 全屏 scrim + 底部抽屉：卡片用 --white-a* token，随主题自动深浅适配（不再写死定位/白值）
     const cards = UPDATES.map(u => {
         const isCurrent = u.tag === '当前版本';
         const items = u.items.map(t => `<li style="margin:2px 0;color:var(--white-a75);">${escapeHtml(t)}</li>`).join('');
@@ -80,17 +71,20 @@ function setupLogPanel() {
     }).join('');
 
     panel.innerHTML = `
-        <style>
-            /* 面板表面恒为深色(--bg-modal 不随主题翻转)，故文本 token 强制白值，免疫浅色主题把 --white-a* 翻黑导致「黑字黑底」不可读（msg-nav 同款处理） */
-            #log-panel { --white-a06:rgba(255,255,255,.06); --white-a08:rgba(255,255,255,.08); --white-a10:rgba(255,255,255,.1); --white-a12:rgba(255,255,255,.12); --white-a15:rgba(255,255,255,.15); --white-a20:rgba(255,255,255,.2); --white-a35:rgba(255,255,255,.35); --white-a40:rgba(255,255,255,.4); --white-a45:rgba(255,255,255,.45); --white-a50:rgba(255,255,255,.5); --white-a60:rgba(255,255,255,.6); --white-a70:rgba(255,255,255,.7); --white-a75:rgba(255,255,255,.75); --white-a80:rgba(255,255,255,.8); --white-a85:rgba(255,255,255,.85); --white-a90:rgba(255,255,255,.9); --white-a95:rgba(255,255,255,.95); }
-        </style>
-        <div style="display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid var(--white-a10);">
-            <span style="font-weight:600;flex:1;color:var(--white-a90);">更新日志</span>
-            <button id="log-close" style="padding:4px 10px;border:1px solid var(--white-a15);background:var(--white-a06);color:var(--white-a80);border-radius:6px;cursor:pointer;font:inherit;">✕</button>
-        </div>
-        <div id="log-body" style="overflow:auto;flex:1;">${cards}</div>
-    `;
+        <div class="sheet">
+            <div style="display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid var(--white-a10);">
+                <span style="font-weight:600;flex:1;color:var(--white-a90);">更新日志</span>
+                <button id="log-close" style="padding:4px 10px;border:1px solid var(--white-a15);background:var(--white-a06);color:var(--white-a80);border-radius:6px;cursor:pointer;font:inherit;">✕</button>
+            </div>
+            <div id="log-body" style="overflow:auto;flex:1;">${cards}</div>
+        </div>`;
     document.body.appendChild(panel);
+    // 遮罩点击关闭（与设置/词云/语音一致，统一 modal 行为）
+    panel.addEventListener('click', (e) => { if (e.target === panel) closeAllModals(); });
+    // Escape 关闭（统一模态交互）
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && getComputedStyle(panel).display !== 'none') closeAllModals();
+    });
     const closeBtn = panel.querySelector('#log-close');
 
     btn.addEventListener('click', () => {

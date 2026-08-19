@@ -116,6 +116,17 @@ function segmentWords(text) {
 }
 
 /**
+ * 当前生效的分词器（渲染层共享）：词云切换「轻量 ↔ 专业 jieba」后回写，消息导航等其它消费方直接读取，
+ * 保证两者高频词分词口径一致（否则导航高频词不会随词云专业分词切换）。默认内置轻量分词。
+ * @type {(text:string)=>string[]}
+ */
+let activeSegmenter = segmentWords;
+/** 回写当前分词器（传非函数则复位为默认轻量分词）。 @param {(text:string)=>string[]} [fn] */
+export function setActiveSegmenter(fn) { activeSegmenter = (typeof fn === 'function') ? fn : segmentWords; }
+/** 读取当前分词器（供词云 / 消息导航共用）。 @returns {(text:string)=>string[]} */
+export function getActiveSegmenter() { return activeSegmenter; }
+
+/**
  * 统计当前路径消息的词频。
  *
  * 入参是「当前对话路径」的节点数组（通常来自 getCurrentPath(state.chatTree)，其首项为 system 根）。
@@ -137,18 +148,6 @@ function segmentWords(text) {
  *   byRole 的键是角色名（'user' / 'assistant' 等，取自节点 role），值是该角色贡献的出现次数；
  *   各值之和恒等于 count。渲染层用它算「用户占比」来决定分色。
  */
-
-/**
- * 当前生效的分词器（渲染层共享）：词云切换「轻量 ↔ 专业 jieba」后回写，消息导航等其它消费方直接读取，
- * 保证两者高频词分词口径一致（否则导航高频词不会随词云专业分词切换）。默认内置轻量分词。
- * @type {(text:string)=>string[]}
- */
-let activeSegmenter = segmentWords;
-/** 回写当前分词器（传非函数则复位为默认轻量分词）。 @param {(text:string)=>string[]} [fn] */
-export function setActiveSegmenter(fn) { activeSegmenter = (typeof fn === 'function') ? fn : segmentWords; }
-/** 读取当前分词器（供词云 / 消息导航共用）。 @returns {(text:string)=>string[]} */
-export function getActiveSegmenter() { return activeSegmenter; }
-
 export function analyzeWordFreq(nodes, options = {}) {
     const {
         includeRoles = ['user', 'assistant'],

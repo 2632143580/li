@@ -5,12 +5,7 @@
  * 对 tempSettings 的逐属性赋值保持原样（对 import 活绑定改属性合法）。
  * 本模块级可变状态仅被本函数使用，原属 api.js，随 bindSettingsEvents 一并迁入。
  *
- * 方法1 集成说明：DOM 结构已由 index.html 的 #modal 换成新视觉（星空仿真框 / 分段服务商标签 /
- *   URL·KEY 气泡 / 模型点击展开），id 仍对齐本模块依赖的 set-*；数据层（tempSettings / applySettings）
- *   完全沿用项目实现。专注预览（immersive-experience）已移除。
- *   本轮简化：移除字号调节（含仿真预览与浮动气泡）、移除「自定义」服务商标签、提示词改为原地 Textarea、
- *   模型名点击直接展开、URL/KEY 点击自动聚焦输入框、重置按钮移出「高级 API 选项」折叠并改为 RESET 文字按钮、
- *   接入 armClickConfirm 做二次点击确认（替代原生 confirm）。
+
  */
 import { DOM } from '../../core/dom.js';
 import { openModal, closeAllModals } from '../../core/modal.js';
@@ -95,6 +90,17 @@ export function bindSettingsEvents() {
     // 点击遮罩关闭
     DOM.modal.addEventListener('click', (e) => {
         if (e.target === DOM.modal) {
+            state.settings.bgDimOpacity = bgDimPreviewBackup;
+            if (DOM.bgDimLayer) DOM.bgDimLayer.style.opacity = state.settings.bgDimOpacity;
+            applySettings();
+            updateInputLayout();
+            closeAllModals();
+        }
+    });
+
+    // Escape 关闭（与词云/语音/导航/日志统一模态交互：还原遮罩预览 + 套用设置 + 重排输入 + 关全部）
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && getComputedStyle(DOM.modal).display !== 'none') {
             state.settings.bgDimOpacity = bgDimPreviewBackup;
             if (DOM.bgDimLayer) DOM.bgDimLayer.style.opacity = state.settings.bgDimOpacity;
             applySettings();
