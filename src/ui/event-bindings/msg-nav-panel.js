@@ -46,6 +46,8 @@ function setupMsgNav() {
 
     panel.innerHTML = `
         <style>
+            /* 面板表面恒为深色(--bg-modal 不随主题翻转)，故文本 token 强制白值，免疫浅色主题把 --white-a* 翻黑导致「黑字黑底」不可读 */
+            #msg-nav { --white-a06:rgba(255,255,255,.06); --white-a08:rgba(255,255,255,.08); --white-a10:rgba(255,255,255,.1); --white-a12:rgba(255,255,255,.12); --white-a15:rgba(255,255,255,.15); --white-a20:rgba(255,255,255,.2); --white-a35:rgba(255,255,255,.35); --white-a40:rgba(255,255,255,.4); --white-a45:rgba(255,255,255,.45); --white-a50:rgba(255,255,255,.5); --white-a60:rgba(255,255,255,.6); --white-a70:rgba(255,255,255,.7); --white-a75:rgba(255,255,255,.75); --white-a80:rgba(255,255,255,.8); --white-a85:rgba(255,255,255,.85); --white-a90:rgba(255,255,255,.9); --white-a95:rgba(255,255,255,.95); }
             @keyframes msgNavIn { from { opacity:0; transform:translateY(6px);} to {opacity:1; transform:none;} }
             #msg-nav .mn-head { display:flex; align-items:center; gap:8px; padding:9px 12px; border-bottom:1px solid var(--white-a10); }
             #msg-nav .mn-title { font-weight:600; flex:1; color:var(--white-a90); letter-spacing:.02em; }

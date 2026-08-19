@@ -82,6 +82,9 @@ function setupLogPanel() {
         <div id="log-body" style="overflow:auto;flex:1;">${cards}</div>
     `;
     document.body.appendChild(panel);
+    /* 滚动吸收：面板内滚动只滚面板自身，背景聊天记录不被穿透滚动（非 modal，可日志+导航双开） */
+    panel.addEventListener('wheel', (e) => e.stopPropagation());
+    panel.addEventListener('touchmove', (e) => e.stopPropagation());
     const closeBtn = panel.querySelector('#log-close');
 
     btn.addEventListener('click', () => {
