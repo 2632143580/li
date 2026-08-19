@@ -9,6 +9,10 @@
     display: block;
 }
 
+@supports (height: 100dvh) {
+    #bg { height: 100dvh; }
+}
+
 /* 动画图片背景层 — 位于 #bg Canvas 下方，浏览器原生引擎驱动动画 */
 #bg-img-layer {
     position: fixed;
@@ -21,6 +25,10 @@
     object-fit: contain;
     pointer-events: none;
     display: none;
+}
+
+@supports (height: 100dvh) {
+    #bg-img-layer { height: 100dvh; }
 }
 
 /* 背景图片·缩放移动编辑：预览框=屏幕比例，框内所见即最终背景 */
