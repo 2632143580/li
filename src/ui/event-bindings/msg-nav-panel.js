@@ -3,7 +3,7 @@
  *
  * 设计原则：复用优先、零重造、无气泡、纯正向。
  *   - 消息序列：getCurrentPath(state.chatTree)（已有；去掉 system 根，与词云 includeRoles 一致）
- *   - 高频词：analyzeWordFreq(path, { topN }) —— 默认轻量分词（Intl.Segmenter / bi-gram 回退），
+ *   - 高频词：analyzeWordFreq(path, { topN, segment: getActiveSegmenter() }) —— 跟随词云当前分词器（轻量 / 专业 jieba），
  *             零依赖、不触发 jieba-wasm CDN、无网络、无隐私损失
  *   - 定位跳转：DOM.chat.querySelector('[data-id]') + scrollIntoView（消息 wrapper 已带 data-id）
  *   - UI 模式：顶栏 icon-btn + registerUI 面板（仿 log-panel 骨架）
@@ -14,8 +14,9 @@
 import { DOM } from '../../core/dom.js';
 import { state } from '../../core/store.js';
 import { getCurrentPath } from '../../chat/tree.js';
-import { analyzeWordFreq } from '../../core/wordcloud-analyzer.js';
+import { analyzeWordFreq, getActiveSegmenter } from '../../core/wordcloud-analyzer.js';
 import { registerUI } from '../../core/registry.js';
+import { openModal, closeAllModals } from '../../core/modal.js';
 
 registerUI('msg-nav', setupMsgNav);
 
@@ -129,7 +130,7 @@ function setupMsgNav() {
         const ql = (q || '').trim().toLowerCase();
         const path = getCurrentPath(state.chatTree) || [];
         const msgs = path.filter((n) => n.role !== 'system'); // 去掉 system 根（与词云 includeRoles 默认一致）
-        hotWords = analyzeWordFreq(path, { topN: HOT_N }).map((f) => f.word); // 默认轻量分词 + 默认 includeRoles
+        hotWords = analyzeWordFreq(path, { topN: HOT_N, segment: getActiveSegmenter() }).map((f) => f.word); // 跟随词云分词模式（轻量 / 专业 jieba）+ 默认 includeRoles
 
         sub.textContent = `共 ${msgs.length} 条 · 高频词已融入预览（下划线）`;
         const filtered = ql ? msgs.filter((n) => (n.content || '').toLowerCase().includes(ql)) : msgs;
@@ -166,15 +167,11 @@ function setupMsgNav() {
     }
 
     btn.addEventListener('click', () => {
-        if (panel.style.display === 'none' || !panel.style.display) {
-            panel.style.display = 'flex';
-            search.value = '';
-            render('');
-            search.focus();
-        } else {
-            panel.style.display = 'none';
-        }
+        // 走统一模态体系：开时互斥关其它面板（修「日志+导航一起开」），并锁背景滚动
+        if (getComputedStyle(panel).display !== 'none') closeAllModals();
+        else { openModal('msg-nav'); search.value = ''; render(''); }
     });
-    closeBtn.addEventListener('click', () => { panel.style.display = 'none'; });
+    closeBtn.addEventListener('click', () => { closeAllModals(); });
     search.addEventListener('input', () => render(search.value));
 }
+

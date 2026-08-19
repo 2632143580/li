@@ -5,6 +5,7 @@
  */
 import { DOM } from '../../core/dom.js';
 import { registerUI } from '../../core/registry.js';
+import { openModal, closeAllModals } from '../../core/modal.js';
 
 registerUI('log-panel', setupLogPanel);
 
@@ -21,7 +22,9 @@ const UPDATES = [
         items: [
             '【修复】自动朗读播到倒数第二句跳回前面重播：入队去重改为按句序，流式期文本原地更新，每句只播一次完整版',
             '【优化】云端 TTS 有限并发 ≤2 + 按需预加载（播当前句时预拉下一句 / 悬停预拉）；仅云端源生效，本地合成无需预加载',
-            '【新增】更新日志页（waifu 按钮左侧）'
+            '【新增】更新日志页（waifu 按钮左侧）',
+            '【优化】更新日志页与消息导航改为统一模态（互斥、锁背景滚动，修两者可同时打开 / 背景穿透滑动）',
+            '【优化】消息导航高频词跟随词云分词模式（轻量 ↔ 专业 jieba）切换'
         ]
     },
     {
@@ -82,13 +85,12 @@ function setupLogPanel() {
         <div id="log-body" style="overflow:auto;flex:1;">${cards}</div>
     `;
     document.body.appendChild(panel);
-    /* 滚动吸收：面板内滚动只滚面板自身，背景聊天记录不被穿透滚动（非 modal，可日志+导航双开） */
-    panel.addEventListener('wheel', (e) => e.stopPropagation());
-    panel.addEventListener('touchmove', (e) => e.stopPropagation());
     const closeBtn = panel.querySelector('#log-close');
 
     btn.addEventListener('click', () => {
-        panel.style.display = panel.style.display === 'none' ? 'flex' : 'none';
+        // 走统一模态体系：开时互斥关其它面板（修「日志+导航一起开」），并锁背景滚动
+        if (getComputedStyle(panel).display !== 'none') closeAllModals();
+        else openModal('log-panel');
     });
-    closeBtn.addEventListener('click', () => { panel.style.display = 'none'; });
+    closeBtn.addEventListener('click', () => { closeAllModals(); });
 }

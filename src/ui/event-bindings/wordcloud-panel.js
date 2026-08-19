@@ -26,7 +26,7 @@
 import { DOM } from '../../core/dom.js';
 import { openModal, closeAllModals } from '../../core/modal.js';
 import { getCurrentPath } from '../../chat/tree.js';
-import { analyzeWordFreq } from '../../core/wordcloud-analyzer.js';
+import { analyzeWordFreq, setActiveSegmenter, getActiveSegmenter } from '../../core/wordcloud-analyzer.js';
 
 /** 列表展示的词数上限（全量表仍在内存中，查询不受此限制）。 @type {number} */
 const TOP_N = 100;
@@ -465,13 +465,15 @@ async function analyze() {
     const path = getCurrentPath();
     const opts = { includeRoles: ['user', 'assistant'], topN: 0 };
     try {
-        const seg = segmentMode === 'jieba' && jieba ? jiebaSegment : undefined;
-        currentFreq = await analyzeWordFreqChunked(path, { ...opts, segment: seg });
+        // 同步「当前分词器」给消息导航等共用方：专业模式用 jiebaSegment，否则默认轻量
+        setActiveSegmenter(segmentMode === 'jieba' && jieba ? jiebaSegment : undefined);
+        currentFreq = await analyzeWordFreqChunked(path, { ...opts, segment: getActiveSegmenter() });
     } catch (e) {
         if (mySeq !== analyzeSeq) return; // 已被更新的分析取代，丢弃本结果
         segmentMode = 'light';
         setSegActive('light');
-        currentFreq = await analyzeWordFreqChunked(path, opts);
+        setActiveSegmenter(undefined);
+        currentFreq = await analyzeWordFreqChunked(path, { ...opts, segment: getActiveSegmenter() });
         setNote('专业分词出错，已回退轻量分词。');
     }
 
