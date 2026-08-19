@@ -107,15 +107,12 @@
 }
 
 /* ====================== 浮层面板（更新日志 / 消息导航）手机端适配 ======================
- * 移动端放宽 sheet-body 最大高度容纳更多内容。
- * 不要给 #log-panel / #msg-nav 设 bottom 值——它们是 .modal-overlay（position:fixed; top:0; height:100%），
- *   不是底部浮动条。设 bottom 会裁掉遮罩底部，导致输入画布从缺口透出。
- *   面板内容贴底对齐由 .modal-overlay.sheet（align-items:flex-end）+ .sheet-body（max-height）控制。
- * 纯布局调整，沿用面板自身 token，无色值硬编码、不触发皮肤守卫。 */
+ * 移动端 sheet-body 高度与桌面端一致：90vh（统一所有 sheet 面板高度）。
+ * 不给 #log-panel / #msg-nav 设 bottom 值——它们是 .modal-overlay（position:fixed; top:0; height:100%），
+ *   不是底部浮动条。设 bottom 会裁掉遮罩底部，导致输入画布从缺口透出。 */
 @media (max-width: 640px) {
     #log-panel .sheet-body, #msg-nav .sheet-body {
-        height: 70vh;
-        max-height: 82vh;
+        height: 90vh;
     }
 }
 

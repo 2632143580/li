@@ -89,8 +89,6 @@ body.modal-open *:not(.modal-overlay):not(.modal-overlay *):not(#fs-editor):not(
 .wc-panel {
     width: 720px;
     max-width: 94vw;
-    height: 87.5vh;              /* 固定面板高（用户拍板）：页面更规整，列表区占满剩余高度 */
-    max-height: 87.5vh;          /* 覆盖 .modal-content 的 85vh，保证 87.5vh 生效 */
     padding: 18px 20px;
     display: flex;
     flex-direction: column;
@@ -376,10 +374,8 @@ body.modal-open *:not(.modal-overlay):not(.modal-overlay *):not(#fs-editor):not(
     width: 100%;
     max-width: 560px;
     margin: 0 auto;
-    height: 60vh;
-    min-height: 300px;
+    height: 90vh;
     border-radius: var(--radius-lg) var(--radius-lg) 0 0;
-    max-height: 90vh;
     overflow: hidden;
     background: var(--bg-modal);
     color: var(--white-a80);
@@ -404,6 +400,7 @@ body.modal-open *:not(.modal-overlay):not(.modal-overlay *):not(#fs-editor):not(
 }
 
 /* 静态面板表面覆盖：高 specificity 覆盖各自既有居中/尺寸样式，统一为底部抽屉
+ * 全部 sheet 面板统一 height:90vh，不再各写各的 max-height
  * （不动 overflow：设置/语音/词云各自 .modal-content 的 overflow-y:auto / hidden 仍生效） */
 #modal.modal-overlay.sheet > .modal-content,
 #wordcloud-dialog.modal-overlay.sheet > .modal-content,
@@ -414,7 +411,7 @@ body.modal-open *:not(.modal-overlay):not(.modal-overlay *):not(#fs-editor):not(
     width: 100%;
     max-width: 560px;
     margin: 0 auto;
-    max-height: 90vh;
+    height: 90vh;
     box-shadow: var(--modal-elevation);
     animation: sheetIn 0.26s cubic-bezier(0.22, 1, 0.36, 1);
 }
