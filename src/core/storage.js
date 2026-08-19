@@ -110,6 +110,20 @@ export function loadFromLocal() {
 
         migrateErrorFlags(state.chatTree);                 // 旧数据推导 isError 标记
         state.currentEndNode = getLastNodeInPath(state.chatTree); // 恢复到当前路径末端
+
+        // 清除运行时标记：_autoReadArmed / _autoEnq 是自动朗读的运行时状态，
+        // 序列化后仍挂在 node 上。刷新恢复后流式已结束（isStreaming=false），
+        // 但 _autoReadArmed=true 会让 maybeAutoRead 误判「流式刚完成该入队自动朗读」，
+        // 导致刷新页面突然自动朗读历史消息。根治：loadFromLocal 后 walk 全树清除运行时标记。
+        (function clearRuntimeFlags(node) {
+            if (!node) return;
+            if (node._autoReadArmed !== undefined) delete node._autoReadArmed;
+            if (node._autoEnq !== undefined) delete node._autoEnq;
+            if (Array.isArray(node.children)) {
+                for (const child of node.children) clearRuntimeFlags(child);
+            }
+        })(state.chatTree);
+
         return true;
     } catch (e) {
         // 坏存档（半截 JSON / 结构非法）解析失败：若不清除，下次刷新仍读它 → 永久失败循环。

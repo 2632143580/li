@@ -26,6 +26,14 @@ body.modal-open { overflow: hidden; }
    直接锁 #chat，模态框关闭时随 body.modal-open 移除自动恢复。 */
 body.modal-open #chat { overflow: hidden !important; }
 
+/* 底部输入层穿透根治：#ui-canvas（z-index:3）画着呼吸圆环+输入线，#hiddenInput（z-index:10）
+   可被 tap 聚焦弹键盘。模态遮罩 z-index:100 虽在它们之上，但背景是 60% 半透明黑（--black-a60），
+   输入画布的亮色图形透过 40% 透明度仍可见。其他面板 sheet-body 高、恰好盖住底部输入区没暴露此问题；
+   msg-nav / log-panel 内容少时 sheet-body 矮，底部输入图形从遮罩下方透出。
+   根治：模态打开时直接隐藏 Canvas 输入层和隐藏输入框，关闭后随 class 移除自动恢复。 */
+body.modal-open #ui-canvas,
+body.modal-open #hiddenInput { visibility: hidden; }
+
 /* 模态框打开时暂停背后的全部 CSS 动画（背后被全屏 overlay 遮住不可见，暂停零视觉损失）：
    否则背后任一动画（TTS 光晕 / 语音波形等）持续产生帧 → 即使 overlay 已无毛玻璃，合成器仍被钉在 60fps。
    模态框内容（.modal-overlay 内）动画不受影响。
@@ -347,11 +355,10 @@ body.modal-open *:not(.modal-overlay):not(.modal-overlay *):not(#fs-editor):not(
 
 /* ====================== 统一底部抽屉 Bottom Sheet ======================
  * 设置 / 词云 / 语音设置 / 消息导航 / 日志 五个面板统一为底部抽屉形态。
- * 形态：全屏 scrim（.modal-overlay 的 --black-a60）+ 贴底表面（.sheet 或各面板 .modal-content）。
- * 表面走项目主题 token：background:var(--bg-modal)（JS buildModalTokens 随主题基色生成、浅色翻亮）
- *   color:var(--white-a*)（ThemeEngine 在 .theme-light 下翻黑）——深浅双主题自动适配，无需白值硬覆盖。
- * 静态结构（设置/词云/语音）在 index.html 的 overlay 上加 .sheet 类；动态结构（消息导航/日志）由
- *   JS 设 panel.className='modal-overlay sheet' 并把内容包进 <div class="sheet">。 */
+ * 形态：全屏 scrim（.modal-overlay 的 --black-a60）+ 贴底表面（.sheet-body 或各面板 .modal-content）。
+ *   .sheet 是 overlay 修饰类（贴底对齐）；.sheet-body 是内部表面体（JS 动态面板用）。
+ *   静态结构（设置/词云/语音）在 index.html 的 overlay 上加 .sheet 类，表面是各自的 .modal-content；
+ *   动态结构（消息导航/日志）由 JS 设 panel.className='modal-overlay sheet' 并把内容包进 <div class="sheet-body">。 */
 
 /* overlay：底部对齐、去除内边距（默认居中） */
 .modal-overlay.sheet {
@@ -360,8 +367,10 @@ body.modal-open *:not(.modal-overlay):not(.modal-overlay *):not(#fs-editor):not(
     padding: 0;
 }
 
-/* 通用表面：JS 动态创建的 消息导航 / 日志 用 .sheet 包裹（内部列表各自滚动，表面自身不滚） */
-.modal-overlay.sheet > .sheet {
+/* 通用表面：JS 动态创建的 消息导航 / 日志 用 .sheet-body 包裹（内部列表各自滚动，表面自身不滚）。
+ * 命名注意：原用 .sheet 同时作 overlay 修饰类和内部表面类，歧义严重——overlay 的 .sheet 表示「贴底」，
+ *   内部的 .sheet 表示「表面体」。现内部类改名为 .sheet-body 消除歧义。 */
+.modal-overlay.sheet > .sheet-body {
     display: flex;
     flex-direction: column;
     width: 100%;
@@ -378,7 +387,7 @@ body.modal-open *:not(.modal-overlay):not(.modal-overlay *):not(#fs-editor):not(
 }
 
 /* 顶部抓手中缝：所有表面统一（静态面板用各自 .modal-content 作为表面） */
-.modal-overlay.sheet > .sheet::before,
+.modal-overlay.sheet > .sheet-body::before,
 #modal.modal-overlay.sheet > .modal-content::before,
 #wordcloud-dialog.modal-overlay.sheet > .modal-content::before,
 #voice-modal.modal-overlay.sheet > .modal-content::before {
@@ -412,3 +421,97 @@ body.modal-open *:not(.modal-overlay):not(.modal-overlay *):not(#fs-editor):not(
     from { transform: translateY(100%); }
     to { transform: translateY(0); }
 }
+
+/* ====================== 消息导航面板（#msg-nav） ======================
+ * 从 msg-nav-panel.js 内联 <style> 提取，统一走 token，浅色主题自动适配。 */
+#msg-nav .mn-head {
+    display: flex; align-items: center; gap: 8px;
+    padding: 9px 12px; border-bottom: 1px solid var(--white-a10);
+}
+#msg-nav .mn-title { font-weight: 600; flex: 1; color: var(--white-a90); letter-spacing: .02em; }
+#msg-nav .mn-close {
+    padding: 3px 9px; border: 1px solid var(--white-a15);
+    background: var(--white-a06); color: var(--white-a80);
+    border-radius: 6px; cursor: pointer; font: inherit;
+}
+#msg-nav .mn-close:hover { color: var(--white-a95); }
+#msg-nav .mn-search {
+    margin: 8px 12px 4px; padding: 7px 10px;
+    border: 1px solid var(--white-a15); background: var(--white-a06);
+    color: var(--white-a90); border-radius: 8px;
+    font: inherit; outline: none; box-sizing: border-box;
+    width: calc(100% - 24px);
+}
+#msg-nav .mn-search:focus { border-color: var(--color-accent); }
+#msg-nav .mn-search::placeholder { color: var(--white-a40); }
+#msg-nav .mn-sub { padding: 2px 12px 6px; color: var(--white-a45); font-size: 11px; }
+#msg-nav .mn-list { overflow: auto; flex: 1; padding: 2px 0 6px; overscroll-behavior: contain; }
+#msg-nav .mn-row {
+    display: grid; grid-template-columns: 8px 26px 1fr; gap: 8px;
+    align-items: start; padding: 7px 12px; cursor: pointer;
+}
+#msg-nav .mn-row:hover { background: var(--white-a06); }
+#msg-nav .mn-row.active { background: color-mix(in srgb, var(--color-accent) 10%, transparent); }
+#msg-nav .mn-dot { width: 7px; height: 7px; border-radius: 50%; margin-top: 5px; flex: none; }
+#msg-nav .mn-num { color: var(--white-a35); font: 11px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; text-align: right; }
+#msg-nav .mn-text {
+    color: var(--white-a80); display: -webkit-box;
+    -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+    overflow: hidden; word-break: break-word;
+}
+#msg-nav .htw {
+    color: var(--color-accent); background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+    text-decoration: underline; text-decoration-color: var(--color-accent);
+    text-underline-offset: 2px; text-decoration-thickness: 1.5px; border-radius: 2px;
+}
+#msg-nav .hq {
+    color: var(--color-accent); background: color-mix(in srgb, var(--color-accent) 26%, transparent);
+    font-weight: 600; border-radius: 2px;
+}
+#msg-nav .mn-empty { padding: 20px 12px; color: var(--white-a45); text-align: center; }
+@keyframes navFlash {
+    0% { box-shadow: 0 0 0 2px var(--color-accent); }
+    100% { box-shadow: 0 0 0 2px transparent; }
+}
+#msg-nav .nav-flash { animation: navFlash 1.1s ease-out; }
+
+/* ====================== 更新日志面板（#log-panel） ======================
+ * 从 log-panel.js 全行内 style 提取，统一走 token，浅色主题自动适配。 */
+#log-panel .log-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 16px 10px; border-bottom: 1px solid var(--white-a08);
+}
+#log-panel .log-title { font-size: 15px; font-weight: 600; color: var(--white-a95); }
+#log-panel .log-close {
+    background: var(--white-a08); border: none;
+    border-radius: 6px; padding: 4px 10px;
+    color: var(--white-a75); cursor: pointer; font: inherit;
+}
+#log-panel .log-close:hover { color: var(--white-a95); }
+#log-panel .log-body {
+    overflow-y: auto; flex: 1; padding: 8px 0;
+    overscroll-behavior: contain;
+}
+#log-panel .log-card {
+    margin: 0 16px 12px; padding: 12px 14px;
+    background: var(--white-a05); border-radius: var(--radius-md);
+}
+#log-panel .log-card-header {
+    display: flex; align-items: baseline; justify-content: space-between;
+    margin-bottom: 6px;
+}
+#log-panel .log-card-tag {
+    font-size: 11px; font-weight: 600; color: var(--color-accent);
+}
+#log-panel .log-card-date {
+    font-size: 11px; color: var(--white-a45);
+}
+#log-panel .log-card-title {
+    font-size: 14px; font-weight: 600; color: var(--white-a90);
+    margin-bottom: 8px;
+}
+#log-panel .log-card-items {
+    list-style: none; padding: 0; margin: 0;
+    font-size: 12.5px; line-height: 1.6; color: var(--white-a75);
+}
+#log-panel .log-card-items li { padding: 2px 0; }

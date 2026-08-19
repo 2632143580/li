@@ -410,6 +410,8 @@ async function speakCloud(text, cb = {}) {
         showToast('云端音频播放被拦截，已回退系统语音', 'warn');
         Logger.warn('[TTS] 云端音频播放被拦截，回退系统语音', e?.message || String(e));
         if (activeCloudAudio === audio) activeCloudAudio = null;
+        // 释放 Blob URL：play() 失败时 onended 不会触发，此处不 revoke 会泄漏 Blob URL
+        if (audio.src && audio.src.startsWith('blob:')) { try { URL.revokeObjectURL(audio.src); } catch (_) { /* 已释放 */ } }
         // 修③：同上，仅推进一次队列（先清 activeOnEnd 再回退系统音）
         activeOnEnd = null;
         speakSystem(text, cb);

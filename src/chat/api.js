@@ -8,24 +8,21 @@
  *   4. 订阅 core/bus 的 STREAM_REQUEST，承接 tree.js 的发消息请求
  *
  * 导出：streamChat, executeStreamRequest, applyPluginCode
- * 依赖：core/dom, core/state, core/logger, core/storage, core/bus（订阅 tree 的 STREAM_REQUEST）,
- *       engines/bg-engine, engines/theme-engine,
- *       ui/input-renderer, chat/tree, main（onResize）
+ * 依赖：core/logger, core/store, core/constants, core/utils, core/storage,
+ *       engines/bg-engine, engines/theme-engine, hooks.json,
+ *       ui/input-renderer, chat/tree, core/bus（订阅 tree 的 STREAM_REQUEST）
  * 注意：事件绑定（bind*）与背景图编辑状态（tempSettings / crop*）已迁到 ui/event-bindings，
  *       本模块不再持有 UI 事件代码，仅保留 API 与插件解析能力。
  */
-import { DOM, W, H } from '../core/dom.js';
 import { Logger } from '../core/logger.js';
 import { state } from '../core/store.js';
-import { API_TIMEOUT_MS, DEFAULT_SETTINGS } from '../core/constants.js';
-import { getProviderByUrl, safeParseInt, clamp, ensureKeysObject } from '../core/utils.js';
-import { saveToLocal, debouncedSave } from '../core/storage.js';
+import { API_TIMEOUT_MS } from '../core/constants.js';
+import { getProviderByUrl } from '../core/utils.js';
+import { saveToLocal } from '../core/storage.js';
 import { BgEngine } from '../engines/bg-engine.js';
 import { ThemeEngine } from '../engines/theme-engine.js';
 import hooksData from '../../hooks.json'; // 宿主契约单一事实源：插件归因告警（通配/未命中钩子）从此读取
 import { inputRenderer } from '../ui/input-renderer.js';
-import { openFSEditor } from '../ui/input-manager.js';
-import { onResize } from '../main.js';
 // 来自 tree.js 的纯函数 / 状态（循环引用安全：均为运行时调用 / 活绑定）
 // 仅保留本模块实际引用的名字；其余 tree.js 导出不再在此 import（避免死导入）。
 import {

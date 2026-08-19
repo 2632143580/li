@@ -19,7 +19,7 @@ import { ThemeEngine } from './engines/theme-engine.js';
 import { initTTS } from './engines/tts-engine.js'; // 语音引擎：加载音色列表（无副作用）
 import { inputRenderer, drawInputArea, updateInputColors, updateInputLayout } from './ui/input-renderer.js';
 import { inputManager } from './ui/input-manager.js';
-    // 来自 tree.js 的全局可见函数
+// tree.js 的全局可见函数
 import {
     applySettings, initChatTree, renderChat,
     buildApiMessages, sendMessage, createNode, getCurrentPath, updateMsgContent, ingestUsage, setNodeError, updateMonitorUI,

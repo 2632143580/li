@@ -345,7 +345,10 @@ function hideTileMenu() {
 }
 
 // 全局点击 / 触摸外部关闭语音条菜单（模块求值期挂一次；点击条本身也会冒泡到这里，菜单已先隐藏，无副作用）
-document.addEventListener('click', hideTileMenu);
-document.addEventListener('touchstart', (e) => {
-    if (DOM.vtCtx && !DOM.vtCtx.contains(e.target)) hideTileMenu();
-});
+// typeof 守卫：Node 环境（SSR / 单测）import 此模块不 ReferenceError
+if (typeof document !== 'undefined') {
+    document.addEventListener('click', hideTileMenu);
+    document.addEventListener('touchstart', (e) => {
+        if (DOM.vtCtx && !DOM.vtCtx.contains(e.target)) hideTileMenu();
+    });
+}

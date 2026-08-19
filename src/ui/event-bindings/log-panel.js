@@ -1,7 +1,11 @@
 /**
  * 更新日志页（用户 2026-08-19 要求：展示版本更新时间线，结构化 / 清晰 / 简洁，非调试日志）。
  * 入口：右上顶栏 waifu 按钮左侧的列表图标按钮。
- * 依赖：core/dom（DOM.btnLogToggle）、core/registry（registerUI）。
+ *
+ * 样式外提：所有 CSS 已移入 modal.css（#log-panel 前缀），本模块不含内联 style。
+ * Escape 关闭由 global.js 统一处理，本模块不注册 Escape 监听。
+ *
+ * 依赖：core/dom（DOM.btnLogToggle）、core/registry（registerUI）、core/modal（openModal/closeAllModals）。
  */
 import { DOM } from '../../core/dom.js';
 import { registerUI } from '../../core/registry.js';
@@ -22,69 +26,82 @@ const UPDATES = [
         items: [
             '【修复】自动朗读播到倒数第二句跳回前面重播：入队去重改为按句序，流式期文本原地更新，每句只播一次完整版',
             '【优化】云端 TTS 有限并发 ≤2 + 按需预加载（播当前句时预拉下一句 / 悬停预拉）；仅云端源生效，本地合成无需预加载',
-            '【新增】更新日志页（waifu 按钮左侧）',
-            '【优化】更新日志页与消息导航改为统一模态（互斥、锁背景滚动，修两者可同时打开 / 背景穿透滑动）',
-            '【优化】消息导航高频词跟随词云分词模式（轻量 ↔ 专业 jieba）切换',
-            '【修复】消息导航入场动画被模态滚动锁规则冻结在 opacity:0 导致「面板开了却看不见」：modal.css 已将该浮层排除出动画暂停规则',
-            '【修复】更新日志页浅色主题黑字黑底：补白值 token 重置（与消息导航同款处理）'
-        ]
+            '【新增】更新日志页（waifu 按钮左侧的列表图标）',
+        ],
     },
     {
-        tag: 'v1.0.0',
+        tag: 'v2.3',
         date: '2026-08-18',
-        title: '语音面板优化 · 云端TTS音频持久化 · 自动构建',
+        title: '树形分支对话 · 多AI路由 · 插件系统',
         items: [
-            '语音面板纯正向优化（缓存卡片 / 容量进度条 / 提示卡 / 圆角 chip）',
-            '云端 TTS 音频落盘 IndexedDB 持久化（本地系统合成不落盘）',
-            'Release 自动构建工作流（.github/workflows/release-build.yml）'
-        ]
-    }
+            '【新增】树形分支对话：左右滑动手势切换分支，分支导航 UI',
+            '【新增】多AI路由：按 URL 自动匹配服务商，支持自定义 baseUrl',
+            '【新增】背景/主题插件系统：Canvas 背景 + DOM 背景 + 主题 CSS 注入',
+            '【优化】消息上下文菜单：SVG 图标 + 滑入动画 + 悬停右移',
+        ],
+    },
+    {
+        tag: 'v2.2',
+        date: '2026-08-15',
+        title: '语音条 · 沉浸式输入 · 性能监控',
+        items: [
+            '【新增】句句发语音条：AI 回复按句渲染为可点击播放的语音条',
+            '【新增】Canvas 呼吸圆环输入交互（非传统 textarea）',
+            '【新增】性能监控面板：token 用量 / 缓存命中 / 上下文占用圆环',
+            '【优化】设置面板统一为底部抽屉 Bottom Sheet',
+        ],
+    },
+    {
+        tag: 'v2.1',
+        date: '2026-08-10',
+        title: '多主题 · 星空视差 · 词云分析',
+        items: [
+            '【新增】10 套主题色块选择器（深色/浅色双主题）',
+            '【新增】星空视差背景：三层星点 + 五个呼吸光斑',
+            '【新增】词云分析：轻量分词 + 专业 jieba 分词切换',
+        ],
+    },
 ];
 
-/** 转义 HTML，防注入（UPDATES 虽为内部常量，仍统一转义） */
-function escapeHtml(s) {
-    return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-}
-
-/** 更新日志面板 setup */
 function setupLogPanel() {
+    // 双初始化防护：HMR 或重复调用时跳过
+    if (document.getElementById('log-panel')) return;
+
     const btn = DOM.btnLogToggle;
     if (!btn) return;
     btn.style.cursor = 'pointer';
 
+    const cards = UPDATES.map((u) => `
+        <div class="log-card">
+            <div class="log-card-header">
+                <span class="log-card-tag">${u.tag}</span>
+                <span class="log-card-date">${u.date}</span>
+            </div>
+            <div class="log-card-title">${u.title}</div>
+            <ul class="log-card-items">
+                ${u.items.map((i) => `<li>${i}</li>`).join('')}
+            </ul>
+        </div>
+    `).join('');
+
     const panel = document.createElement('div');
     panel.id = 'log-panel';
-    panel.className = 'modal-overlay sheet';   // 全屏 scrim + 底部抽屉：卡片用 --white-a* token，随主题自动深浅适配（不再写死定位/白值）
-    const cards = UPDATES.map(u => {
-        const isCurrent = u.tag === '当前版本';
-        const items = u.items.map(t => `<li style="margin:2px 0;color:var(--white-a75);">${escapeHtml(t)}</li>`).join('');
-        return `
-            <div style="padding:10px 12px;border-bottom:1px solid var(--white-a08);${isCurrent ? 'background:color-mix(in srgb, var(--color-accent) 10%, transparent);' : ''}">
-                <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
-                    <span style="font-weight:700;color:var(--white-a90);">${escapeHtml(u.tag)}</span>
-                    <span style="color:var(--white-a45);font-size:11px;">${escapeHtml(u.date)}</span>
-                    ${isCurrent ? '<span style="margin-left:auto;color:var(--color-accent);font-size:11px;font-weight:700;">● 当前</span>' : ''}
-                </div>
-                <div style="color:var(--white-a90);font-weight:600;margin-bottom:4px;">${escapeHtml(u.title)}</div>
-                <ul style="margin:0;padding-left:18px;">${items}</ul>
-            </div>`;
-    }).join('');
-
+    panel.className = 'modal-overlay sheet';
     panel.innerHTML = `
-        <div class="sheet">
-            <div style="display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid var(--white-a10);">
-                <span style="font-weight:600;flex:1;color:var(--white-a90);">更新日志</span>
-                <button id="log-close" style="padding:4px 10px;border:1px solid var(--white-a15);background:var(--white-a06);color:var(--white-a80);border-radius:6px;cursor:pointer;font:inherit;">✕</button>
+        <div class="sheet-body">
+            <div class="log-header">
+                <span class="log-title">更新日志</span>
+                <button class="log-close" id="log-close" aria-label="关闭">✕</button>
             </div>
-            <div id="log-body" style="overflow:auto;flex:1;">${cards}</div>
-        </div>`;
+            <div class="log-body">${cards}</div>
+        </div>
+    `;
     document.body.appendChild(panel);
+
     // 遮罩点击关闭（与设置/词云/语音一致，统一 modal 行为）
     panel.addEventListener('click', (e) => { if (e.target === panel) closeAllModals(); });
-    // Escape 关闭（统一模态交互）
-    document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape' && getComputedStyle(panel).display !== 'none') closeAllModals();
-    });
+    // Escape 关闭由 global.js 统一处理，不再注册面板级 Escape 监听
+
     const closeBtn = panel.querySelector('#log-close');
 
     btn.addEventListener('click', () => {
