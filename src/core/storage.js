@@ -15,7 +15,7 @@ import { DEFAULT_SETTINGS, STORAGE_KEY, SESSION_KEY_PREFIX } from './constants.j
 import { ensureKeysObject } from './utils.js';
 import { DOM } from './dom.js';
 import { migrateErrorFlags, getLastNodeInPath } from './tree-core.js';
-import { genSessionId, getEffectiveSysPrompt, freshStats, buildIndexEntry, migrateV3ToV4 } from './sessions.js';
+import { genSessionId, getEffectiveSysPrompt, freshStats, buildIndexEntry, lastMessageTime, migrateV3ToV4 } from './sessions.js';
 
 /** 防抖保存定时器句柄 @type {number|null} */
 let saveTimer = null;
@@ -112,7 +112,7 @@ export function saveToLocal(message = '已保存', silent = false) {
  * 落盘单会话（全局键 + 单会话键）。默认落「当前激活会话」（读 state.chatTree/stats/sessionSysPrompt），
  * 也可传 snapshot 显式落某个后台会话（后台流式完成时按 pending 快照落，内容不被切到的当前会话污染）。
  * @param {string} id 会话 id（默认 state.activeSessionId）
- * @param {{tree:object,stats:object,sysPrompt:string|null,draft:string,manualTitle:string|null,llmConfig:object|null}|undefined} [snapshot] 后台会话快照；省略则取当前激活态
+ * @param {{tree:object,stats:object,sysPrompt:string|null,draft:string,manualTitle:string|null,llmConfig:object|null,pinned:boolean}|undefined} [snapshot] 后台会话快照；省略则取当前激活态
  * @returns {void}
  */
 export function persistSession(id = state.activeSessionId, snapshot) {
@@ -126,10 +126,15 @@ export function persistSession(id = state.activeSessionId, snapshot) {
     const llmConfig = snapshot ? (snapshot.llmConfig || null) : state.sessionLlmConfig;
     if (!tree) return;
 
-    // 保留既有 createdAt / manualTitle（新建时由调用方写入；未显式传入 manualTitle 时沿用旧值，避免每次保存清空重命名）
+    // 保留既有 createdAt / manualTitle / pinned（新建时由调用方写入；未显式传入时沿用旧值，
+    // 避免每次保存清空重命名或丢失置顶态）；pinned 仅在 setSessionPinned 显式切换
     const prev = readSessionRaw(id);
     const createdAt = (prev && prev.createdAt) || Date.now();
     const keepTitle = (snapshot && ('manualTitle' in snapshot)) ? snapshot.manualTitle : (prev ? (prev.manualTitle ?? null) : null);
+    const keepPinned = (snapshot && ('pinned' in snapshot)) ? snapshot.pinned : (prev ? (prev.pinned || false) : false);
+    // 时间基准统一取「最后消息时间」：节点 time 在创建时一次写好，刷新/重保存都不变，
+    // 旧数据（节点无 time）回退到 prev.updatedAt，再不行才用现在——保证排序/相对时间稳定不乱跳
+    const updatedAt = lastMessageTime(tree) || (prev ? prev.updatedAt : Date.now());
     const raw = {
         id,
         chatTree: tree,
@@ -138,8 +143,9 @@ export function persistSession(id = state.activeSessionId, snapshot) {
         llmConfig: llmConfig,
         draft: draft,
         createdAt,
-        updatedAt: Date.now(),
-        manualTitle: keepTitle ?? null
+        updatedAt,
+        manualTitle: keepTitle ?? null,
+        pinned: keepPinned
     };
     writeSessionRaw(raw);
 
@@ -148,10 +154,14 @@ export function persistSession(id = state.activeSessionId, snapshot) {
     writeGlobalKey();
 }
 
-/** 由会话原始对象刷新内存索引条目（标题/计数/预览/时间/LLM配置/SP），不解析正文外的多余字段。 */
+/** 由会话原始对象刷新内存索引条目（标题/计数/预览/时间/LLM配置/SP/置顶），不解析正文外的多余字段。 */
 function updateIndexFromRaw(id, raw) {
     // llmConfig/sysPrompt 从本会话 raw 取（而非当前激活会话），保证后台会话索引显示自己的配置
-    const entry = buildIndexEntry(id, raw.chatTree, raw.manualTitle, raw.llmConfig, raw.sysPrompt);
+    const entry = buildIndexEntry(id, raw.chatTree, raw.manualTitle, raw.llmConfig, raw.sysPrompt, raw.pinned || false);
+    // 旧数据节点无 time 字段 → lastMessageTime 为 0，buildIndexEntry 会退回 Date.now() 造成漂移；
+    // 此时沿用索引旧值，保住「最后消息时间」稳定（仅当用户真发消息、节点带 time 后才自然更新）
+    const prev = (state.sessionIndex || []).find(e => e.id === id);
+    if (lastMessageTime(raw.chatTree) === 0 && prev) entry.updatedAt = prev.updatedAt;
     const idx = state.sessionIndex || (state.sessionIndex = []);
     const i = idx.findIndex(e => e.id === id);
     if (i >= 0) idx[i] = entry; else idx.push(entry);
@@ -320,6 +330,19 @@ export function setSessionTitle(id, title) {
     if (!raw) return;
     raw.manualTitle = (title && title.trim()) ? title.trim() : null;
     raw.updatedAt = Date.now();
+    writeSessionRaw(raw);
+    updateIndexFromRaw(id, raw);
+    writeGlobalKey();
+}
+
+/**
+ * 切换会话置顶态（长按菜单「置顶/取消置顶」触发）。只改单会话键的 pinned + 重建索引条目 + 落全局键，
+ * 不动正文、不动 updatedAt（置顶不改变「最后消息时间」，仅影响排序优先级）。 @param {string} id @param {boolean} pinned
+ */
+export function setSessionPinned(id, pinned) {
+    const raw = readSessionRaw(id);
+    if (!raw) return;
+    raw.pinned = !!pinned;
     writeSessionRaw(raw);
     updateIndexFromRaw(id, raw);
     writeGlobalKey();

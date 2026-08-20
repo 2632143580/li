@@ -45,19 +45,8 @@ function clearInput() {
     inputRenderer.markDirty();
 }
 
-/** 树是否含 user 消息（空会话复用判定）。 @param {object} tree @returns {boolean} */
-function hasUserMessage(tree) {
-    const stack = [tree];
-    while (stack.length) {
-        const n = stack.pop();
-        if (n.role === 'user') return true;
-        if (n.children) for (const c of n.children) stack.push(c);
-    }
-    return false;
-}
-
 /**
- * 切换会话（列表点非当前行触发）。
+ * 切换会话（列表「进入」按钮触发；点当前会话的「进入」由 switchTo 内置判定仅关面板）。
  * 完整重置序列：落旧 → 存草稿 → 清朗读/瓷砖/待渲染帧 → 清 domCache → 载入新 → per-session waiting → 恢复草稿 + 重渲染。
  * @param {string} id 目标会话 id（等于当前激活则仅关面板）
  */
@@ -95,11 +84,11 @@ export function switchTo(id) {
 }
 
 /**
- * 新建会话（列表「＋ 新建会话」触发）。当前会话空则复用不新建。 @returns {string|null} 新 id 或 null（复用）
+ * 新建会话（列表「＋ 新建会话」触发）。始终新建一条空会话（不再复用空会话，避免「停在空会话上点新建无反应」）。
+ * @returns {string} 新会话 id
  */
 export function createNew() {
     const oldId = state.activeSessionId;
-    if (oldId && !hasUserMessage(state.chatTree)) { closeAllModals(); return null; }
 
     flushSave();
     if (oldId) {
@@ -173,9 +162,9 @@ export function renameSession(id, newTitle) {
 }
 
 /**
- * 列表数据：索引副本按 updatedAt 倒序，标注后台是否在生成。
- * llmConfig/sysPrompt 从索引快照透传（列表 chip 与 SP 预览直接读，无需逐会话解析正文）。
- * @returns {Array<{id,title,msgCount,preview,updatedAt,streaming,llmConfig:object|null,sysPrompt:string|null}>}
+ * 列表数据：置顶会话优先（pinned 在前），其余按最后消息时间（updatedAt）倒序；标注后台是否在生成。
+ * llmConfig/sysPrompt/pinned 从索引快照透传（列表 chip / SP 预览 / 置顶标记直接读，无需逐会话解析正文）。
+ * @returns {Array<{id,title,msgCount,preview,updatedAt,pinned,streaming,llmConfig:object|null,sysPrompt:string|null}>}
  */
 export function listSessions() {
     const list = (state.sessionIndex || []).map(e => ({
@@ -184,10 +173,16 @@ export function listSessions() {
         msgCount: e.msgCount,
         preview: e.preview,
         updatedAt: e.updatedAt,
+        pinned: !!e.pinned,
         streaming: state.pending.has(e.id),
         llmConfig: e.llmConfig || null,
         sysPrompt: e.sysPrompt ?? null
     }));
-    list.sort((a, b) => b.updatedAt - a.updatedAt);
+    // 排序：置顶优先（pinned 在前），再按最后消息时间倒序——置顶是「人为钉住」，应凌驾于时间自然序
+    list.sort((a, b) => {
+        const pa = a.pinned ? 1 : 0, pb = b.pinned ? 1 : 0;
+        if (pa !== pb) return pb - pa;
+        return b.updatedAt - a.updatedAt;
+    });
     return list;
 }
