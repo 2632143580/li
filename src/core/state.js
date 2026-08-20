@@ -21,7 +21,7 @@ import { DEFAULT_SETTINGS } from './constants.js';
 //  全局状态集中定义，职责明确。所有模块共享同一个 state 引用（对象内部可变，引用本身不重新赋值）
 // ================================================================
 export const state = {
-    /** 消息 ID 自增计数器 @type {number} */
+    /** 消息 ID 自增计数器（全局单一序列，跨会话唯一；导入备份也走同一计数器重编号） @type {number} */
     msgIdCounter: 0,
     /** 对话树根节点（role: 'system'），未初始化时为 null @type {object|null} */
     chatTree: null,
@@ -29,6 +29,30 @@ export const state = {
     currentEndNode: null,
     /** 是否正在等待 API 响应 @type {boolean} */
     waiting: false,
+    /**
+     * 当前激活会话 id（分键存储的枢纽；切换/新建即改此值）。
+     * 为空字符串 '' 表示尚无会话（启动首跑时由 createFirstSession 填充）。 @type {string}
+     */
+    activeSessionId: '',
+    /**
+     * 当前会话的系统提示词覆盖值（null = 继承全局默认 state.settings.sysPrompt）。
+     * 会话级覆盖 + 全局默认 双轨：改当前会话只动这里，永不污染全局默认；「设为全局默认」才写到 state.settings.sysPrompt。
+     * @type {string|null}
+     */
+    sessionSysPrompt: null,
+    /**
+     * 会话轻量索引（列表只读索引，不解析正文）：[{ id, title, autoTitle, updatedAt, msgCount, preview }]。
+     * 落盘于全局键 liChatData_v2（v4），列表渲染只读它，避免逐会话解析大树。 @type {Array<object>}
+     */
+    sessionIndex: [],
+    /**
+     * 后台流式会话登记表：sessionId -> { aiNode, controller, tree, stats, sysPrompt, draft }。
+     * - 切换会话时旧会话若仍在生成，其完整快照留在此处（不入 DOM，靠 domCache 缺失 early-return 隔离），
+     *   完成回调据此把内容落到正确的会话键，而非被切到的当前会话。
+     * - waiting 改为 per-session：state.waiting 仅反映「激活会话」是否在生成，切换时按 pending.has(新id) 重置。
+     * @type {Map<string, object>}
+     */
+    pending: new Map(),
     /** 妻子模式（气泡分句显示）的运行时开关，由 settings.waifuMode 同步而来 @type {boolean} */
     waifuMode: false,
     /** 持久化设置，结构见 DEFAULT_SETTINGS @type {typeof DEFAULT_SETTINGS} */

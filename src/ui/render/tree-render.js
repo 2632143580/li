@@ -393,10 +393,12 @@ export function updateCacheUI(tokens) {
  * @param {object} usage - 各服务商响应 usage 字段（兼容多格式）：
  *   prompt_tokens / completion_tokens / total_tokens 用于「上下文已用」；
  *   缓存命中兼容两种字段：DeepSeek 的 prompt_cache_hit_tokens，智谱 GLM 的 prompt_tokens_details.cached_tokens。缺失时按 0 处理。
+ * @param {object} [targetStats=state.stats] - 写入目标（后台会话写入自己的 stats，不污染当前会话顶栏）
+ * @param {boolean} [refreshUI=true] - 是否刷新顶栏监控 UI（仅活跃会话完成时刷新；后台生成不刷，避免顶栏串台）
  */
-export function ingestUsage(usage) {
+export function ingestUsage(usage, targetStats = state.stats, refreshUI = true) {
     if (!usage) return;
-    const s = state.stats;
+    const s = targetStats;
     s.contextPrompt = usage.prompt_tokens || 0;
     s.contextCompletion = usage.completion_tokens || 0;
     s.contextTotal = usage.total_tokens || 0;
@@ -405,8 +407,19 @@ export function ingestUsage(usage) {
     s.cacheHit = (usage.prompt_cache_hit_tokens != null)
         ? usage.prompt_cache_hit_tokens
         : (usage.prompt_tokens_details?.cached_tokens || 0);
-    updateCacheUI(s.cacheHit);
-    updateMonitorUI();
+    if (refreshUI) {
+        updateCacheUI(s.cacheHit);
+        updateMonitorUI();
+    }
+}
+
+/**
+ * 取消待渲染的流式 rAF（切换会话时调用）：避免后台会话残留的一帧写入已 detach 的新 DOM。
+ * 仅清除帧句柄与待渲染目标，不触碰任何会话数据。 @returns {void}
+ */
+export function cancelPendingStream() {
+    if (_streamFrame) { cancelAnimationFrame(_streamFrame); _streamFrame = null; }
+    _pendingStream = null;
 }
 
 /** 刷新信息栏状态灯 + 顶栏上下文圆环（原监控模态框已删，模态框相关 DOM 不再更新） */

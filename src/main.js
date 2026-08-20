@@ -13,7 +13,7 @@ import './style.css';
 import { DOM, setViewport, W, H, uiCtx } from './core/dom.js';
 import { Logger } from './core/logger.js';
 import { state } from './core/store.js';
-import { saveToLocal, loadFromLocal } from './core/storage.js';
+import { loadFromLocal, createFirstSession, saveSession } from './core/storage.js';
 import { BgEngine } from './engines/bg-engine.js';
 import { ThemeEngine } from './engines/theme-engine.js';
 import { initTTS } from './engines/tts-engine.js'; // 语音引擎：加载音色列表（无副作用）
@@ -133,8 +133,8 @@ export function init() {
 
     // 加载本地数据或初始化新对话
     if (!loadFromLocal()) {
-        initChatTree();
-        saveToLocal(null, true);
+        initChatTree();          // 建首棵对话树（根 content = 全局默认系统提示词）
+        createFirstSession();    // 登记为首会话并落盘（分键 v4）
     } else {
         applySettings();
         updateInputLayout();
@@ -165,6 +165,7 @@ export function init() {
             // 1. 构建上下文（包含历史对话）
             const parent = ensureCurrentEndNode();
             const apiMessages = buildApiMessages(parent);
+            const sid = state.activeSessionId; // 会话归属：主动消息落到当前激活会话
 
             // 2. 在 API 请求层面注入指令，但不写入 DOM 树（system 角色权重更高，且不会和 user 混淆）
             apiMessages.push({
@@ -182,7 +183,7 @@ export function init() {
 
             renderChat(); // 立即渲染空节点
 
-            // 4. 发送请求
+            // 4. 发送请求（携带会话 id，落到正确会话键）
             updateMonitorUI();
             streamChat(apiMessages,
                 (full) => updateMsgContent(aiNode, full),
@@ -191,12 +192,13 @@ export function init() {
                     ingestUsage(usage); // 合并 usage 到监控统计并刷新 UI
                     BgEngine.triggerMessage('assistant', full);
                     bus.emit(EVENTS.ASSISTANT_DONE, full); // 广播 AI 完成文本，供背景触发器按触发词切换
-                    saveToLocal(null, true);
+                    saveSession(sid);
                 },
                 (err) => {
                     setNodeError(aiNode, err.message);
-                    saveToLocal(null, true);
-                }
+                    saveSession(sid);
+                },
+                sid
             );
         }
     };

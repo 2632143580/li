@@ -9,10 +9,11 @@ import { state } from '../../core/store.js';
 import { DEFAULT_SETTINGS } from '../../core/constants.js';
 import { closeAllModals } from '../../core/modal.js';
 import { ensureKeysObject } from '../../core/utils.js';
-import { saveToLocal } from '../../core/storage.js';
+import { saveToLocal, saveSession } from '../../core/storage.js';
+import { renumberTreeIds } from '../../core/sessions.js';
 import { updateInputLayout } from '../input-renderer.js';
 import {
-    applySettings, findMaxId, migrateErrorFlags,
+    applySettings, migrateErrorFlags,
     getLastNodeInPath, renderChat, initChatTree, updateCacheUI, resetMonitorStats
 } from '../../chat/tree.js';
 import { clearAutoQueue } from '../../engines/tts-engine.js'; // 修⑥：清空对话即停播放 + 清空自动朗读队列
@@ -74,8 +75,9 @@ export function bindDataExchangeEvents() {
                     ensureKeysObject(state.settings);
                 }
                 if (importedData.chatTree && importedData.chatTree.role === 'system') {
+                    // 整树重编号：用全局 msgIdCounter 统一分配 id，杜绝导入树与现有会话 id 撞车（否则 domCache 串台 / 后台回调写错气泡）
+                    renumberTreeIds(importedData.chatTree);
                     state.chatTree = importedData.chatTree;
-                    state.msgIdCounter = Math.max(state.msgIdCounter, findMaxId(state.chatTree));
                     migrateErrorFlags(state.chatTree);
                 }
                 applySettings();
@@ -83,6 +85,7 @@ export function bindDataExchangeEvents() {
                 closeAllModals();
                 state.currentEndNode = getLastNodeInPath(state.chatTree);
                 renderChat();
+                saveSession(state.activeSessionId); // 落当前会话键 + 重建索引条目（标题/计数/预览）
                 saveToLocal('已导入');
             } catch (err) {
                 alert("解析备份文件失败");

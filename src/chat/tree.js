@@ -28,6 +28,7 @@ import { splitSentences } from '../core/text-split.js';
 import { Logger } from '../core/logger.js';
 import { state } from '../core/store.js';
 import { WELCOME, ERROR_PREFIX } from '../core/constants.js';
+import { getEffectiveSysPrompt, touchIndex } from '../core/sessions.js';
 import { BgEngine } from '../engines/bg-engine.js';
 import { inputRenderer } from '../ui/input-renderer.js';
 // 输入相关事件（openFSEditor / bindFsEditorEvents）已迁至 ui/event-bindings，本模块不再直接引用。
@@ -80,9 +81,9 @@ export function setNodeError(node, message) {
 
 // migrateErrorFlags 已移至 core/tree-core.js（本文件 re-export，对外 API 不变）
 
-/** 初始化对话树 — 创建系统节点和欢迎消息 */
+/** 初始化对话树 — 创建系统节点（content = 当前有效系统提示词：会话级覆盖优先，否则全局默认）和欢迎消息 */
 export function initChatTree() {
-    state.chatTree = createNode("system", state.settings.sysPrompt);
+    state.chatTree = createNode("system", getEffectiveSysPrompt());
     const welcome = createNode("assistant", WELCOME);
     state.chatTree.children.push(welcome);
     state.currentEndNode = welcome;
@@ -137,11 +138,12 @@ export function sendMessage(text) {
     userNode.children.push(aiNode);
     state.currentEndNode = aiNode;
 
+    touchIndex(state.activeSessionId); // 发消息即触索引 updatedAt：会话列表「刚发消息自然在顶部」（流式期间即时反馈，落盘由 saveSession 带出）
     renderChat();
     const apiMessages = buildApiMessages(aiNode);
     // 改走事件总线：本模块不再直接 import api.js 的 executeStreamRequest，循环依赖削掉一条边。
-    // 载荷带齐发送所需的全部数据（消息体 + AI 节点引用），api.js 订阅后照常执行流式请求。
-    bus.emit(EVENTS.STREAM_REQUEST, { apiMessages, aiNode });
+    // 载荷带齐发送所需的全部数据（消息体 + AI 节点引用 + 所属会话 id），api.js 订阅后照常执行流式请求。
+    bus.emit(EVENTS.STREAM_REQUEST, { apiMessages, aiNode, sessionId: state.activeSessionId });
     // 返回用户节点 id：供外部调用方（companion-say 主动说话）定位本次插入的消息节点。
     // 无外部调用方时返回值无副作用，不影响现有行为。
     return userNode.id;
@@ -158,11 +160,12 @@ export function regenerate(node, parentNode) {
     parentNode.selectedChildIndex = parentNode.children.length - 1;
     state.currentEndNode = aiNode;
 
+    touchIndex(state.activeSessionId); // 发消息即触索引 updatedAt（同 sendMessage）
     renderChat();
     const apiMessages = buildApiMessages(aiNode);
     // 改走事件总线：本模块不再直接 import api.js 的 executeStreamRequest，循环依赖削掉一条边。
-    // 载荷带齐发送所需的全部数据（消息体 + AI 节点引用），api.js 订阅后照常执行流式请求。
-    bus.emit(EVENTS.STREAM_REQUEST, { apiMessages, aiNode });
+    // 载荷带齐发送所需的全部数据（消息体 + AI 节点引用 + 所属会话 id），api.js 订阅后照常执行流式请求。
+    bus.emit(EVENTS.STREAM_REQUEST, { apiMessages, aiNode, sessionId: state.activeSessionId });
 }
 
 /** 编辑用户消息并重新发送 @param {object} node @param {object} parentNode @param {string} newText */
@@ -181,11 +184,12 @@ export function editAndResend(node, parentNode, newText) {
     userNode.children.push(aiNode);
     state.currentEndNode = aiNode;
 
+    touchIndex(state.activeSessionId); // 发消息即触索引 updatedAt（同 sendMessage）
     renderChat();
     const apiMessages = buildApiMessages(aiNode);
     // 改走事件总线：本模块不再直接 import api.js 的 executeStreamRequest，循环依赖削掉一条边。
-    // 载荷带齐发送所需的全部数据（消息体 + AI 节点引用），api.js 订阅后照常执行流式请求。
-    bus.emit(EVENTS.STREAM_REQUEST, { apiMessages, aiNode });
+    // 载荷带齐发送所需的全部数据（消息体 + AI 节点引用 + 所属会话 id），api.js 订阅后照常执行流式请求。
+    bus.emit(EVENTS.STREAM_REQUEST, { apiMessages, aiNode, sessionId: state.activeSessionId });
 }
 
 // findMaxId 已移至 core/tree-core.js（本文件 re-export，对外 API 不变）
@@ -196,7 +200,8 @@ export function editAndResend(node, parentNode, newText) {
 
 /** 应用设置到 UI 和状态 */
 export function applySettings() {
-    if (state.chatTree) state.chatTree.content = state.settings.sysPrompt;
+    // 根 content 同步为「有效系统提示词」：当前会话有覆盖则用覆盖，否则全局默认（会话级覆盖 + 全局默认双轨）
+    if (state.chatTree) state.chatTree.content = getEffectiveSysPrompt();
     // 构建来源后缀：本地构建=本地，GitHub Actions 构建=github（由 vite.config.js 经 import.meta.env.VITE_BUILD_ENV 注入）
     document.title = state.settings.aiName + ' · ' + (import.meta.env.VITE_BUILD_ENV || '本地');
     // --msg-font-size 已由 tokens.css 提供默认 16px（chat.css 消费），字号设置移除后不再用 JS 覆写（2026-08-16）

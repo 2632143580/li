@@ -481,6 +481,55 @@ body.modal-open *:not(.modal-overlay):not(.modal-overlay *):not(#fs-editor):not(
 }
 #msg-nav .nav-flash { animation: navFlash 1.1s ease-out; }
 
+/* —— 双 tab 容器：复用 .segmented 组件语言，零新增控件范式 —— */
+#msg-nav .mn-tabs { flex: none; }
+#msg-nav .mn-tabs .segmented__item { font-size: 12px; padding: 0 18px; }
+
+/* 面板内容区：两个 pane 互斥显隐（hidden 属性切换），各自内部滚动 */
+#msg-nav .mn-pane { display: flex; flex-direction: column; min-height: 0; flex: 1; }
+#msg-nav .mn-pane[hidden] { display: none; }
+
+/* 新建会话入口：零新增图标逻辑，整条可点；icon 用内联 SVG（避免引入未使用的 symbol） */
+#msg-nav .mn-new {
+    display: flex; align-items: center; gap: 8px; margin: 10px 12px 4px;
+    padding: 9px 12px; border: 1px dashed var(--white-a20); border-radius: 10px;
+    background: var(--white-a04); color: var(--color-accent-bright, var(--color-accent));
+    font: inherit; font-size: 13px; cursor: pointer; transition: background .2s var(--ease);
+}
+#msg-nav .mn-new:hover { background: var(--white-a08); }
+#msg-nav .mn-new svg { width: 16px; height: 16px; flex: none; }
+
+/* 会话行：左侧 2px accent 竖线表「当前位置」（比色块轻，不与气泡抢注意力） */
+#msg-nav .mn-session {
+    padding: 9px 12px 9px 10px; cursor: pointer;
+    border-left: 2px solid transparent;
+    display: flex; flex-direction: column; gap: 3px;
+}
+#msg-nav .mn-session:hover { background: var(--white-a06); }
+#msg-nav .mn-session.active { border-left-color: var(--color-accent); background: color-mix(in srgb, var(--color-accent) 7%, transparent); }
+#msg-nav .mn-session-main { display: flex; align-items: center; gap: 6px; min-width: 0; }
+#msg-nav .mn-session-title {
+    flex: 1; min-width: 0; color: var(--white-a90); font-size: 13.5px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+#msg-nav .mn-session-meta { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+#msg-nav .mn-time { color: var(--white-a40); font-size: 11px; }
+/* 消息数右对齐小字，不加 badge/圆点（数字本身就是信息，加壳是噪音） */
+#msg-nav .mn-count { color: var(--white-a30); font: 11px/1 ui-monospace, SFMono-Regular, Menlo, monospace; font-variant-numeric: tabular-nums; }
+/* 长按删除 armed 态：右侧显示「删除?」，点该行确认；3 秒窗口外自动解除。危险色走 --color-error token（跟主题） */
+#msg-nav .mn-del-confirm {
+    color: var(--color-error); font-size: 11px; font-weight: 600; letter-spacing: .02em;
+    animation: navFlash 1.1s ease-out infinite;
+}
+#msg-nav .mn-session.armed { background: color-mix(in srgb, var(--color-error) 10%, transparent); }
+
+/* 重命名输入框：替换标题，stopPropagation 拦 Escape 防关面板 */
+#msg-nav .mn-rename {
+    flex: 1; min-width: 0; box-sizing: border-box; padding: 2px 6px;
+    border: 1px solid var(--color-accent); border-radius: 6px;
+    background: var(--white-a08); color: var(--white-a95); font: inherit; font-size: 13.5px; outline: none;
+}
+
 /* ====================== 更新日志面板（#log-panel） ======================
  * 从 log-panel.js 全行内 style 提取，统一走 token，浅色主题自动适配。 */
 #log-panel .log-header {

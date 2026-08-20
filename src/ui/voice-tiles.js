@@ -24,6 +24,16 @@ let playingTile = null;
 let ctxTile = null;
 
 /**
+ * 重置语音条运行时追踪（切换会话时调用）：清空 playingTile / ctxTile，
+ * 防止旧会话的 detached 节点残留在全局追踪里、误判「仍在播放」导致新会话音频被吞。
+ * 不调用 stopCurrent（停止由 clearAutoQueue 负责）。 @returns {void}
+ */
+export function resetTileTracking() {
+    playingTile = null;
+    ctxTile = null;
+}
+
+/**
  * 渲染 / 增量更新语音条到 contentEl。
  * @param {HTMLElement} contentEl 装载层（.bubble-content）
  * @param {object} node 消息节点

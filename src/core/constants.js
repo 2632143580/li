@@ -15,8 +15,10 @@
 
 /** 单次流式读取的超时上限，单位毫秒。超时后 AbortController 中止请求。 @type {number} */
 export const API_TIMEOUT_MS = 30000;
-/** localStorage 存档键名。改动此值等于丢弃旧存档。 @type {string} */
+/** localStorage 存档键名（全局键：settings + 会话索引 + 激活 id + 计数器，v4）。改动此值等于丢弃旧存档。 @type {string} */
 export const STORAGE_KEY = 'liChatData_v2';
+/** 单会话存档键前缀：SESSION_KEY_PREFIX + sessionId -> { id, chatTree, stats, sysPrompt|null, draft, createdAt, updatedAt, manualTitle } @type {string} */
+export const SESSION_KEY_PREFIX = 'liSession_';
 /** 一个完整圆周的弧度值（2π），供 Canvas 画圆使用。 @type {number} */
 export const TAU = Math.PI * 2;
 /** 错误消息正文前缀。既用于渲染，也用于旧存档的错误节点推断。 @type {string} */
