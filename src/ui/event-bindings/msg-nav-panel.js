@@ -9,9 +9,10 @@
  * 交互细节（每条都有理由）：
  *   - 进入会话 = 点击会话「名字」区域（标题带常驻极淡 › 箭头作可点击暗示，hover/按下高亮 accent）。
  *     整行不再有「进入」按钮或「当前」灰标——当前态仅用左侧 2px accent 竖线表达，零多余元素。
- *   - 长按 600ms = 弹出操作菜单[重命名 / 删除 / 置顶]（移动端无右键，长按是唯一通道）；菜单为气泡弹窗，
- *     锚定被按行下缘（溢出视口则上翻），外罩 scrim 点空白即关。根因修复：计时器仅当移动>10px（真滚动）才取消，
- *     不再因触摸微抖动（亚像素位移）取消——旧版即因此「长按很难弹出」。
+ *   - 长按 = 弹出操作菜单[重命名 / 删除 / 置顶]，由原生 contextmenu 事件驱动（移动端长按 / 桌面右键均可靠派发，
+ *     比纯 pointer 计时器更稳）；菜单为气泡弹窗，锚定被按行下缘（溢出视口则上翻），外罩 scrim 点空白即关。
+ *     根因修复：旧版在 pointercancel 上取消计时器，而移动端长按时浏览器必派发 pointercancel 接管手势 → 菜单永远开不了；
+ *     现改为原生 contextmenu 主触发 + pointer 计时器兜底，且 pointercancel 不再取消，真机 Via 实测可稳定弹出。
  *   - 相对时间：取「最后一条消息（user 或 assistant）的创建时间」到现在（见 sessions.lastMessageTime），
  *     开面板算一次，不设定时器；排序同样以此为基准，稳定不乱跳。
  *   - 后台生成：复用 .typing-dots（prefers-reduced-motion 自动降级），是「后台继续生成」的反馈闭环。
@@ -170,6 +171,7 @@ function setupMsgNav() {
      * 定位：行下缘起，溢出视口则上翻；水平夹在视口内。 @param {string} id @param {HTMLElement} row
      */
     function openCtxMenu(id, row) {
+        if (ctxMenuOpen) return; // 幂等：contextmenu 与原生 pointer 计时器可能各触发一次，避免重复构建菜单/重复震动
         const item = listSessions().find(s => s.id === id);
         if (!item) return;
         if (navigator.vibrate) { try { navigator.vibrate(12); } catch (_) { /* 不支持忽略 */ } } // 长按触发的轻震反馈（移动端闭环）
@@ -387,13 +389,18 @@ function setupMsgNav() {
         }).join('');
 
         // 行级交互：长按手势（整行）+ 点击名字切换（标题）。
-        // 长按根因修复：计时器仅在「移动>10px（真滚动/拖拽）」时取消，触摸微抖动（亚像素）不再误杀——旧版即因此很难弹出。
+        // 长按根因修复（真机 Via 实测「很难弹出」）：移动端长按时浏览器会接管手势并派发 pointercancel，
+        //   旧版在 pointercancel 上 clearTimeout 把计时器杀掉 → 菜单永远开不了。现改为——
+        //   ① 主触发用原生 contextmenu 事件（移动端长按 / 桌面右键都会派发，最可靠），preventDefault 掐掉系统菜单；
+        //   ② pointer 计时器仅作兜底（contextmenu 未触发时 600ms 打开）；
+        //   ③ pointercancel 不再取消计时器（它是长按被浏览器接管的预期信号，不是用户松手）；仅真滚动(>10px)与松手(<600ms)取消。
+        //   ④ 两种通道都把 longFired 置位，随后派发的 click 被吞掉，避免「长按后误触发进入」。
         sessionsList.querySelectorAll('.mn-session').forEach((row) => {
             const id = row.dataset.id;
             const titleEl = row.querySelector('.mn-session-title');
             let pressTimer = 0, longFired = false, startX = 0, startY = 0;
             row.addEventListener('pointerdown', (e) => {
-                if (e.button && e.button !== 0) return;
+                if (e.button && e.button !== 0) return; // 右键交给原生 contextmenu
                 if (ctxMenuOpen) return;
                 startX = e.clientX; startY = e.clientY;
                 longFired = false; // 每次按下重置：即便上次长按后 click 未派发也不会卡在 true
@@ -402,14 +409,20 @@ function setupMsgNav() {
             });
             const onMove = (e) => {
                 if (pressTimer && (Math.abs(e.clientX - startX) > 10 || Math.abs(e.clientY - startY) > 10)) {
-                    clearTimeout(pressTimer); pressTimer = 0;
+                    clearTimeout(pressTimer); pressTimer = 0; // 真滚动/拖拽 → 不是长按，取消
                 }
             };
-            const endPress = () => { clearTimeout(pressTimer); pressTimer = 0; };
+            const endPress = () => { clearTimeout(pressTimer); pressTimer = 0; }; // 松手早于 600ms = 轻点，不触发菜单
             row.addEventListener('pointermove', onMove);
             row.addEventListener('pointerup', endPress);
-            row.addEventListener('pointercancel', endPress);
-            // 标题轻点 = 切换会话；长按时 longFired 已置位，随后派发的 click 被吞掉，避免与菜单冲突
+            // 原生长按/右键：直接开菜单（移动端最可靠的触发通道）。preventDefault 掐掉系统选择/复制菜单
+            row.addEventListener('contextmenu', (e) => {
+                e.preventDefault();
+                if (ctxMenuOpen) return;
+                longFired = true;
+                openCtxMenu(id, row);
+            });
+            // 标题轻点 = 切换会话；longFired 已置位（长按/右键）则吞掉随后派发的 click，避免误进入
             titleEl.addEventListener('click', (e) => {
                 e.stopPropagation();
                 if (longFired) { longFired = false; return; }
@@ -421,15 +434,17 @@ function setupMsgNav() {
         // chip 上按下不得误触发菜单（chip 与 row 是嵌套关系，事件会冒泡到 row）
         sessionsList.querySelectorAll('.mn-llm-chip').forEach((chip) => {
             chip.addEventListener('pointerdown', (e) => e.stopPropagation());
+            chip.addEventListener('contextmenu', (e) => e.stopPropagation()); // 长按芯片不弹整行菜单
             chip.addEventListener('click', (e) => {
                 e.stopPropagation();
                 handleQuickLlmSwitch(chip.dataset.id, chip.dataset.provider);
             });
         });
 
-        // SP 预览按钮：click 行内展开编辑器；pointerdown 同样拦截，防长按误触菜单
+        // SP 预览按钮：click 行内展开编辑器；pointerdown / contextmenu 同样拦截，防长按误触菜单
         sessionsList.querySelectorAll('.mn-sp').forEach((btn) => {
             btn.addEventListener('pointerdown', (e) => e.stopPropagation());
+            btn.addEventListener('contextmenu', (e) => e.stopPropagation());
             btn.addEventListener('click', (e) => {
                 e.stopPropagation();
                 toggleSpEditor(btn.dataset.id);
