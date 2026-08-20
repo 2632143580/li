@@ -2,16 +2,20 @@
  * 消息导航面板（双 tab：会话 / 消息）。
  *
  * 设计原则：复用优先、零重造、无气泡、纯正向。
- *   - 会话 tab：新建会话入口 + 会话列表（标题 / 消息数 / 相对时间 / 后台生成指示 / 当前会话竖线 / 重命名 / 长按删除）。
+ *   - 会话 tab：新建会话入口 + 会话列表（标题 / 消息数 / 相对时间 / 后台生成指示 / 当前会话竖线 /
+ *              置顶标记 / 长按菜单[重命名·删除·置顶] / LLM 快切芯片 / SP 行内编辑）。
  *   - 消息 tab：原极简消息列表 + 高频词下划线（与词云融化），分词延迟到进此 tab 才计算，默认进会话 tab 秒开。
  *
- * 交互细节（每条都有理由，见规划文档）：
- *   - 当前会话：左侧 2px accent 竖线（位置语义，比色块轻）；消息 tab 的 .mn-row.active 是「刚跳转」临时高亮，语义不同。
- *   - 相对时间：开面板算一次，不设定时器（与「按需渲染、零持续动画」一致）。
+ * 交互细节（每条都有理由）：
+ *   - 行整体被动：不响应点击，零整行热区，彻底消除「误触进入/误触重命名」。进入会话由行首明确的「进入」按钮负责
+ *     （当前会话显示「当前」灰标，无按钮）；仅「长按 600ms」保留为操作入口（重命名/删除/置顶）。
+ *   - 长按 600ms = 弹出操作菜单[重命名 / 删除 / 置顶]，移动端无右键，长按是唯一通道；菜单为气泡弹窗，
+ *     锚定在被按行的下缘（溢出视口则上翻），外罩 scrim 点空白即关。
+ *   - 相对时间：取「最后一条消息（user 或 assistant）的创建时间」到现在（见 sessions.lastMessageTime），
+ *     开面板算一次，不设定时器；排序同样以此为基准，稳定不乱跳。
  *   - 后台生成：复用 .typing-dots（prefers-reduced-motion 自动降级），是「后台继续生成」的反馈闭环。
- *   - 点当前会话 = 重命名；点其它 = 切换（零新增控件，语义同桌面重命名文件）。
- *   - 长按 600ms → armed（右侧显示「删除?」），3 秒内再点确认；移动端无右键，长按是唯一通道。
- *   - tab 复用 .segmented；记住上次 tab。
+ *   - LLM 芯片：点按在 全局↔已配置服务商 间循环快切；SP 小标签：点击行内展开编辑器（accent = 有覆盖）。
+ *   - 当前会话：左侧 2px accent 竖线（位置语义，比色块轻）；置顶：行首小别针标记 + 排序优先。
  *
  * 样式外提：所有 CSS 已移入 modal.css（#msg-nav 前缀），本模块不含内联 <style>。
  * Escape 关闭由 global.js 统一处理，本模块不注册 Escape 监听。
@@ -29,7 +33,7 @@ import { analyzeWordFreq, getActiveSegmenter } from '../../core/wordcloud-analyz
 import { registerUI } from '../../core/registry.js';
 import { openModal, closeAllModals } from '../../core/modal.js';
 import { getProviderByUrl } from '../../core/utils.js';
-import { loadSession, persistSession, saveSession } from '../../core/storage.js';
+import { loadSession, persistSession, saveSession, setSessionPinned } from '../../core/storage.js';
 import { showToast } from '../../core/toast.js';
 import { getEffectiveSysPrompt } from '../../core/sessions.js';
 
@@ -41,10 +45,8 @@ const TAB_KEY = 'liNavTab';
 const HOT_N = 14;
 /** 预览截取字符数 @type {number} */
 const PREVIEW_CH = 120;
-/** 长按进入删除 armed 态的时长（ms），对标词云长按 @type {number} */
+/** 长按进入操作菜单的时长（ms），对标词云长按 @type {number} */
 const LONG_PRESS_MS = 600;
-/** armed 态有效窗口（ms）：超时自动解除 @type {number} */
-const ARMED_TTL = 3000;
 /** 角色色点：与词云分色一致（user 暖橙 / ai 冷蓝） @type {Object<string,string>} */
 const ROLE_DOT = { user: '#ff9f43', assistant: '#4dabf7' };
 
@@ -70,6 +72,7 @@ function writeTab(t) {
 
 /** 相对时间：开面板算一次，不设定时器 @param {number} ts 毫秒时间戳 @returns {string} */
 function relTime(ts) {
+    if (!ts) return '';
     const diff = Date.now() - ts;
     const m = Math.floor(diff / 60000);
     if (m < 1) return '刚刚';
@@ -122,6 +125,79 @@ function setupMsgNav() {
 
     /** 当前展开 SP 编辑器的会话 id（null = 全部收起）。展开态唯一事实源，重渲染据此恢复 @type {string|null} */
     let spEditId = null;
+    /** 长按操作菜单是否打开 @type {boolean} */
+    let ctxMenuOpen = false;
+
+    // 长按操作菜单：外罩 scrim + 气泡菜单（锚定被按行）。挂在 panel 下，脱离 .mn-list 的 overflow 裁剪
+    const ctxScrim = document.createElement('div');
+    ctxScrim.className = 'mn-ctx-scrim';
+    const ctxMenu = document.createElement('div');
+    ctxMenu.className = 'mn-ctx';
+    ctxScrim.addEventListener('click', closeCtxMenu);
+    panel.appendChild(ctxScrim);
+    panel.appendChild(ctxMenu);
+
+    /** 关闭长按操作菜单（不影响列表渲染状态） */
+    function closeCtxMenu() {
+        ctxMenuOpen = false;
+        ctxScrim.style.display = 'none';
+        ctxMenu.style.display = 'none';
+        ctxMenu.innerHTML = '';
+    }
+
+    /**
+     * 打开长按操作菜单，锚定到被按行。
+     * 菜单项：重命名（行内 input）/ 置顶或取消置顶（依当前态）/ 删除。
+     * 定位：行下缘起，溢出视口则上翻；水平夹在视口内。 @param {string} id @param {HTMLElement} row
+     */
+    function openCtxMenu(id, row) {
+        const item = listSessions().find(s => s.id === id);
+        if (!item) return;
+        ctxMenuOpen = true;
+        const pinned = item.pinned;
+        ctxMenu.innerHTML = `
+            <button type="button" data-act="rename">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+                <span>重命名</span>
+            </button>
+            <button type="button" data-act="pin">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4h6l-1 7 3 3v2H7v-2l3-3-1-7Z"/><path d="M12 16v5"/></svg>
+                <span>${pinned ? '取消置顶' : '置顶'}</span>
+            </button>
+            <button type="button" data-act="delete" class="mn-ctx-danger">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M6 6l1 14h10l1-14"/></svg>
+                <span>删除</span>
+            </button>`;
+        ctxScrim.style.display = 'block';
+        ctxMenu.style.display = 'block';
+        // 先显示再量尺寸定位（display:none 时 offset 为 0）
+        const r = row.getBoundingClientRect();
+        const mw = ctxMenu.offsetWidth, mh = ctxMenu.offsetHeight;
+        let top = r.bottom + 6;
+        if (top + mh > window.innerHeight - 8) top = Math.max(8, r.top - mh - 6);
+        const left = Math.min(Math.max(8, r.left), window.innerWidth - mw - 8);
+        ctxMenu.style.top = top + 'px';
+        ctxMenu.style.left = left + 'px';
+        ctxMenu.querySelectorAll('button').forEach((b) => {
+            b.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const act = b.dataset.act;
+                closeCtxMenu();
+                if (act === 'rename') startRename(row, id);
+                else if (act === 'delete') { removeSession(id); renderSessions(); } // 非当前会话删除后索引已更新，需手动重渲染列表
+                else if (act === 'pin') togglePin(id);
+            });
+        });
+    }
+
+    /** 置顶切换：写存档 + 重建索引 + 重渲染；排序即时反映 @param {string} id */
+    function togglePin(id) {
+        const item = listSessions().find(s => s.id === id);
+        const next = !(item && item.pinned);
+        setSessionPinned(id, next);
+        renderSessions();
+        showToast(next ? '已置顶' : '已取消置顶', 'success');
+    }
 
     /**
      * 展开/收起某行的 SP 编辑器（点 SP 预览触发）。
@@ -202,6 +278,9 @@ function setupMsgNav() {
     const sub = panel.querySelector('#mn-sub');
     const list = panel.querySelector('#mn-list');
 
+    // 长按原生菜单拦截：移动端长按会弹系统选择/复制，必须掐掉，否则与操作菜单冲突
+    panel.addEventListener('contextmenu', (e) => e.preventDefault());
+
     /** 转义 HTML @param {string} s @returns {string} */
     const escapeHtml = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
@@ -210,26 +289,8 @@ function setupMsgNav() {
     /** 当前高频词数组（保留排序供 highlight 长词优先） @type {string[]} */
     let hotWords = [];
 
-    /** 长按删除 armed 态：当前 armed 的会话 id（null = 无） @type {string|null} */
-    let armedId = null;
-    /** armed 态超时句柄 @type {number|null} */
-    let armedTimer = null;
     /** 重命名中的 input 元素（非 null 表示正在重命名） @type {HTMLElement|null} */
     let renameInput = null;
-
-    /** 取消 armed 态 @returns {void} */
-    function disarm() {
-        if (armedTimer) { clearTimeout(armedTimer); armedTimer = null; }
-        if (armedId) { armedId = null; renderSessions(); }
-    }
-
-    /** 进入 armed 态 @param {string} id */
-    function arm(id) {
-        armedId = id;
-        renderSessions();
-        if (armedTimer) clearTimeout(armedTimer);
-        armedTimer = setTimeout(disarm, ARMED_TTL); // 3 秒窗口，超时自动解除
-    }
 
     /**
      * 在纯文本上做「不重叠最长匹配」高亮：高频词→htw（下划线），查找词→hq（更强）。
@@ -260,6 +321,7 @@ function setupMsgNav() {
 
     /** 渲染会话列表 @returns {void} */
     function renderSessions() {
+        closeCtxMenu(); // 重建列表前确保菜单已收（重渲染不会动菜单 DOM，但状态须干净）
         const sessions = listSessions();
         if (!sessions.length) {
             spEditId = null; // 空列表无行可展开，清理展开态
@@ -268,8 +330,9 @@ function setupMsgNav() {
         }
         sessionsList.innerHTML = sessions.map((s) => {
             const active = s.id === state.activeSessionId;
-            const armed = armedId === s.id;
             const dots = s.streaming ? '<span class="typing-dots" aria-label="生成中"><span></span><span></span><span></span></span>' : '';
+            // 置顶标记：行首小别针（仅置顶时显示），与排序「置顶优先」呼应
+            const pin = s.pinned ? '<span class="mn-pin" aria-label="已置顶"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4h6l-1 7 3 3v2H7v-2l3-3-1-7Z"/><path d="M12 16v5"/></svg></span>' : '';
             // LLM 芯片：按会话配置解析服务商（无配置 = 继承全局 → 「全局」灰）。
             // data-provider 与渲染同源，切换时直接读，杜绝「索引旧值 vs 显示值」双源漂移
             const cfg = s.llmConfig || null;
@@ -282,23 +345,28 @@ function setupMsgNav() {
                 else if (p === 'deepseek') { providerKey = 'deepseek'; providerName = 'DeepSeek'; providerClass = ' provider-deepseek'; }
                 else { providerKey = 'custom'; providerName = '自定义'; providerClass = ' provider-custom'; }
             }
-            // SP 预览：会话级覆盖去空白截 14 字；无覆盖 = 全局。tag 配色区分（accent = 有覆盖 / 灰 = 继承）
+            // SP 预览：会话级覆盖去空白截 16 字；无覆盖 = 全局。tag 配色区分（accent = 有覆盖 / 灰 = 继承）
             const hasSp = s.sysPrompt != null && s.sysPrompt !== '';
-            const spText = hasSp ? s.sysPrompt.replace(/\s+/g, ' ').trim().slice(0, 14) + '…' : '全局';
-            // meta 行右侧：armed 时显示删除确认，平时是 SP 预览按钮（点击行内展开编辑器）
-            const metaRight = armed
-                ? '<span class="mn-del-confirm">删除?</span>'
-                : `<button type="button" class="mn-sp${hasSp ? ' has-sp' : ''}" data-id="${escapeHtml(s.id)}"><i class="mn-sp-tag">SP</i><span class="mn-sp-text">${escapeHtml(spText)}</span></button>`;
-            return `<div class="mn-session${active ? ' active' : ''}${armed ? ' armed' : ''}" data-id="${escapeHtml(s.id)}">
+            const spText = hasSp ? s.sysPrompt.replace(/\s+/g, ' ').trim().slice(0, 16) + '…' : '全局';
+            // 行2 右侧的 SP 入口：清晰可点的小 pill（展开行内编辑器），accent 表「有独立提示词」
+            const metaRight = `<button type="button" class="mn-sp${hasSp ? ' has-sp' : ''}" data-id="${escapeHtml(s.id)}"><i class="mn-sp-tag">SP</i><span class="mn-sp-text">${escapeHtml(spText)}</span></button>`;
+            // 进入按钮（行1 最右）：显式切换并关面板，替代「整行点击进入」——整行不再有点击热区，彻底消除误触。
+            // 当前会话显示「当前」灰标而非按钮（无需再进自己）
+            const enterBtn = active
+                ? '<span class="mn-current">当前</span>'
+                : `<button type="button" class="mn-enter" data-id="${escapeHtml(s.id)}">进入</button>`;
+            return `<div class="mn-session${active ? ' active' : ''}" data-id="${escapeHtml(s.id)}">
                 <div class="mn-row-top">
+                    ${pin}
                     <span class="mn-session-title">${escapeHtml(s.title)}</span>
                     ${dots}
                     <button type="button" class="mn-llm-chip${providerClass}" data-id="${escapeHtml(s.id)}" data-provider="${providerKey}">${providerName}</button>
+                    ${enterBtn}
                 </div>
                 <div class="mn-row-meta">
                     <span class="mn-time">${relTime(s.updatedAt)}</span>
                     <span class="mn-sep">·</span>
-                    <span class="mn-count">${s.msgCount}</span>
+                    <span class="mn-count">${s.msgCount} 条</span>
                     ${metaRight}
                 </div>
                 <div class="mn-sp-editor${spEditId === s.id ? ' open' : ''}" data-id="${escapeHtml(s.id)}">
@@ -319,46 +387,46 @@ function setupMsgNav() {
             </div>`;
         }).join('');
 
+        // 行整体仅承载「长按手势」，不再响应点击（进入由独立「进入」按钮负责，整行零点击热区，杜绝误触）
         sessionsList.querySelectorAll('.mn-session').forEach((row) => {
             const id = row.dataset.id;
-            // 长按 armed（指针事件统一鼠标/触控）
             let pressTimer = 0;
-            let longPressed = false;
             row.addEventListener('pointerdown', (e) => {
                 if (e.button !== undefined && e.button !== 0) return;
-                longPressed = false;
+                if (ctxMenuOpen) return;
                 clearTimeout(pressTimer);
-                pressTimer = setTimeout(() => { longPressed = true; arm(id); }, LONG_PRESS_MS);
+                pressTimer = setTimeout(() => openCtxMenu(id, row), LONG_PRESS_MS);
             });
             const cancelPress = () => clearTimeout(pressTimer);
             row.addEventListener('pointerup', cancelPress);
             row.addEventListener('pointermove', cancelPress);
             row.addEventListener('pointercancel', cancelPress);
             row.addEventListener('pointerleave', cancelPress);
-            row.addEventListener('click', () => {
-                if (longPressed) { longPressed = false; return; } // 长按松手那一下不触发点击动作
-                if (armedId === id) { removeSession(id); disarm(); return; } // 确认删除：先删（索引更新）再解除 armed 并重渲染列表，避免残留旧行
-                if (armedId) { disarm(); return; } // 点别的行解除 armed
-                if (id === state.activeSessionId) startRename(row, id); // 点当前 = 重命名
-                else switchTo(id); // 点其它 = 切换
+        });
+
+        // 进入按钮：显式切换并关面板（switchTo 内置 closeAllModals）。stopPropagation 防冒泡到行（尽管行已无点击逻辑）
+        sessionsList.querySelectorAll('.mn-enter').forEach((btn) => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                switchTo(btn.dataset.id);
             });
         });
 
-        // LLM 芯片交互：click 触发快切；pointerdown 阻止冒泡——行长按删除(600ms)绑定在 row 上，
-        // chip 上长按不得误触发删除 armed 态（chip 与 row 是嵌套关系，事件会冒泡到 row）
+        // LLM 芯片交互：click 触发快切；pointerdown 阻止冒泡——行长按打开菜单(600ms)绑定在 row 上，
+        // chip 上按下不得误触发菜单（chip 与 row 是嵌套关系，事件会冒泡到 row）
         sessionsList.querySelectorAll('.mn-llm-chip').forEach((chip) => {
             chip.addEventListener('pointerdown', (e) => e.stopPropagation());
             chip.addEventListener('click', (e) => {
-                e.stopPropagation(); // 阻止触发 row 的 click（当前行重命名 / 其它行切换）
+                e.stopPropagation(); // 阻止触发 row 的 click（切换/关面板）
                 handleQuickLlmSwitch(chip.dataset.id, chip.dataset.provider);
             });
         });
 
-        // SP 预览按钮：click 行内展开编辑器；pointerdown 同样拦截，防长按误触删除 armed
+        // SP 预览按钮：click 行内展开编辑器；pointerdown 同样拦截，防长按误触菜单
         sessionsList.querySelectorAll('.mn-sp').forEach((btn) => {
             btn.addEventListener('pointerdown', (e) => e.stopPropagation());
             btn.addEventListener('click', (e) => {
-                e.stopPropagation(); // 阻止触发 row 的 click（切换/重命名）
+                e.stopPropagation(); // 阻止触发 row 的 click（切换/关面板）
                 toggleSpEditor(btn.dataset.id);
             });
         });
@@ -412,7 +480,7 @@ function setupMsgNav() {
 
     /**
      * 开始重命名：把标题替换为 input，聚焦并全选。
-     * @param {HTMLElement} row 会话行 @param {string} id
+     * 仅由长按菜单触发，杜绝「点当前行即重命名」的误触路径。 @param {HTMLElement} row 会话行 @param {string} id
      */
     function startRename(row, id) {
         if (renameInput) return;
@@ -510,7 +578,7 @@ function setupMsgNav() {
         sessionsPane.hidden = t !== 'sessions';
         messagesPane.hidden = t !== 'messages';
         if (t === 'sessions') {
-            disarm();
+            closeCtxMenu();
             renderSessions();
         } else {
             // 进消息 tab 才计算分词（默认进会话 tab 秒开）

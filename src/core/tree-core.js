@@ -29,6 +29,8 @@ import { getEffectiveSysPrompt } from './sessions.js';
  *   - id {number}              自增唯一 id，由 state.msgIdCounter 累加得到
  *   - role {string}            节点角色
  *   - content {string}         节点正文
+ *   - time {number}            创建时刻（毫秒时间戳）；用于会话列表「最后消息时间」与排序，
+ *                              不受刷新/重保存影响，是稳定时间基准（取代原先每次保存都写 Date.now() 的漂移 source）
  *   - children {Array<object>} 子节点（回复分支）列表，初始为空
  *   - selectedChildIndex {number} 当前展示的子节点下标，初始为 0
  *   - isError {boolean}        是否为错误节点，初始为 false
@@ -38,6 +40,7 @@ export function createNode(role, content) {
         id: ++state.msgIdCounter,
         role,
         content,
+        time: Date.now(),
         children: [],
         selectedChildIndex: 0,
         isError: false

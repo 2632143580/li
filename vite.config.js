@@ -13,14 +13,29 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const BUILD_ENV = process.env.GITHUB_ACTIONS === 'true' ? 'github' : '本地';
 
 /**
- * 产物可读命名标签：默认取「分支名-短提交」；也可用环境变量显式传改动描述
- * （如 BUILD_LABEL=会话级llm-sp编辑 npm run build → dist/li-会话级llm-sp编辑.html），
- * 让产物文件名直接看出这版改了什么（版本区分用）。
+ * 文件名安全化：去掉 Windows 非法字符、多空格归一、过长截断，中文保留。
+ * 非法字符 (/ \ : * ? " < > |) 直接变连字符，保证产物在任意系统可双击打开。
+ */
+function sanitizeLabel(s) {
+    return String(s)
+        .replace(/[\\/:*?"<>|]/g, '-')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .slice(0, 60);
+}
+
+/**
+ * 产物可读命名标签：默认**自动取最近一次提交标题**（语义化，直接看出这版改了什么）；
+ * 也可用环境变量显式覆盖（如 BUILD_LABEL=临时描述 npm run build）。
+ * 取不到提交信息时回退「分支名-短提交」，再回退中性名 dev。
+ * 这样平时只需 `npm run build`，产物名就自动跟着 commit message 走，零额外输入。
  */
 const BUILD_LABEL = process.env.BUILD_LABEL || (() => {
     try {
-        return execSync('git rev-parse --abbrev-ref HEAD').toString().trim()
+        const msg = execSync('git log -1 --pretty=%s').toString().trim(); // 最近提交标题（最语义化）
+        const fallback = execSync('git rev-parse --abbrev-ref HEAD').toString().trim()
             + '-' + execSync('git rev-parse --short HEAD').toString().trim();
+        return sanitizeLabel(msg) || fallback;
     } catch (_) { return 'dev'; } // 无 git 环境时回退中性名
 })();
 

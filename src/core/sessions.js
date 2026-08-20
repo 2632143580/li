@@ -15,7 +15,7 @@
  * 依赖：core/state（仅 state）、core/constants（SESSION_KEY_PREFIX 不在此用，保留扩展位）、
  *       core/tree-core（migrateErrorFlags / getLastNodeInPath 纯函数）。
  * 导出：genSessionId, getEffectiveSysPrompt, freshStats, getSessionTitle, countMessages,
- *       lastPreview, buildIndexEntry, renumberTreeIds, touchIndex, migrateV3ToV4
+ *       lastPreview, lastMessageTime, buildIndexEntry, renumberTreeIds, touchIndex, migrateV3ToV4
  */
 
 import { state } from './store.js';
@@ -86,22 +86,41 @@ export function lastPreview(tree) {
 }
 
 /**
+ * 取树上「最后一条消息」的创建时间（非 system 节点 time 的最大值）。
+ * 这是会话列表相对时间与排序的稳定基准——节点 time 在创建时一次性写好，
+ * 刷新/重保存都不会变，彻底根治「updatedAt 用 Date.now() 导致每次打开都刷新、排序乱跳」的旧 bug。
+ * 老数据（节点无 time 字段）返回 0，调用方据此回退到既有 updatedAt 以保排序稳定。 @param {object} tree @returns {number}
+ */
+export function lastMessageTime(tree) {
+    let last = 0;
+    const stack = [tree];
+    while (stack.length) {
+        const node = stack.pop();
+        if (node.role && node.role !== 'system' && node.time) last = Math.max(last, node.time);
+        if (node.children) for (const c of node.children) stack.push(c);
+    }
+    return last;
+}
+
+/**
  * 构建会话索引条目（列表只读结构，不携带正文）。
  * @param {string} id 会话 id
- * @param {object} tree 对话树（用来推导自动标题 / 计数 / 预览）
+ * @param {object} tree 对话树（用来推导自动标题 / 计数 / 预览 / 最后消息时间）
  * @param {string|null} manualTitle 手动重命名（null = 自动标题）
  * @param {{apiUrl:string, model:string}|null} [llmConfig] 会话级 LLM 覆盖快照（null = 继承全局；列表 chip 显示用）
  * @param {string|null} [sysPrompt] 会话级 SP 覆盖快照（null = 继承全局；列表 SP 预览用）
- * @returns {{id:string,title:string,autoTitle:boolean,updatedAt:number,msgCount:number,preview:string,llmConfig:object|null,sysPrompt:string|null}}
+ * @param {boolean} [pinned=false] 是否置顶（排序优先于未置顶；持久化在存档与索引上）
+ * @returns {{id:string,title:string,autoTitle:boolean,updatedAt:number,msgCount:number,preview:string,pinned:boolean,llmConfig:object|null,sysPrompt:string|null}}
  */
-export function buildIndexEntry(id, tree, manualTitle, llmConfig, sysPrompt) {
+export function buildIndexEntry(id, tree, manualTitle, llmConfig, sysPrompt, pinned = false) {
     return {
         id,
         title: manualTitle || getSessionTitle(tree),
         autoTitle: !manualTitle,
-        updatedAt: Date.now(),
+        updatedAt: lastMessageTime(tree) || Date.now(),
         msgCount: countMessages(tree),
         preview: lastPreview(tree),
+        pinned: !!pinned,
         llmConfig: llmConfig || null,
         sysPrompt: sysPrompt ?? null
     };
@@ -124,12 +143,13 @@ export function renumberTreeIds(tree) {
 /**
  * 轻触会话索引的 updatedAt（发消息时调用）：只改内存、不落盘，
  * 让会话列表按 updatedAt 倒序时「刚发消息的会话」自然置顶（流式期间的即时反馈）。
- * 完整落盘由后续 saveSession 统一带出。 @param {string} id
+ * 时间来源改为树的最后消息时间（createNode 写入的节点 time），不再用 Date.now()，
+ * 否则每次保存都会把时间推到「现在」，排序与相对时间会失真、乱跳。 @param {string} id
  */
 export function touchIndex(id) {
     const idx = state.sessionIndex || (state.sessionIndex = []);
     const e = idx.find(e => e.id === id);
-    if (e) e.updatedAt = Date.now();
+    if (e) e.updatedAt = lastMessageTime(state.chatTree) || e.updatedAt;
 }
 
 /**
