@@ -19,6 +19,7 @@
 
 import { state } from './store.js';
 import { ERROR_PREFIX } from './constants.js';
+import { getEffectiveSysPrompt } from './sessions.js';
 
 /**
  * 创建新消息节点
@@ -96,8 +97,8 @@ export function getLastNodeInPath(tree) {
  * @returns {Array<{role:string, content:string}>} 发送给服务商的 messages 数组
  */
 export function buildApiMessages(endNode) {
-    // 同步系统提示词到根节点（state.settings.sysPrompt 可能因设置变更而更新）
-    if (state.chatTree) state.chatTree.content = state.settings.sysPrompt;
+    // 同步系统提示词到根节点（会话级覆盖优先，否则全局默认；设置变更后此处即生效）
+    if (state.chatTree) state.chatTree.content = getEffectiveSysPrompt();
 
     const path = [];
     let curr = state.chatTree;

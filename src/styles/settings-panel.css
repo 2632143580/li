@@ -13,7 +13,6 @@
     padding: 28px 32px 24px;
     width: 92%;
     max-width: 560px;
-    max-height: 88vh;
     overflow-y: auto;
     animation: modalIn 0.3s cubic-bezier(0.22, 1, 0.36, 1);
     scrollbar-width: none;
@@ -273,7 +272,7 @@
     *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
 }
 @media (max-width: 520px) {
-    #modal .modal-content { padding: 18px 16px 16px; max-width: 100%; border-radius: 16px; max-height: 92vh; }
+    #modal .modal-content { padding: 18px 16px 16px; max-width: 100%; border-radius: 16px; }
     .dim-visual { height: 180px; }
     .dim-val-big { font-size: 48px; }
 }

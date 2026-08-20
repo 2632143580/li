@@ -44,8 +44,9 @@ export const BgEngine = {
     /**
      * 侦测「任意全屏遮罩是否打开」，用于冻结背景动画循环（零视觉损失 + 消除整屏模糊重算）。
      * 用 MutationObserver 监听 DOM 显示状态变化，与模态框开关路径完全解耦——
-     * 项目里很多关闭路径直接 `el.style.display='none'`（settings/plugin-panel/tts/wordcloud 等），
-     * 并不走 closeAllModals，所以不能依赖某个开关函数去维护标志，必须自己侦测真实 DOM 状态。
+     * 项目里大部分遮罩（设置/词云/语音/消息导航/日志）关闭已统一走 closeAllModals，
+     * 但仍有例外（如 #fs-editor / #set-model-options 等仍直接 `el.style.display='none'`），
+     * 所以不能依赖某个开关函数去维护标志，必须自己侦测真实 DOM 状态。
      * 真值只在脏标记时重算（最多每帧一次），避免流式期间频繁属性变更带来的开销。
      * @returns {void}
      */

@@ -16,12 +16,22 @@
 import { DOM } from '../core/dom.js';
 import { state } from '../core/store.js';
 import { splitSentences } from '../core/text-split.js';
-import { cleanForSpeech, speakSentence, enqueueAutoSentence, clearAutoQueue, preloadSentence } from '../engines/tts-engine.js';
+import { cleanForSpeech, speakSentence, enqueueAutoSentence, clearAutoQueue } from '../engines/tts-engine.js';
 
 /** 当前播放中的语音条 DOM（互斥：新条播放前先停旧条） @type {HTMLElement|null} */
 let playingTile = null;
 /** 当前打开的语音条右键菜单所关联的语音条 @type {HTMLElement|null} */
 let ctxTile = null;
+
+/**
+ * 重置语音条运行时追踪（切换会话时调用）：清空 playingTile / ctxTile，
+ * 防止旧会话的 detached 节点残留在全局追踪里、误判「仍在播放」导致新会话音频被吞。
+ * 不调用 stopCurrent（停止由 clearAutoQueue 负责）。 @returns {void}
+ */
+export function resetTileTracking() {
+    playingTile = null;
+    ctxTile = null;
+}
 
 /**
  * 渲染 / 增量更新语音条到 contentEl。
@@ -113,7 +123,10 @@ export function renderBoth(contentEl, node, isStreaming) {
         } else {
             const last = existing[existing.length - 1];
             const tile = last.querySelector('.vt');
-            if (tile) tile.dataset.text = rows[rows.length - 1].clean;
+            if (tile) {
+                tile.dataset.text = rows[rows.length - 1].clean;
+                syncRevealedText(tile); // 流式末句持续增长：同步 .vt-text，防「右键转文字」残留半句首字（与 renderVoiceTiles 同口径）
+            }
             const txt = last.querySelector('.vt-both-text');
             if (txt) txt.textContent = rows[rows.length - 1].raw;
         }
@@ -153,10 +166,21 @@ function maybeAutoRead(node, isStreaming, contentEl) {
     // 此时 seen.has 会抛 TypeError 崩溃。统一兜底：非 Set 实例则重建，保证去重集合类型正确可用。
     if (!(node._autoEnq instanceof Set)) node._autoEnq = new Set();
     const seen = node._autoEnq;
-    // 去重键含句序（idx:text），避免"好的。好的。"这类合法重复句被纯文本去重跳过（修⑦）
+    // 维护 idx -> 队列项 映射：流式期同一句序号固定，但其文本会从半句增长到整句。
+    // 按 idx（而非 idx:text）去重，使同句只入队一次；文本变化时在队列项原地更新，
+    // 避免旧方案（idx:text 去重）在 text 变化时拦不住、导致同一句被多次入队 → 播到倒数第二句跳回重播。
+    if (!(node._autoIdxMap instanceof Map)) node._autoIdxMap = new Map();
+    const idxMap = node._autoIdxMap;
     const enq = (text, idx) => {
-        const key = idx + ':' + text;
-        if (!seen.has(key)) { seen.add(key); enqueueAutoSentence(text, buildTileCb(contentEl, text, idx)); }
+        if (seen.has(idx)) {
+            const item = idxMap.get(idx);
+            if (item) item.text = text; // 半句→整句：原地更新待播文本，不重复入队
+            return;
+        }
+        seen.add(idx);
+        const item = { text, idx, cb: buildTileCb(contentEl, text, idx) };
+        idxMap.set(idx, item);
+        enqueueAutoSentence(item);
     };
     if (isStreaming) {
         node._autoReadArmed = true;
@@ -223,7 +247,6 @@ function makeTileEl(text, idx = 0, allowReveal = true) {
     textEl.textContent = text; // textContent 防 XSS，绝不用 innerHTML 注入 AI 文本
     tile.append(wave, durEl, textEl);
     tile.addEventListener('click', () => toggleTile(tile));
-    tile.addEventListener('mouseenter', () => preloadSentence(text)); // 悬停预加载（仅云端源+已配 Key 才真发请求，其余静默 return）
     if (allowReveal) {
         tile.addEventListener('contextmenu', (e) => {
             e.preventDefault();
@@ -334,7 +357,10 @@ function hideTileMenu() {
 }
 
 // 全局点击 / 触摸外部关闭语音条菜单（模块求值期挂一次；点击条本身也会冒泡到这里，菜单已先隐藏，无副作用）
-document.addEventListener('click', hideTileMenu);
-document.addEventListener('touchstart', (e) => {
-    if (DOM.vtCtx && !DOM.vtCtx.contains(e.target)) hideTileMenu();
-});
+// typeof 守卫：Node 环境（SSR / 单测）import 此模块不 ReferenceError
+if (typeof document !== 'undefined') {
+    document.addEventListener('click', hideTileMenu);
+    document.addEventListener('touchstart', (e) => {
+        if (DOM.vtCtx && !DOM.vtCtx.contains(e.target)) hideTileMenu();
+    });
+}

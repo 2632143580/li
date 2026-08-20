@@ -1,7 +1,8 @@
 /**
  * Canvas 输入渲染器（每帧重绘）
  *
- * 职责：在 UI 画布上绘制「呼吸圆环 + 输入线条 + 装饰点 + 文本 + 光标」。
+ * 职责：在 UI 画布上绘制「呼吸圆环 + 输入线条 + 装饰点」。
+ *       文本和光标由 DOM 层 #hiddenInput 承载（CSS 渲染、可聚焦、支持 IME），Canvas 不画文字。
  *       提供文本测量缓存 textCache，避免每帧重复 measureText。
  *       提供 inputColors 缓存（从 CSS 变量读取），供 drawInputArea 与主题引擎刷新使用。
  *
@@ -153,7 +154,7 @@ export const textCache = {
 
 /**
  * 绘制输入区域到 UI Canvas
- * 包含：脉冲圆环、输入线条、装饰点、文本、光标
+ * 绘制内容：脉冲圆环、输入线条、装饰点（文本/光标由 DOM hiddenInput 承载，不画在 Canvas 上）
  * @param {number} now - requestAnimationFrame 时间戳
  */
 export function drawInputArea(now) {

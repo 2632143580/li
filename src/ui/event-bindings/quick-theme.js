@@ -387,7 +387,8 @@ function openCustomSchemeModal() {
     updateSchemePreview('');
     renderCustomSchemeList();
     openModal('custom-scheme-modal');
-    DOM.customSchemeInput.focus();
+    // 不主动 focus textarea：移动端 focus 会立即弹出软键盘遮挡面板，用户可能只想浏览已有配色。
+    // 用户点击输入框时自然聚焦弹键盘（用户手势触发，Chrome 不拦截）。
 }
 
 /** 关闭自定义配色模态框 @returns {void} */

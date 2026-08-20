@@ -184,6 +184,10 @@ export function bindVoiceSettings() {
     if (DOM.voiceModal) DOM.voiceModal.addEventListener('click', (e) => {
         if (e.target === DOM.voiceModal) closeVoiceModal();
     });
+    // Escape 关闭（与设置/词云/消息导航/日志一致，统一模态交互）
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && DOM.voiceModal && getComputedStyle(DOM.voiceModal).display !== 'none') closeVoiceModal();
+    });
 
     // 云端音频缓存变化 → 刷新设置面板统计（重听命中、LRU 淘汰、清空均会触发）
     setCloudCacheChangeListener(refreshCloudCacheStat);

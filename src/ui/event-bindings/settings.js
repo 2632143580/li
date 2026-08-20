@@ -5,18 +5,13 @@
  * 对 tempSettings 的逐属性赋值保持原样（对 import 活绑定改属性合法）。
  * 本模块级可变状态仅被本函数使用，原属 api.js，随 bindSettingsEvents 一并迁入。
  *
- * 方法1 集成说明：DOM 结构已由 index.html 的 #modal 换成新视觉（星空仿真框 / 分段服务商标签 /
- *   URL·KEY 气泡 / 模型点击展开），id 仍对齐本模块依赖的 set-*；数据层（tempSettings / applySettings）
- *   完全沿用项目实现。专注预览（immersive-experience）已移除。
- *   本轮简化：移除字号调节（含仿真预览与浮动气泡）、移除「自定义」服务商标签、提示词改为原地 Textarea、
- *   模型名点击直接展开、URL/KEY 点击自动聚焦输入框、重置按钮移出「高级 API 选项」折叠并改为 RESET 文字按钮、
- *   接入 armClickConfirm 做二次点击确认（替代原生 confirm）。
+
  */
 import { DOM } from '../../core/dom.js';
 import { openModal, closeAllModals } from '../../core/modal.js';
 import { Logger } from '../../core/logger.js';
 import { state } from '../../core/store.js';
-import { saveToLocal } from '../../core/storage.js';
+import { saveToLocal, saveSession } from '../../core/storage.js';
 import { getProviderByUrl, safeParseInt, ensureKeysObject } from '../../core/utils.js';
 import { DEFAULT_SETTINGS } from '../../core/constants.js';
 import { tempSettings, setTempSettings } from './temp-settings.js';
@@ -26,6 +21,13 @@ import {
     showModelOptions, hideModelOptions
 } from '../../chat/tree.js';
 import { armClickConfirm } from './click-confirm.js';
+
+/**
+ * 系统提示词「当前编辑值」：会话级覆盖的暂存。
+ * 文本输入框改的是「当前会话」的覆盖值（null = 继承全局默认）；「设为全局默认」才写到 state.settings.sysPrompt。
+ * @type {string}
+ */
+let pendingSysPrompt = '';
 
 /** 沉浸预览前的已提交遮罩值 —— 取消时用于回退实时预览的改动 @type {number} */
 let bgDimPreviewBackup = 0.4;
@@ -64,7 +66,9 @@ export function bindSettingsEvents() {
         DOM.setBgDim.value = tempSettings.bgDimOpacity * 100; // 0-1 转为 0-100
         DOM.setBgDimVal.textContent = Math.round(tempSettings.bgDimOpacity * 100) + '%';
         DOM.setAiName.value = tempSettings.aiName;
-        DOM.setSysPrompt.value = tempSettings.sysPrompt;
+        // 系统提示词输入框显示「当前会话有效值」：有会话级覆盖则显示覆盖，否则显示全局默认
+        pendingSysPrompt = (state.sessionSysPrompt != null) ? state.sessionSysPrompt : state.settings.sysPrompt;
+        DOM.setSysPrompt.value = pendingSysPrompt;
         populateModelSelect(tempSettings.availableModels, tempSettings.model);
         checkProviderMatch();
         syncSim();
@@ -74,11 +78,16 @@ export function bindSettingsEvents() {
 
     // 确认
     DOM.modalClose.addEventListener('click', () => {
+        // sysPrompt 不走 tempSettings 合并（它由「当前会话级覆盖」管理，见下方单独处理），先剔除避免污染全局默认
+        delete tempSettings.sysPrompt;
         Object.assign(state.settings, tempSettings);
         state.settings.keys = { ...tempSettings.keys };
-        applySettings();
+        // 写入当前会话的系统提示词覆盖值（null 已由上面清理，这里恒写为字符串覆盖；清空覆盖请改用「设为全局默认」）
+        state.sessionSysPrompt = pendingSysPrompt;
+        applySettings(); // 内部把根 content 同步为有效系统提示词（覆盖优先）
         updateInputLayout();
         if (DOM.bgDimLayer) DOM.bgDimLayer.style.opacity = state.settings.bgDimOpacity; // 保存后才应用到真实遮罩层（滑块拖动仅预览仿真框，用户要求"保存后才生效"）
+        saveSession(state.activeSessionId); // 会话级覆盖随会话键落盘
         saveToLocal('设置已保存');
         closeAllModals();
     });
@@ -95,6 +104,17 @@ export function bindSettingsEvents() {
     // 点击遮罩关闭
     DOM.modal.addEventListener('click', (e) => {
         if (e.target === DOM.modal) {
+            state.settings.bgDimOpacity = bgDimPreviewBackup;
+            if (DOM.bgDimLayer) DOM.bgDimLayer.style.opacity = state.settings.bgDimOpacity;
+            applySettings();
+            updateInputLayout();
+            closeAllModals();
+        }
+    });
+
+    // Escape 关闭（与词云/语音/导航/日志统一模态交互：还原遮罩预览 + 套用设置 + 重排输入 + 关全部）
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && getComputedStyle(DOM.modal).display !== 'none') {
             state.settings.bgDimOpacity = bgDimPreviewBackup;
             if (DOM.bgDimLayer) DOM.bgDimLayer.style.opacity = state.settings.bgDimOpacity;
             applySettings();
@@ -216,9 +236,18 @@ export function bindSettingsEvents() {
         }
     });
 
-    // 系统提示词：原地 Textarea 输入（不再进入全屏编辑器）
+    // 系统提示词：原地 Textarea 输入（不再进入全屏编辑器）。改的是「当前会话」的覆盖值暂存，不直接写全局默认
     DOM.setSysPrompt.addEventListener('input', () => {
-        tempSettings.sysPrompt = DOM.setSysPrompt.value;
+        pendingSysPrompt = DOM.setSysPrompt.value;
+    });
+    // 「设为全局默认」：把当前文本框值提升为全局默认，并清除当前会话覆盖（使其继承新默认）；其它会话不受影响
+    const sysPromptGlobal = document.getElementById('sys-prompt-global');
+    if (sysPromptGlobal) sysPromptGlobal.addEventListener('click', () => {
+        pendingSysPrompt = DOM.setSysPrompt.value;
+        state.settings.sysPrompt = pendingSysPrompt;
+        state.sessionSysPrompt = null; // 当前会话改回继承全局默认
+        applySettings();
+        saveToLocal('已设为全局默认');
     });
     DOM.sysPromptImport.addEventListener('click', () => DOM.fileImportPrompt.click());
     DOM.fileImportPrompt.addEventListener('change', (e) => {

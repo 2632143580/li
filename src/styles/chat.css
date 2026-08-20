@@ -34,6 +34,10 @@
     pointer-events: none;
 }
 
+@supports (height: 100dvh) {
+    #ui-canvas { height: 100dvh; }
+}
+
 /* ====================== 消息样式 ====================== */
 .msg {
     max-width: 85%;

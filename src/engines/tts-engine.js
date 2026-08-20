@@ -410,6 +410,8 @@ async function speakCloud(text, cb = {}) {
         showToast('云端音频播放被拦截，已回退系统语音', 'warn');
         Logger.warn('[TTS] 云端音频播放被拦截，回退系统语音', e?.message || String(e));
         if (activeCloudAudio === audio) activeCloudAudio = null;
+        // 释放 Blob URL：play() 失败时 onended 不会触发，此处不 revoke 会泄漏 Blob URL
+        if (audio.src && audio.src.startsWith('blob:')) { try { URL.revokeObjectURL(audio.src); } catch (_) { /* 已释放 */ } }
         // 修③：同上，仅推进一次队列（先清 activeOnEnd 再回退系统音）
         activeOnEnd = null;
         speakSystem(text, cb);
@@ -531,12 +533,12 @@ export function stopCurrent() {
  * - 顺序播放：上一句 onEnd（自然播完或被打断）后才播下一句；打断时本句不回写秒数。
  * @type {string[]}
  */
-// —— 有限并发预加载（按需：播当前句时预加载下一句 + 悬停预加载），减小自动朗读/点击延迟 ——
+// —— 有限并发预加载（自动朗读：播当前句时预加载队列下一句），减小自动朗读句间延迟 ——
 const PRELOAD_CONCURRENCY = 2;
 let preloadRunning = 0;
 const preloadQueue = [];
 
-/** 后台预加载单句云端音频（限制并发，失败静默）。供「播当前句时预加载下一句」与「悬停预加载」调用。 */
+/** 后台预加载单句云端音频（限制并发，失败静默）。供自动朗读「播当前句时预加载队列下一句」调用。 */
 export function preloadSentence(text) {
     if (state.settings.ttsSource !== 'cloud') return;       // 仅云端源需预加载（系统源本地合成无请求）
     const cfg = state.settings.ttsCloud || {};
@@ -568,12 +570,14 @@ let autoPlaying = false;
  * @param {string} text 单句文本（已清洗）
  * @param {{onStart?:function,onProgress?:function,onEnd?:function}} [cb] 视觉回调（手动点击的同款）
  */
-export function enqueueAutoSentence(text, cb = {}) {
-    const cleaned = cleanForSpeech(text);
-    if (!cleaned) return;
-    if (!state.settings.ttsAutoRead || !state.settings.ttsEnabled) return;
-    autoQueue.push({ text: cleaned, cb });
+export function enqueueAutoSentence(item) {
+    const cleaned = cleanForSpeech(item.text);
+    if (!cleaned) return null;
+    item.text = cleaned;
+    if (!state.settings.ttsAutoRead || !state.settings.ttsEnabled) return null;
+    autoQueue.push(item);
     processAutoQueue();
+    return item;
 }
 
 /** 顺次播放队列（互斥：上句在播则等待其 onEnd） @returns {void} */
@@ -582,6 +586,9 @@ function processAutoQueue() {
     if (autoQueue.length === 0) return;
     autoPlaying = true;
     const { text, cb } = autoQueue.shift();
+    // 播当前句时预加载队列下一句（云端源）：preloadSentence 内部已守卫（仅 cloud + 已配 Key +
+    // 未在缓存/请求中才真发请求），下一句播放时 fetchCloudAudioCached 直接命中内存/磁盘缓存，免网络等待。
+    if (autoQueue.length > 0) preloadSentence(autoQueue[0].text);
     // 队列看门狗（修⑨）：speechSynthesis.onend / audio.onended 在后台标签页 / 失焦 pause 后
     // 是已知不触发的坑，一旦不响 autoPlaying 卡死、队列停滞。按句长估算最大时长，
     // 超时强制续播下一句，保证自动朗读不会整条卡死。

@@ -8,24 +8,22 @@
  *   4. 订阅 core/bus 的 STREAM_REQUEST，承接 tree.js 的发消息请求
  *
  * 导出：streamChat, executeStreamRequest, applyPluginCode
- * 依赖：core/dom, core/state, core/logger, core/storage, core/bus（订阅 tree 的 STREAM_REQUEST）,
- *       engines/bg-engine, engines/theme-engine,
- *       ui/input-renderer, chat/tree, main（onResize）
+ * 依赖：core/logger, core/store, core/constants, core/utils, core/storage,
+ *       engines/bg-engine, engines/theme-engine, hooks.json,
+ *       ui/input-renderer, chat/tree, core/bus（订阅 tree 的 STREAM_REQUEST）
  * 注意：事件绑定（bind*）与背景图编辑状态（tempSettings / crop*）已迁到 ui/event-bindings，
  *       本模块不再持有 UI 事件代码，仅保留 API 与插件解析能力。
  */
-import { DOM, W, H } from '../core/dom.js';
 import { Logger } from '../core/logger.js';
 import { state } from '../core/store.js';
-import { API_TIMEOUT_MS, DEFAULT_SETTINGS } from '../core/constants.js';
-import { getProviderByUrl, safeParseInt, clamp, ensureKeysObject } from '../core/utils.js';
-import { saveToLocal, debouncedSave } from '../core/storage.js';
+import { API_TIMEOUT_MS } from '../core/constants.js';
+import { getProviderByUrl } from '../core/utils.js';
+import { saveToLocal, saveSession } from '../core/storage.js';
 import { BgEngine } from '../engines/bg-engine.js';
 import { ThemeEngine } from '../engines/theme-engine.js';
 import hooksData from '../../hooks.json'; // 宿主契约单一事实源：插件归因告警（通配/未命中钩子）从此读取
 import { inputRenderer } from '../ui/input-renderer.js';
-import { openFSEditor } from '../ui/input-manager.js';
-import { onResize } from '../main.js';
+import { inputManager } from '../ui/input-manager.js';
 // 来自 tree.js 的纯函数 / 状态（循环引用安全：均为运行时调用 / 活绑定）
 // 仅保留本模块实际引用的名字；其余 tree.js 导出不再在此 import（避免死导入）。
 import {
@@ -47,16 +45,28 @@ import { bus, EVENTS } from '../core/bus.js';
  * @param {function(string)} onChunk - 每次收到新内容时回调（传入累积全文）
  * @param {function(string,object)} onDone - 流结束回调（传入全文和缓存命中 tokens）
  * @param {function(Error)} onError - 错误回调
+ * @param {string} [sessionId] - 所属会话 id（缺省取当前激活会话）。用于把请求挂到 state.pending，
+ *        供切换/删除时按会话 abort，并在完成时落到「正确的会话键」而非被切到的当前会话。
  */
-export async function streamChat(messages, onChunk, onDone, onError) {
+export async function streamChat(messages, onChunk, onDone, onError, sessionId) {
+    sessionId = sessionId || state.activeSessionId;
     if (!messages.some(m => m.role === 'user')) {
-        state.waiting = false;
+        clearPending(sessionId);
         inputRenderer.markDirty();
         onError(new Error("本轮没有可发送的用户消息，无法请求模型。"));
         return;
     }
 
     const controller = new AbortController();
+    // 把请求登记到 pending：挂 controller（供外部 abort）+ 持完整快照（后台完成时落正确会话键）
+    state.pending.set(sessionId, {
+        aiNode: null, // executeStreamRequest 内回填（streamChat 创建 pending 时尚无 aiNode 引用）
+        controller,
+        tree: state.chatTree,
+        stats: state.stats,
+        sysPrompt: state.sessionSysPrompt,
+        draft: inputManager.text || ''
+    });
     let timeoutId = setTimeout(() => controller.abort(), API_TIMEOUT_MS);
 
     try {
@@ -125,7 +135,7 @@ export async function streamChat(messages, onChunk, onDone, onError) {
                     // 先落 waiting 再回调：onDone 内部会做最终一次渲染，
                     // 若此时 waiting 仍为 true，渲染会被判定为"流式中"而走增量分支，
                     // 导致打字指示器无法被非流式重建路径清除。
-                    state.waiting = false;
+                    clearPending(sessionId);
                     onDone(full, lastUsage);
                     return;
                 }
@@ -142,7 +152,7 @@ export async function streamChat(messages, onChunk, onDone, onError) {
                 }
             }
         }
-        state.waiting = false;
+        clearPending(sessionId);
         onDone(full, lastUsage);
     } catch (e) {
         let errMsg = e.message || "未知网络错误";
@@ -152,14 +162,25 @@ export async function streamChat(messages, onChunk, onDone, onError) {
             errMsg = "网络请求失败（Failed to fetch）：多为跨域(CORS)限制或接口地址不可达。请确认 API 地址正确、网络可达，或通过后端代理访问。";
         }
         Logger.error('[API] 流式请求失败', e);
-        state.waiting = false;
+        clearPending(sessionId);
         onError(new Error(errMsg));
     } finally {
         clearTimeout(timeoutId);
         // 兜底：上面三个出口已各自置 false，此处覆盖 return/异常绕过的残余路径。重复赋值幂等无副作用。
-        state.waiting = false;
+        clearPending(sessionId);
         inputRenderer.markDirty();
     }
+}
+
+/**
+ * 清除某会话的 pending 登记并复位 waiting。
+ * 仅当该会话是当前激活会话时，才复位全局 state.waiting——
+ * 后台会话完成时不应偷走当前输入框的「等待态」（per-session waiting 语义）。
+ * @param {string} sessionId
+ */
+function clearPending(sessionId) {
+    state.pending.delete(sessionId);
+    if (sessionId === state.activeSessionId) state.waiting = false;
 }
 
 /**
@@ -167,49 +188,79 @@ export async function streamChat(messages, onChunk, onDone, onError) {
  * 提取自 sendMessage / regenerate / editAndResend 三处重复代码
  * @param {Array} apiMessages - 构建好的 API 消息体
  * @param {object} aiNode - AI 回复节点
+ * @param {string} [sessionId] - 所属会话 id
  */
-export function executeStreamRequest(apiMessages, aiNode) {
+export function executeStreamRequest(apiMessages, aiNode, sessionId) {
+    sessionId = sessionId || state.activeSessionId;
+    // pendRef：后台会话的完整快照引用。streamChat 的 [DONE]/catch 出口会先 clearPending 再回调，
+    // 若回调里再去 state.pending.get(sessionId) 必然取不到——故在此预先捕获引用（闭包持有，不受 clearPending 影响）。
+    // 同一对象也是 switchTo 更新 draft 的载体（switchTo 改 pending 条目属性，pendRef 同步可见）。
+    let pendRef = null;
     updateMonitorUI();
-    return streamChat(
+
+    const p = streamChat(
         apiMessages,
         (full) => updateMsgContent(aiNode, full),
         (full, usage) => {
             updateMsgContent(aiNode, full);
-            ingestUsage(usage); // 合并 usage 到监控统计并刷新 UI
-            BgEngine.triggerMessage('assistant', full);
-            bus.emit(EVENTS.ASSISTANT_DONE, full); // 广播 AI 完成文本，供背景触发器按触发词切换
-            // 语音回复（句句发语音）：不在到达时自动朗读，改为 renderContent 把 AI 回复渲染成语音条，
-            // 由用户点击语音条播放（符合「点击气泡播放、再点停止」的交互，避免浏览器自动播放策略拦截）。
-            saveToLocal(null, true);
+            const isActive = sessionId === state.activeSessionId;
+            // 目标统计：后台会话写自己的 stats（pending 快照），活跃会话写 state.stats；仅活跃刷新顶栏
+            const targetStats = isActive ? state.stats : (pendRef ? pendRef.stats : state.stats);
+            ingestUsage(usage, targetStats, isActive);
+            // 背景切换/触发词仅对「当前可见会话」生效，避免后台生成偷偷切掉可见背景
+            if (isActive) {
+                BgEngine.triggerMessage('assistant', full);
+                bus.emit(EVENTS.ASSISTANT_DONE, full); // 广播 AI 完成文本，供背景触发器按触发词切换
+            }
+            // 落到「发起请求的会话」键：活跃=当前 state；后台=pending 快照（避免被切到的当前会话污染）
+            if (isActive) {
+                saveToLocal(null, true);
+            } else if (pendRef) {
+                saveSession(sessionId, { tree: pendRef.tree, stats: pendRef.stats, sysPrompt: pendRef.sysPrompt, draft: pendRef.draft || '' });
+            } else {
+                saveToLocal(null, true);
+            }
         },
         (err) => {
             setNodeError(aiNode, err.message);
-            saveToLocal(null, true);
-        }
+            if (sessionId === state.activeSessionId) {
+                saveToLocal(null, true);
+            } else if (pendRef) {
+                saveSession(sessionId, { tree: pendRef.tree, stats: pendRef.stats, sysPrompt: pendRef.sysPrompt, draft: pendRef.draft || '' });
+            } else {
+                saveToLocal(null, true);
+            }
+        },
+        sessionId
     );
+
+    // streamChat 的同步段已执行（pending 条目已创建），此刻取引用并回填 aiNode
+    const pend = state.pending.get(sessionId);
+    if (pend) { pend.aiNode = aiNode; pendRef = pend; }
+    return p;
 }
 
 // 订阅事件总线：tree.js 通过 bus.emit(STREAM_REQUEST, { apiMessages, aiNode }) 触发发消息，
 // 本模块不再被 tree 直接 import executeStreamRequest —— 循环依赖削掉一条边（stage2 解耦）。
 // 注册发生在 api.js 模块求值期（startup 即被 main.js 引入），用户首次发消息前订阅已就绪。
-bus.on(EVENTS.STREAM_REQUEST, ({ apiMessages, aiNode }) => {
+bus.on(EVENTS.STREAM_REQUEST, ({ apiMessages, aiNode, sessionId }) => {
     // 兜底：dispatchEvent 会吞掉 listener 抛出的同步异常（EventTarget 规范行为，异常不向调用方冒泡）。
     // 若 executeStreamRequest 同步抛错，state.waiting 已置 true 却永远无法复位 → 输入框永久锁死。
     // 故同步路径用 try/catch 复位；异步返回的 Promise 追加 .catch 兜底同一目标，两条路径都复位 waiting 并标记错误节点。
     try {
-        const p = executeStreamRequest(apiMessages, aiNode);
+        const p = executeStreamRequest(apiMessages, aiNode, sessionId || state.activeSessionId);
         if (p && typeof p.catch === 'function') {
             p.catch((err) => {
                 Logger.error('[API] 流式处理被拒', err);
                 if (aiNode) setNodeError(aiNode, err.message || '请求处理失败');
-                state.waiting = false;
+                clearPending(sessionId || state.activeSessionId);
                 inputRenderer.markDirty();
             });
         }
     } catch (err) {
         Logger.error('[API] 处理 STREAM_REQUEST 失败', err);
         if (aiNode) setNodeError(aiNode, err.message || '请求处理失败');
-        state.waiting = false;
+        clearPending(sessionId || state.activeSessionId);
         inputRenderer.markDirty();
     }
 });

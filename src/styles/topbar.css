@@ -16,7 +16,18 @@
 }
 
 /* ====================== 顶栏 ====================== */
-/* 顶栏背景用 var(--color-bg) 合成（color-mix），深/浅主题自适应；原硬编码 rgba(8,11,20) 在浅色主题下残留深色胶囊 */
+/* 顶栏背景统一变量 --bg-pill：所有胶囊（top-bar / tb-body / monitor-bar）共用同一配方，
+   深浅主题自适应；hover 态由各元素自己的 :hover 控制 --bg-pill 的透明度分量。
+   原三处各自 color-mix 硬编码 100%，但 monitor-bar:hover 走 85% 而其他两个不变，
+   造成透明度不一致。统一为变量后，改一处全局生效。 */
+:root {
+    --bg-pill: color-mix(in srgb, var(--color-bg) 92%, transparent);
+    --bg-pill-hover: color-mix(in srgb, var(--color-bg) 80%, transparent);
+    --pill-border: 1px solid var(--white-a10);
+    --pill-border-hover: 1px solid var(--white-a20);
+    --pill-radius: 10px;
+}
+
 .top-bar {
     position: fixed;
     top: 20px;
@@ -26,10 +37,14 @@
     align-items: center;
     gap: 15px;
     padding: 4px 10px;
-    border-radius: 10px;
-    background: color-mix(in srgb, var(--color-bg) 100%, transparent);
-    border: 1px solid var(--white-a10);
-    /* 毛玻璃已移除（用户拍板彻底无毛玻璃）；72% 实底色足够压住背后内容，文字可读性无虞 */
+    border-radius: var(--pill-radius);
+    background: var(--bg-pill);
+    border: var(--pill-border);
+    transition: background var(--transition-normal), border-color var(--transition-normal);
+}
+.top-bar:hover {
+    background: var(--bg-pill-hover);
+    border: var(--pill-border-hover);
 }
 
 .top-bar-left {
@@ -60,9 +75,9 @@
     align-items: flex-start;
     gap: 10px;
     padding: 10px;
-    border-radius: var(--radius-lg);
-    background: color-mix(in srgb, var(--color-bg) 100%, transparent);
-    border: 1px solid var(--white-a10);
+    border-radius: var(--pill-radius);
+    background: var(--bg-pill);
+    border: var(--pill-border);
     animation: fadeIn 0.18s ease;
 }
 /* 上一排：4 个图标按钮横向一排 */

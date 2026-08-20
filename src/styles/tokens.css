@@ -19,12 +19,16 @@
 
     /* 语义化白色透明阶 — 改全局明暗只动这里 */
     --white-a03: rgba(255, 255, 255, 0.03);
+    --white-a04: rgba(255, 255, 255, 0.04);
     --white-a05: rgba(255, 255, 255, 0.05);
     --white-a06: rgba(255, 255, 255, 0.06);
     --white-a08: rgba(255, 255, 255, 0.08);
     --white-a10: rgba(255, 255, 255, 0.1);
     --white-a12: rgba(255, 255, 255, 0.12);
+    --white-a14: rgba(255, 255, 255, 0.14);
+    --white-a15: rgba(255, 255, 255, 0.15);
     --white-a20: rgba(255, 255, 255, 0.2);
+    --white-a22: rgba(255, 255, 255, 0.22);
     --white-a30: rgba(255, 255, 255, 0.3);
     --white-a35: rgba(255, 255, 255, 0.35);
     --white-a40: rgba(255, 255, 255, 0.4);
@@ -32,8 +36,11 @@
     --white-a50: rgba(255, 255, 255, 0.5);
     --white-a60: rgba(255, 255, 255, 0.6);
     --white-a70: rgba(255, 255, 255, 0.7);
+    --white-a75: rgba(255, 255, 255, 0.75);
     --white-a80: rgba(255, 255, 255, 0.8);
+    --white-a85: rgba(255, 255, 255, 0.85);
     --white-a90: rgba(255, 255, 255, 0.9);
+    --white-a95: rgba(255, 255, 255, 0.95);
     --black-a20: rgba(0, 0, 0, 0.2);
     --black-a30: rgba(0, 0, 0, 0.3);
     --black-a50: rgba(0, 0, 0, 0.5);
@@ -105,11 +112,11 @@
        且透明度提升（深底白 N% 的对比在浅底需更实的黑才等效——只翻色不提透明度=线框隐形）；
        theme-light class 由 ThemeEngine 统一发，覆盖所有浅色场景（内置浅色组/自定义浅色）。
        注意与 src/plugins/quick-themes.js 的 LIGHT_WHITE_ALPHA 保持同值（JS 内联覆盖优先级更高）。 */
-    --white-a03: rgba(0,0,0,.05); --white-a05: rgba(0,0,0,.08); --white-a06: rgba(0,0,0,.10);
-    --white-a08: rgba(0,0,0,.13); --white-a10: rgba(0,0,0,.16); --white-a12: rgba(0,0,0,.19); --white-a20: rgba(0,0,0,.32);
+    --white-a03: rgba(0,0,0,.05); --white-a04: rgba(0,0,0,.07); --white-a05: rgba(0,0,0,.08); --white-a06: rgba(0,0,0,.10);
+    --white-a08: rgba(0,0,0,.13); --white-a10: rgba(0,0,0,.16); --white-a12: rgba(0,0,0,.19); --white-a14: rgba(0,0,0,.21); --white-a15: rgba(0,0,0,.22); --white-a20: rgba(0,0,0,.32); --white-a22: rgba(0,0,0,.35);
     --white-a30: rgba(0,0,0,.48); --white-a35: rgba(0,0,0,.55); --white-a40: rgba(0,0,0,.6);
     --white-a45: rgba(0,0,0,.65); --white-a50: rgba(0,0,0,.7);
-    --white-a60: rgba(0,0,0,.8); --white-a70: rgba(0,0,0,.85); --white-a80: rgba(0,0,0,.9);
-    --white-a90: rgba(0,0,0,.95);
+    --white-a60: rgba(0,0,0,.8); --white-a70: rgba(0,0,0,.85); --white-a75: rgba(0,0,0,.88); --white-a80: rgba(0,0,0,.9); --white-a85: rgba(0,0,0,.92);
+    --white-a90: rgba(0,0,0,.95); --white-a95: rgba(0,0,0,.98);
 }
 

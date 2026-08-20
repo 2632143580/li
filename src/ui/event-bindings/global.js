@@ -36,11 +36,18 @@ export function bindGlobalEvents() {
     // 各面板的关闭点保持与点击「×/取消/确认」完全一致，避免两套关闭逻辑分叉。
     document.addEventListener('keydown', (e) => {
         if (e.key !== 'Escape') return;
-        if (DOM.fsEditor.style.display === 'flex') {
+        // 按 DOM 层级从高到低检查每个互斥面板（global.js 是唯一 Escape 处理点，各面板不再自建监听）
+        const msgNav = document.getElementById('msg-nav');
+        const logPanel = document.getElementById('log-panel');
+        if (msgNav && getComputedStyle(msgNav).display !== 'none') {
+            closeAllModals();
+        } else if (logPanel && getComputedStyle(logPanel).display !== 'none') {
+            closeAllModals();
+        } else if (DOM.fsEditor && DOM.fsEditor.style.display === 'flex') {
             DOM.fsCancel.click();
-        } else if (DOM.modal.style.display === 'flex') {
+        } else if (DOM.modal && DOM.modal.style.display === 'flex') {
             DOM.modalCancel.click();
-        } else if (DOM.bgModal.style.display === 'flex') {
+        } else if (DOM.bgModal && DOM.bgModal.style.display === 'flex') {
             DOM.bgModalClose.click();
         } else if (DOM.customSchemeModal && DOM.customSchemeModal.style.display === 'flex') {
             closeAllModals();

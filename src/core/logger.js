@@ -13,14 +13,14 @@ export const Logger = {
      * @type {{debug:number, info:number, warn:number, error:number, silent:number}}
      */
     _levels: { debug: 0, info: 1, warn: 2, error: 3, silent: 4 },
-    /** 当前生效的级别阈值（数值形式），低于该值的日志被丢弃。默认 2 = warn。 @type {number} */
+    /** 当前生效的级别阈值（数值形式），低于该值的日志不输出到 console。默认 2 = warn。 @type {number} */
     _level: 2,
-    /** @returns {string} 24 小时制本地时间戳，作为每条日志的前缀 */
+    /** @returns {string} 24 小时制本地时间戳 */
     _ts() {
         return new Date().toLocaleTimeString('zh-CN', { hour12: false });
     },
     /**
-     * 设置日志级别
+     * 设置日志级别（仅影响 console 输出）。
      * @param {'debug'|'info'|'warn'|'error'|'silent'} l - 级别名；传入未知值时不做任何改动
      */
     setLevel(l) {
