@@ -112,7 +112,7 @@ export function saveToLocal(message = '已保存', silent = false) {
  * 落盘单会话（全局键 + 单会话键）。默认落「当前激活会话」（读 state.chatTree/stats/sessionSysPrompt），
  * 也可传 snapshot 显式落某个后台会话（后台流式完成时按 pending 快照落，内容不被切到的当前会话污染）。
  * @param {string} id 会话 id（默认 state.activeSessionId）
- * @param {{tree:object,stats:object,sysPrompt:string|null,draft:string,manualTitle:string|null}|undefined} [snapshot] 后台会话快照；省略则取当前激活态
+ * @param {{tree:object,stats:object,sysPrompt:string|null,draft:string,manualTitle:string|null,llmConfig:object|null}|undefined} [snapshot] 后台会话快照；省略则取当前激活态
  * @returns {void}
  */
 export function persistSession(id = state.activeSessionId, snapshot) {
@@ -122,6 +122,8 @@ export function persistSession(id = state.activeSessionId, snapshot) {
     const sysPrompt = snapshot ? snapshot.sysPrompt : state.sessionSysPrompt;
     const draft = snapshot ? snapshot.draft : '';
     const manualTitle = snapshot ? snapshot.manualTitle : null;
+    // 会话级 LLM 配置：快照优先（后台会话用快照时的配置），无快照取当前激活态
+    const llmConfig = snapshot ? (snapshot.llmConfig || null) : state.sessionLlmConfig;
     if (!tree) return;
 
     // 保留既有 createdAt / manualTitle（新建时由调用方写入；未显式传入 manualTitle 时沿用旧值，避免每次保存清空重命名）
@@ -133,6 +135,7 @@ export function persistSession(id = state.activeSessionId, snapshot) {
         chatTree: tree,
         stats: stats || freshStats(),
         sysPrompt: sysPrompt ?? null,
+        llmConfig: llmConfig,
         draft: draft,
         createdAt,
         updatedAt: Date.now(),
@@ -145,28 +148,30 @@ export function persistSession(id = state.activeSessionId, snapshot) {
     writeGlobalKey();
 }
 
-/** 由会话原始对象刷新内存索引条目（标题/计数/预览/时间），不解析正文外的多余字段。 */
+/** 由会话原始对象刷新内存索引条目（标题/计数/预览/时间/LLM配置/SP），不解析正文外的多余字段。 */
 function updateIndexFromRaw(id, raw) {
-    const entry = buildIndexEntry(id, raw.chatTree, raw.manualTitle);
+    // llmConfig/sysPrompt 从本会话 raw 取（而非当前激活会话），保证后台会话索引显示自己的配置
+    const entry = buildIndexEntry(id, raw.chatTree, raw.manualTitle, raw.llmConfig, raw.sysPrompt);
     const idx = state.sessionIndex || (state.sessionIndex = []);
     const i = idx.findIndex(e => e.id === id);
     if (i >= 0) idx[i] = entry; else idx.push(entry);
 }
 
 /**
- * 加载指定会话的正文数据（chatTree/stats/sysPrompt/draft）到运行时。
+ * 加载指定会话的正文数据（chatTree/stats/sysPrompt/llmConfig/draft）到运行时。
  * 优先用后台 pending 快照（若仍在生成，持有最新 tree），否则读单会话键。
- * @param {string} id @returns {{tree:object,stats:object,sysPrompt:string|null,draft:string}|null}
+ * @param {string} id @returns {{tree:object,stats:object,sysPrompt:string|null,llmConfig:object|null,draft:string}|null}
  */
 export function loadSession(id) {
     const p = state.pending.get(id);
-    if (p) return { tree: p.tree, stats: p.stats, sysPrompt: p.sysPrompt, draft: p.draft || '' };
+    if (p) return { tree: p.tree, stats: p.stats, sysPrompt: p.sysPrompt, llmConfig: p.llmConfig || null, draft: p.draft || '' };
     const raw = readSessionRaw(id);
     if (!raw) return null;
     return {
         tree: raw.chatTree,
         stats: raw.stats || freshStats(),
         sysPrompt: raw.sysPrompt ?? null,
+        llmConfig: raw.llmConfig || null,
         draft: raw.draft || ''
     };
 }
@@ -240,6 +245,7 @@ export function loadFromLocal() {
         state.chatTree = loaded.tree;
         state.stats = loaded.stats;
         state.sessionSysPrompt = loaded.sysPrompt ?? null;
+        state.sessionLlmConfig = loaded.llmConfig || null; // 会话级 LLM 配置随激活会话恢复（刷新不丢）
 
         migrateErrorFlags(state.chatTree);                 // 旧数据推导 isError 标记
         state.currentEndNode = getLastNodeInPath(state.chatTree); // 恢复到当前路径末端
@@ -296,6 +302,7 @@ export function createFirstSession() {
     const id = genSessionId();
     state.activeSessionId = id;
     state.sessionSysPrompt = null;
+    state.sessionLlmConfig = null; // 首会话继承全局 LLM 配置
     state.sessionIndex = [buildIndexEntry(id, state.chatTree, null)];
     persistSession(id); // 写单会话键 + 全局键（含索引）
     return id;

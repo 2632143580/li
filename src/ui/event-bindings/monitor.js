@@ -34,7 +34,7 @@ export function bindMonitorEvents() {
     });
 }
 
-/** 打开编辑气泡：回填当前上限(k)与已用值、定位到圆环下方、聚焦全选。 */
+/** 打开编辑气泡：回填当前上限(k)与已用值、定位到圆环下方。不自动聚焦——移动端聚焦会弹起软键盘（规范 §6 侵入行为）。 */
 function openCtxEdit() {
     DOM.ctxEditInput.value = (state.settings.maxWindow / 1000).toFixed(1);
     // 右上角显示当前已用 token（k，1 位小数；无数据显 '--'）
@@ -47,8 +47,6 @@ function openCtxEdit() {
     left = Math.max(8, Math.min(left, window.innerWidth - popW - 8));   // 不溢出视口
     DOM.ctxEditPop.style.left = left + 'px';
     DOM.ctxEditPop.style.top = (r.bottom + 8) + 'px';
-    DOM.ctxEditInput.focus();
-    DOM.ctxEditInput.select();
 }
 
 /** 关闭编辑气泡。 */

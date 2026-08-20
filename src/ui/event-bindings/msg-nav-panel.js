@@ -28,6 +28,10 @@ import {
 import { analyzeWordFreq, getActiveSegmenter } from '../../core/wordcloud-analyzer.js';
 import { registerUI } from '../../core/registry.js';
 import { openModal, closeAllModals } from '../../core/modal.js';
+import { getProviderByUrl } from '../../core/utils.js';
+import { loadSession, persistSession, saveSession } from '../../core/storage.js';
+import { showToast } from '../../core/toast.js';
+import { getEffectiveSysPrompt } from '../../core/sessions.js';
 
 registerUI('msg-nav', setupMsgNav);
 
@@ -43,6 +47,17 @@ const LONG_PRESS_MS = 600;
 const ARMED_TTL = 3000;
 /** 角色色点：与词云分色一致（user 暖橙 / ai 冷蓝） @type {Object<string,string>} */
 const ROLE_DOT = { user: '#ff9f43', assistant: '#4dabf7' };
+
+/**
+ * 快速切换可用的服务商常量：端点与默认模型。
+ * url 与 index.html 的 provider-tab data-url 保持一致（避免两端漂移）；
+ * model 为各自官方默认模型（切换后若不换 model，服务商会因模型名不匹配拒绝请求）。
+ * @type {Object<string,{name:string,url:string,model:string}>}
+ */
+const LLM_PROVIDERS = {
+    zhipu: { name: '智谱', url: 'https://open.bigmodel.cn/api/paas/v4/chat/completions', model: 'glm-4-air' },
+    deepseek: { name: 'DeepSeek', url: 'https://api.deepseek.com/v1/chat/completions', model: 'deepseek-chat' }
+};
 
 /** 读上次 tab（默认 'sessions'） @returns {'sessions'|'messages'} */
 function readTab() {
@@ -104,6 +119,75 @@ function setupMsgNav() {
         </div>
     `;
     document.body.appendChild(panel);
+
+    /** 当前展开 SP 编辑器的会话 id（null = 全部收起）。展开态唯一事实源，重渲染据此恢复 @type {string|null} */
+    let spEditId = null;
+
+    /**
+     * 展开/收起某行的 SP 编辑器（点 SP 预览触发）。
+     * 经 renderSessions 统一重渲染保证「同时至多一行展开」，杜绝多行同开的漂移态。 @param {string} id
+     */
+    function toggleSpEditor(id) {
+        spEditId = (spEditId === id) ? null : id; // 再点同一行 = 收起
+        renderSessions();
+    }
+
+    /** 收起 SP 编辑器（取消 / Esc / 保存完成后调用） */
+    function collapseSpEditor() {
+        spEditId = null;
+        renderSessions();
+    }
+
+    /**
+     * 为已展开的行内编辑器填初值并绑定事件（renderSessions 重建 DOM 后调用）。
+     * 预填：会话级覆盖优先，无覆盖以全局默认作编辑起点（留空保存 = 恢复继承全局）。 @param {HTMLElement} ed 编辑器根节点
+     */
+    function fillSpEditor(ed) {
+        const id = ed.dataset.id;
+        const sess = loadSession(id);
+        if (!sess) { spEditId = null; return; }
+        const ta = ed.querySelector('.mn-sp-input');
+        const hasOverride = sess.sysPrompt != null && sess.sysPrompt !== '';
+        ta.value = hasOverride ? sess.sysPrompt : state.settings.sysPrompt;
+        // 状态标签即时反映：accent 点+亮字 = 会话级覆盖，灰点 = 继承全局
+        const stateEl = ed.querySelector('.mn-sp-state');
+        stateEl.classList.toggle('on', hasOverride);
+        ed.querySelector('.mn-sp-state-text').textContent = hasOverride ? '会话级' : '全局';
+        // 键盘：Esc 只收编辑器（拦冒泡防 global.js 连面板一起关）；Ctrl/Cmd+Enter 保存（多行 textarea 裸 Enter 应换行）
+        ta.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') { e.stopPropagation(); collapseSpEditor(); }
+            else if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') { e.preventDefault(); saveSp(id, ta.value); }
+        });
+        ed.querySelector('.mn-sp-cancel').addEventListener('click', (e) => { e.stopPropagation(); collapseSpEditor(); });
+        ed.querySelector('.mn-sp-save').addEventListener('click', (e) => { e.stopPropagation(); saveSp(id, ta.value); });
+    }
+
+    /**
+     * 保存会话 SP：空 = 恢复继承全局；当前会话走运行时 + state 落盘，后台会话写存档并同步 pending 快照。
+     * @param {string} id 会话 id @param {string} rawVal textarea 原始值
+     */
+    function saveSp(id, rawVal) {
+        const next = rawVal.trim() ? rawVal.trim() : null;
+        if (id === state.activeSessionId) {
+            // 当前会话：直接改运行时（含对话树根 content 同步），用 state 当前态落盘——避免防抖窗口内旧存档覆盖新树
+            state.sessionSysPrompt = next;
+            if (state.chatTree) state.chatTree.content = getEffectiveSysPrompt();
+            saveSession(id);
+        } else {
+            // 后台会话：先同步 pending 快照（否则流式完成落盘会用旧 sysPrompt 覆盖新设置），再写存档
+            const p = state.pending.get(id);
+            if (p) {
+                p.sysPrompt = next;
+                saveSession(id, { tree: p.tree, stats: p.stats, sysPrompt: next, draft: p.draft || '', llmConfig: p.llmConfig || null });
+            } else {
+                const sess = loadSession(id);
+                if (sess) { sess.sysPrompt = next; persistSession(id, sess); }
+            }
+        }
+        spEditId = null;
+        renderSessions();
+        showToast(next ? '已保存会话提示词' : '已恢复全局默认', 'success');
+    }
 
     // 遮罩点击关闭
     panel.addEventListener('click', (e) => { if (e.target === panel) closeAllModals(); });
@@ -178,6 +262,7 @@ function setupMsgNav() {
     function renderSessions() {
         const sessions = listSessions();
         if (!sessions.length) {
+            spEditId = null; // 空列表无行可展开，清理展开态
             sessionsList.innerHTML = '<div class="mn-empty">还没有会话</div>';
             return;
         }
@@ -185,17 +270,51 @@ function setupMsgNav() {
             const active = s.id === state.activeSessionId;
             const armed = armedId === s.id;
             const dots = s.streaming ? '<span class="typing-dots" aria-label="生成中"><span></span><span></span><span></span></span>' : '';
-            const confirm = armed
+            // LLM 芯片：按会话配置解析服务商（无配置 = 继承全局 → 「全局」灰）。
+            // data-provider 与渲染同源，切换时直接读，杜绝「索引旧值 vs 显示值」双源漂移
+            const cfg = s.llmConfig || null;
+            let providerKey = 'global';
+            let providerName = '全局';
+            let providerClass = '';
+            if (cfg && cfg.apiUrl) {
+                const p = getProviderByUrl(cfg.apiUrl);
+                if (p === 'zhipu') { providerKey = 'zhipu'; providerName = '智谱'; providerClass = ' provider-zhipu'; }
+                else if (p === 'deepseek') { providerKey = 'deepseek'; providerName = 'DeepSeek'; providerClass = ' provider-deepseek'; }
+                else { providerKey = 'custom'; providerName = '自定义'; providerClass = ' provider-custom'; }
+            }
+            // SP 预览：会话级覆盖去空白截 14 字；无覆盖 = 全局。tag 配色区分（accent = 有覆盖 / 灰 = 继承）
+            const hasSp = s.sysPrompt != null && s.sysPrompt !== '';
+            const spText = hasSp ? s.sysPrompt.replace(/\s+/g, ' ').trim().slice(0, 14) + '…' : '全局';
+            // meta 行右侧：armed 时显示删除确认，平时是 SP 预览按钮（点击行内展开编辑器）
+            const metaRight = armed
                 ? '<span class="mn-del-confirm">删除?</span>'
-                : `<span class="mn-count">${s.msgCount}</span>`;
+                : `<button type="button" class="mn-sp${hasSp ? ' has-sp' : ''}" data-id="${escapeHtml(s.id)}"><i class="mn-sp-tag">SP</i><span class="mn-sp-text">${escapeHtml(spText)}</span></button>`;
             return `<div class="mn-session${active ? ' active' : ''}${armed ? ' armed' : ''}" data-id="${escapeHtml(s.id)}">
-                <div class="mn-session-main">
+                <div class="mn-row-top">
                     <span class="mn-session-title">${escapeHtml(s.title)}</span>
                     ${dots}
+                    <button type="button" class="mn-llm-chip${providerClass}" data-id="${escapeHtml(s.id)}" data-provider="${providerKey}">${providerName}</button>
                 </div>
-                <div class="mn-session-meta">
+                <div class="mn-row-meta">
                     <span class="mn-time">${relTime(s.updatedAt)}</span>
-                    ${confirm}
+                    <span class="mn-sep">·</span>
+                    <span class="mn-count">${s.msgCount}</span>
+                    ${metaRight}
+                </div>
+                <div class="mn-sp-editor${spEditId === s.id ? ' open' : ''}" data-id="${escapeHtml(s.id)}">
+                    <div class="mn-sp-editor-inner">
+                        <div class="mn-sp-box">
+                            <div class="mn-sp-head">
+                                <span class="mn-sp-state"><i class="mn-sp-state-dot"></i><span class="mn-sp-state-text">全局</span></span>
+                                <span class="mn-sp-hint">留空保存 = 恢复全局</span>
+                            </div>
+                            <textarea class="mn-sp-input" rows="4" spellcheck="false"></textarea>
+                            <div class="mn-sp-actions">
+                                <button type="button" class="mn-sp-cancel">取消</button>
+                                <button type="button" class="mn-sp-save">保存</button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>`;
         }).join('');
@@ -224,6 +343,71 @@ function setupMsgNav() {
                 else switchTo(id); // 点其它 = 切换
             });
         });
+
+        // LLM 芯片交互：click 触发快切；pointerdown 阻止冒泡——行长按删除(600ms)绑定在 row 上，
+        // chip 上长按不得误触发删除 armed 态（chip 与 row 是嵌套关系，事件会冒泡到 row）
+        sessionsList.querySelectorAll('.mn-llm-chip').forEach((chip) => {
+            chip.addEventListener('pointerdown', (e) => e.stopPropagation());
+            chip.addEventListener('click', (e) => {
+                e.stopPropagation(); // 阻止触发 row 的 click（当前行重命名 / 其它行切换）
+                handleQuickLlmSwitch(chip.dataset.id, chip.dataset.provider);
+            });
+        });
+
+        // SP 预览按钮：click 行内展开编辑器；pointerdown 同样拦截，防长按误触删除 armed
+        sessionsList.querySelectorAll('.mn-sp').forEach((btn) => {
+            btn.addEventListener('pointerdown', (e) => e.stopPropagation());
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation(); // 阻止触发 row 的 click（切换/重命名）
+                toggleSpEditor(btn.dataset.id);
+            });
+        });
+
+        // 已展开的行：重渲染后恢复初值与事件（展开态唯一事实源 spEditId；行已不在列表则清态）
+        if (spEditId) {
+            const ed = sessionsList.querySelector('.mn-sp-editor.open');
+            if (ed) fillSpEditor(ed); else spEditId = null;
+        }
+    }
+
+    /**
+     * 快速切换会话 LLM（chip 点击）：全局 → 已配置服务商轮换 → 回全局 的循环。
+     * key 复用全局 settings.keys 槽（不存会话，避免密钥明文随会话复制）；
+     * 只写会话级配置（当前会话写 state + 落盘，后台会话写存档），永不触碰全局 settings。
+     * 此前 bug：当前会话只写 state + touchIndex（touchIndex 仅改 updatedAt 不同步索引内容）→
+     * chip 显示不变、轮换读索引旧值死循环在同一个目标。现经 saveSession 落盘并同步索引。
+     * @param {string} id 会话 id @param {string} providerKey chip 当前的服务商标识（'global'|'zhipu'|'deepseek'|'custom'，与渲染同源）
+     */
+    function handleQuickLlmSwitch(id, providerKey) {
+        // 已配置 key 的服务商（key 非空才算可用）；仅一个也能在 全局↔该服务商 间切换，全无才禁止
+        const configured = Object.keys(LLM_PROVIDERS).filter(p => state.settings.keys[p]);
+        if (!configured.length) {
+            showToast('需在设置中配置 API Key 才能切换', 'warn');
+            return;
+        }
+        // 循环序：null(继承全局) → 已配置服务商…；未识别的 custom 落回全局（点一下回到继承，不自定义轮换）
+        const cycle = [null, ...configured];
+        const cur = providerKey === 'global' ? null : providerKey;
+        const next = cycle[(cycle.indexOf(cur) + 1 + cycle.length) % cycle.length];
+        const nextCfg = next ? { apiUrl: LLM_PROVIDERS[next].url, model: LLM_PROVIDERS[next].model } : null;
+
+        if (id === state.activeSessionId) {
+            // 当前会话：写运行时（请求层立即生效）+ saveSession 落盘（内部 updateIndexFromRaw 同步索引 → chip 立即更新、刷新不丢）
+            state.sessionLlmConfig = nextCfg;
+            saveSession(id);
+        } else {
+            // 后台会话：同步 pending 快照（流式完成落盘用新配置）或静默写存档；persistSession 内部同步索引
+            const p = state.pending.get(id);
+            if (p) {
+                p.llmConfig = nextCfg;
+                saveSession(id, { tree: p.tree, stats: p.stats, sysPrompt: p.sysPrompt, draft: p.draft || '', llmConfig: nextCfg });
+            } else {
+                const sess = loadSession(id);
+                if (sess) { sess.llmConfig = nextCfg; persistSession(id, sess); }
+            }
+        }
+        renderSessions();
+        showToast(nextCfg ? '已切换至 ' + LLM_PROVIDERS[next].name : '已恢复全局模型', 'success');
     }
 
     /**

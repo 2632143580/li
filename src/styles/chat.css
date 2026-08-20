@@ -48,6 +48,10 @@
     font-size: var(--msg-font-size);
     line-height: 1.8;
     text-shadow: 0 2px 8px var(--black-a60);
+    /* 移动端优化：长按气泡不触发浏览器原生文本选择器（选区手柄/菜单），让自定义上下文菜单（长按 500ms）优先接管。
+       复制功能不受影响——复制走 context-menu.js 的 navigator.clipboard，不依赖系统选区 */
+    user-select: none;
+    -webkit-user-select: none;
     /* 可见态作为基线(opacity:1)，入场动画只负责"从隐藏→可见"的过渡，不依赖 forwards 保持可见。
        这样主题插件覆盖 animation 时(即使不带 forwards)，气泡也会回落到基线可见态，不会在动画结束后变透明消失。 */
     opacity: 1;
