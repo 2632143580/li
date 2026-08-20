@@ -81,6 +81,7 @@ export function switchTo(id) {
     state.chatTree = sess.tree;
     state.stats = sess.stats;
     state.sessionSysPrompt = sess.sysPrompt ?? null;
+    state.sessionLlmConfig = sess.llmConfig || null; // 会话级 LLM 配置随会话载入（请求层读取覆盖全局，不改全局 settings）
     state.activeSessionId = id;
     state.currentEndNode = getLastNodeInPath(state.chatTree);
     state.chatTree.content = getEffectiveSysPrompt();
@@ -112,6 +113,7 @@ export function createNew() {
     state.domCache.clear();
 
     state.sessionSysPrompt = null;     // 新会话继承全局默认
+    state.sessionLlmConfig = null;     // 新会话继承全局 LLM 配置（null = 全局生效）
     initChatTree();                    // 建根 + 欢迎并渲染
     state.stats = freshStats();        // 独立统计
     const id = genSessionId();
@@ -148,6 +150,7 @@ export function removeSession(id) {
             cancelPendingStream();
             state.domCache.clear();
             state.sessionSysPrompt = null;
+            state.sessionLlmConfig = null; // 删空后重建的会话同样继承全局 LLM 配置
             initChatTree();
             state.stats = freshStats();
             const nid = genSessionId();
@@ -170,7 +173,9 @@ export function renameSession(id, newTitle) {
 }
 
 /**
- * 列表数据：索引副本按 updatedAt 倒序，标注后台是否在生成。 @returns {Array<{id,title,msgCount,preview,updatedAt,streaming}>}
+ * 列表数据：索引副本按 updatedAt 倒序，标注后台是否在生成。
+ * llmConfig/sysPrompt 从索引快照透传（列表 chip 与 SP 预览直接读，无需逐会话解析正文）。
+ * @returns {Array<{id,title,msgCount,preview,updatedAt,streaming,llmConfig:object|null,sysPrompt:string|null}>}
  */
 export function listSessions() {
     const list = (state.sessionIndex || []).map(e => ({
@@ -179,7 +184,9 @@ export function listSessions() {
         msgCount: e.msgCount,
         preview: e.preview,
         updatedAt: e.updatedAt,
-        streaming: state.pending.has(e.id)
+        streaming: state.pending.has(e.id),
+        llmConfig: e.llmConfig || null,
+        sysPrompt: e.sysPrompt ?? null
     }));
     list.sort((a, b) => b.updatedAt - a.updatedAt);
     return list;

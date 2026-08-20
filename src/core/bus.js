@@ -23,7 +23,9 @@ export const EVENTS = Object.freeze({
     /** 渲染层 → 树：错误气泡内联重试（tree-render 不 import tree.js，避免循环依赖）。载荷 = { node:object, parent:object } */
     RETRY_REQUEST: 'retry:request',
     /** API/发送层 → 背景触发器：AI 流式回复完成，载荷 = 完整 AI 文本 string（需求：回复显示完成后扫描触发） */
-    ASSISTANT_DONE: 'assistant:done'
+    ASSISTANT_DONE: 'assistant:done',
+    /** 引擎 → UI：禁止词引擎扫描 AI 回复命中词库，载荷 = 命中词条目数组 Array<{word:string, count:number}>（UI 据此弹提示条） */
+    MODERATOR_HIT: 'moderator:hit'
 });
 
 /**

@@ -41,6 +41,12 @@ export const state = {
      */
     sessionSysPrompt: null,
     /**
+     * 当前会话的 LLM 覆盖配置（null = 继承全局 settings.apiUrl/model）。
+     * 与 sessionSysPrompt 同一双轨模式：覆盖只存这里，永不污染全局 settings；
+     * key 不存（按服务商从 settings.keys 取），切会话零残留。 @type {{apiUrl:string, model:string}|null}
+     */
+    sessionLlmConfig: null,
+    /**
      * 会话轻量索引（列表只读索引，不解析正文）：[{ id, title, autoTitle, updatedAt, msgCount, preview }]。
      * 落盘于全局键 liChatData_v2（v4），列表渲染只读它，避免逐会话解析大树。 @type {Array<object>}
      */

@@ -90,16 +90,20 @@ export function lastPreview(tree) {
  * @param {string} id 会话 id
  * @param {object} tree 对话树（用来推导自动标题 / 计数 / 预览）
  * @param {string|null} manualTitle 手动重命名（null = 自动标题）
- * @returns {{id:string,title:string,autoTitle:boolean,updatedAt:number,msgCount:number,preview:string}}
+ * @param {{apiUrl:string, model:string}|null} [llmConfig] 会话级 LLM 覆盖快照（null = 继承全局；列表 chip 显示用）
+ * @param {string|null} [sysPrompt] 会话级 SP 覆盖快照（null = 继承全局；列表 SP 预览用）
+ * @returns {{id:string,title:string,autoTitle:boolean,updatedAt:number,msgCount:number,preview:string,llmConfig:object|null,sysPrompt:string|null}}
  */
-export function buildIndexEntry(id, tree, manualTitle) {
+export function buildIndexEntry(id, tree, manualTitle, llmConfig, sysPrompt) {
     return {
         id,
         title: manualTitle || getSessionTitle(tree),
         autoTitle: !manualTitle,
         updatedAt: Date.now(),
         msgCount: countMessages(tree),
-        preview: lastPreview(tree)
+        preview: lastPreview(tree),
+        llmConfig: llmConfig || null,
+        sysPrompt: sysPrompt ?? null
     };
 }
 

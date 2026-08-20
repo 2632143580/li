@@ -499,7 +499,8 @@ body.modal-open *:not(.modal-overlay):not(.modal-overlay *):not(#fs-editor):not(
 #msg-nav .mn-new:hover { background: var(--white-a08); }
 #msg-nav .mn-new svg { width: 16px; height: 16px; flex: none; }
 
-/* 会话行：左侧 2px accent 竖线表「当前位置」（比色块轻，不与气泡抢注意力） */
+/* 会话行（两行制）：行1 = 标题 + LLM 芯片；行2 = 时间·条数 + SP 预览按钮（可展开行内编辑器）。
+   左侧 2px accent 竖线表「当前位置」（比色块轻，不与气泡抢注意力） */
 #msg-nav .mn-session {
     padding: 9px 12px 9px 10px; cursor: pointer;
     border-left: 2px solid transparent;
@@ -507,15 +508,101 @@ body.modal-open *:not(.modal-overlay):not(.modal-overlay *):not(#fs-editor):not(
 }
 #msg-nav .mn-session:hover { background: var(--white-a06); }
 #msg-nav .mn-session.active { border-left-color: var(--color-accent); background: color-mix(in srgb, var(--color-accent) 7%, transparent); }
-#msg-nav .mn-session-main { display: flex; align-items: center; gap: 6px; min-width: 0; }
+/* 行1：标题(flex 撑满省略) + 生成中指示 + LLM 芯片 */
+#msg-nav .mn-row-top { display: flex; align-items: center; gap: 6px; min-width: 0; }
 #msg-nav .mn-session-title {
     flex: 1; min-width: 0; color: var(--white-a90); font-size: 13.5px;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-#msg-nav .mn-session-meta { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-#msg-nav .mn-time { color: var(--white-a40); font-size: 11px; }
-/* 消息数右对齐小字，不加 badge/圆点（数字本身就是信息，加壳是噪音） */
-#msg-nav .mn-count { color: var(--white-a30); font: 11px/1 ui-monospace, SFMono-Regular, Menlo, monospace; font-variant-numeric: tabular-nums; }
+/* 行2：时间 · 条数（左，弱信息）+ SP 预览按钮（右）；armed 态右侧换「删除?」 */
+#msg-nav .mn-row-meta { display: flex; align-items: center; gap: 7px; min-width: 0; }
+#msg-nav .mn-time { flex: none; color: var(--white-a40); font-size: 11px; }
+#msg-nav .mn-sep { flex: none; color: var(--white-a30); font-size: 11px; }
+/* 消息数：等宽小字不加 badge（数字本身就是信息，加壳是噪音） */
+#msg-nav .mn-count { flex: none; color: var(--white-a30); font: 11px/1 ui-monospace, SFMono-Regular, Menlo, monospace; font-variant-numeric: tabular-nums; }
+#msg-nav .mn-session.armed .mn-sp { display: none; }
+/* SP 预览按钮：SP 微标签 + 预览文本，点击在行内展开编辑器。
+   max-width 防长 SP 挤掉时间；负 margin 扩热区不占布局（移动端触控友好） */
+#msg-nav .mn-sp {
+    flex: none; max-width: 58%; min-width: 0; margin-left: auto; margin-right: -4px;
+    display: inline-flex; align-items: center; gap: 5px; padding: 2px 4px;
+    background: none; border: none; font: inherit; font-size: 11px;
+    color: var(--white-a40); cursor: pointer;
+    transition: color .2s var(--ease);
+}
+#msg-nav .mn-sp:hover { color: var(--white-a80); }
+#msg-nav .mn-sp-text { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* SP 微标签：有覆盖 = accent 微光（一眼识别「此会话有独立提示词」），继承全局 = 灰 */
+#msg-nav .mn-sp-tag {
+    flex: none; font-size: 9px; font-weight: 700; letter-spacing: .05em;
+    padding: 1px 4px; border-radius: 4px;
+    color: var(--white-a35); background: var(--white-a06);
+    transition: color .2s var(--ease), background .2s var(--ease);
+}
+#msg-nav .mn-sp.has-sp { color: var(--white-a60); }
+#msg-nav .mn-sp.has-sp:hover { color: var(--white-a90); }
+#msg-nav .mn-sp.has-sp .mn-sp-tag {
+    color: var(--color-accent-bright, var(--color-accent));
+    background: color-mix(in srgb, var(--color-accent) 14%, transparent);
+}
+/* LLM 芯片：小号胶囊，点按缩放反馈；服务商配色区分（紫=智谱 / 绿=DeepSeek / 灰=全局与自定义） */
+#msg-nav .mn-llm-chip {
+    flex: none; padding: 1px 8px; font-size: 10px; line-height: 1.5;
+    border-radius: 9px; border: 1px solid transparent;
+    background: var(--white-a06); color: var(--white-a40);
+    cursor: pointer; font-weight: 600; transition: transform .1s var(--ease);
+}
+#msg-nav .mn-llm-chip:active { transform: scale(0.94); }
+#msg-nav .mn-llm-chip.provider-zhipu { background: rgba(89,102,242,.16); color: #9aa3ff; border-color: rgba(89,102,242,.35); }
+#msg-nav .mn-llm-chip.provider-deepseek { background: rgba(68,193,150,.16); color: #7fd9b8; border-color: rgba(68,193,150,.35); }
+#msg-nav .mn-llm-chip.provider-custom { background: var(--white-a08); color: var(--white-a50); border-color: var(--white-a12); }
+/* —— 行内 SP 编辑器：点 SP 预览在该行下方展开 ——
+   取代旧 fixed 气泡（#sp-edit-pop 已删）：底部 sheet(90vh) + 可滚动列表的组合下，
+   fixed 定位数学不成立——列表下半区按钮下方直出屏幕底，上翻又顶出屏幕顶，双溢出不可见。
+   行内展开在文档流内永远可见、无定位计算、宽度自适应面板，移动端天然适配。
+   展开动画用 grid-template-rows 0fr→1fr（inner 必须 overflow:hidden + min-height:0），
+   内容淡入滞后 60ms，比单纯高度动画更细腻 */
+#msg-nav .mn-sp-editor { display: grid; grid-template-rows: 0fr; transition: grid-template-rows .24s var(--ease); }
+#msg-nav .mn-sp-editor.open { grid-template-rows: 1fr; }
+#msg-nav .mn-sp-editor-inner { min-height: 0; overflow: hidden; }
+#msg-nav .mn-sp-box {
+    margin-top: 4px; padding: 10px 12px;
+    display: flex; flex-direction: column; gap: 8px;
+    background: var(--white-a04); border-radius: 10px;
+    opacity: 0; transition: opacity .18s var(--ease) .06s;
+}
+#msg-nav .mn-sp-editor.open .mn-sp-box { opacity: 1; }
+/* 编辑器头：状态标签（左）+ 留空提示（右，弱化） */
+#msg-nav .mn-sp-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+#msg-nav .mn-sp-state { display: inline-flex; align-items: center; gap: 4px; font-size: 10px; color: var(--white-a40); }
+#msg-nav .mn-sp-state-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--white-a30); }
+#msg-nav .mn-sp-state.on { color: var(--color-accent-bright, var(--color-accent)); }
+#msg-nav .mn-sp-state.on .mn-sp-state-dot { background: var(--color-accent); }
+#msg-nav .mn-sp-hint { font-size: 10px; color: var(--white-a40); }
+#msg-nav .mn-sp-input {
+    width: 100%; min-height: 88px; box-sizing: border-box; resize: none;
+    background: var(--bg-input); color: var(--white-a90);
+    border: 1px solid var(--white-a20); border-radius: 6px;
+    padding: 8px 10px; font: inherit; font-size: 13px; line-height: 1.7;
+    outline: none;
+}
+#msg-nav .mn-sp-input:focus { border-color: var(--color-accent); }
+/* 操作行：右对齐 取消(ghost) + 保存(accent)；按钮高度 ≥32px 适配移动端触控 */
+#msg-nav .mn-sp-actions { display: flex; justify-content: flex-end; gap: 8px; }
+#msg-nav .mn-sp-cancel {
+    font: inherit; font-size: 12px; color: var(--white-a60);
+    background: var(--white-a06); border: none; border-radius: 6px;
+    padding: 7px 14px; cursor: pointer; transition: color .2s var(--ease), background .2s var(--ease);
+}
+#msg-nav .mn-sp-cancel:hover { color: var(--white-a90); background: var(--white-a10); }
+#msg-nav .mn-sp-save {
+    font: inherit; font-size: 12px; font-weight: 600;
+    color: var(--white-a90); background: var(--color-accent);
+    border: none; border-radius: 6px; padding: 7px 16px;
+    cursor: pointer; transition: filter var(--transition-fast, 0.15s);
+}
+#msg-nav .mn-sp-save:hover { filter: brightness(1.15); }
+#msg-nav .mn-sp-save:active { filter: brightness(0.95); }
 /* 长按删除 armed 态：右侧显示「删除?」，点该行确认；3 秒窗口外自动解除。危险色走 --color-error token（跟主题） */
 #msg-nav .mn-del-confirm {
     color: var(--color-error); font-size: 11px; font-weight: 600; letter-spacing: .02em;

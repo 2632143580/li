@@ -65,26 +65,36 @@ export async function streamChat(messages, onChunk, onDone, onError, sessionId) 
         tree: state.chatTree,
         stats: state.stats,
         sysPrompt: state.sessionSysPrompt,
+        llmConfig: state.sessionLlmConfig, // 快照会话级 LLM 配置：后台生成中切换会话不丢原配置
         draft: inputManager.text || ''
     });
     let timeoutId = setTimeout(() => controller.abort(), API_TIMEOUT_MS);
 
     try {
+        // 会话级 LLM 覆盖：apiUrl/model 取会话配置，缺省回退全局；key 不存会话，按服务商从 keys 槽取（custom 兜底全局 apiKey）。
+        // 只在本请求生效、不改全局 settings——切回全局会话零残留，存档不被污染。
+        const cfg = state.sessionLlmConfig || {};
+        const apiUrl = cfg.apiUrl || state.settings.apiUrl;
+        const model = cfg.model || state.settings.model;
+        const provider = getProviderByUrl(apiUrl);
+        const apiKey = cfg.apiUrl
+            ? (state.settings.keys[provider] || state.settings.apiKey)
+            : state.settings.apiKey;
         const reqBody = {
-            model: state.settings.model,
+            model: model,
             messages: messages,
             stream: true,
             temperature: 0.8
         };
-        // enable_cache 为 DeepSeek 专属缓存开关；智谱 GLM 等无此字段，发送会被拒绝，故仅 DeepSeek 附加
-        if (getProviderByUrl(state.settings.apiUrl) === 'deepseek') {
+        // enable_cache 为 DeepSeek 专属缓存开关；智谱 GLM 等无此字段，发送会被拒绝，故仅 DeepSeek 附加（按生效中的 apiUrl 判定）
+        if (provider === 'deepseek') {
             reqBody.enable_cache = true;
         }
 
-        const resp = await fetch(state.settings.apiUrl, {
+        const resp = await fetch(apiUrl, {
             method: "POST",
             headers: {
-                "Authorization": "Bearer " + state.settings.apiKey,
+                "Authorization": "Bearer " + apiKey,
                 "Content-Type": "application/json"
             },
             body: JSON.stringify(reqBody),
@@ -216,7 +226,7 @@ export function executeStreamRequest(apiMessages, aiNode, sessionId) {
             if (isActive) {
                 saveToLocal(null, true);
             } else if (pendRef) {
-                saveSession(sessionId, { tree: pendRef.tree, stats: pendRef.stats, sysPrompt: pendRef.sysPrompt, draft: pendRef.draft || '' });
+                saveSession(sessionId, { tree: pendRef.tree, stats: pendRef.stats, sysPrompt: pendRef.sysPrompt, draft: pendRef.draft || '', llmConfig: pendRef.llmConfig || null });
             } else {
                 saveToLocal(null, true);
             }
@@ -226,7 +236,7 @@ export function executeStreamRequest(apiMessages, aiNode, sessionId) {
             if (sessionId === state.activeSessionId) {
                 saveToLocal(null, true);
             } else if (pendRef) {
-                saveSession(sessionId, { tree: pendRef.tree, stats: pendRef.stats, sysPrompt: pendRef.sysPrompt, draft: pendRef.draft || '' });
+                saveSession(sessionId, { tree: pendRef.tree, stats: pendRef.stats, sysPrompt: pendRef.sysPrompt, draft: pendRef.draft || '', llmConfig: pendRef.llmConfig || null });
             } else {
                 saveToLocal(null, true);
             }

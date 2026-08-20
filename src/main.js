@@ -31,6 +31,8 @@ import { bindEvents, applyQuickTheme } from './ui/event-bindings/index.js';
 import { streamChat } from './chat/api.js';
 import { bus, EVENTS } from './core/bus.js';
 import { initBgTriggers } from './ui/bg-trigger.js';
+// 禁止词引擎 UI：副作用导入即完成引擎加载 + 事件订阅 + DOM 创建（AI 回复命中词库时弹提示条）
+import './ui/moderator-ui.js';
 import { initCompanionSay } from './companion-say.js'; // 外部"主动说话"入口（App 注入用）
 
 // 性能诊断模式：URL 带 ?perf=1 时加载诊断 overlay（手机访问 http://<本机IP>:5173/?perf=1）
