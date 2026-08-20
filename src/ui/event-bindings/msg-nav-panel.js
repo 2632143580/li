@@ -1,20 +1,22 @@
 /**
  * 消息导航面板（双 tab：会话 / 消息）。
  *
- * 设计原则：复用优先、零重造、无气泡、纯正向。
+ * 设计原则：复用优先、零重造、无气泡、纯正向、极简。
  *   - 会话 tab：新建会话入口 + 会话列表（标题 / 消息数 / 相对时间 / 后台生成指示 / 当前会话竖线 /
  *              置顶标记 / 长按菜单[重命名·删除·置顶] / LLM 快切芯片 / SP 行内编辑）。
  *   - 消息 tab：原极简消息列表 + 高频词下划线（与词云融化），分词延迟到进此 tab 才计算，默认进会话 tab 秒开。
  *
  * 交互细节（每条都有理由）：
- *   - 行整体被动：不响应点击，零整行热区，彻底消除「误触进入/误触重命名」。进入会话由行首明确的「进入」按钮负责
- *     （当前会话显示「当前」灰标，无按钮）；仅「长按 600ms」保留为操作入口（重命名/删除/置顶）。
- *   - 长按 600ms = 弹出操作菜单[重命名 / 删除 / 置顶]，移动端无右键，长按是唯一通道；菜单为气泡弹窗，
- *     锚定在被按行的下缘（溢出视口则上翻），外罩 scrim 点空白即关。
+ *   - 进入会话 = 点击会话「名字」区域（标题带常驻极淡 › 箭头作可点击暗示，hover/按下高亮 accent）。
+ *     整行不再有「进入」按钮或「当前」灰标——当前态仅用左侧 2px accent 竖线表达，零多余元素。
+ *   - 长按 600ms = 弹出操作菜单[重命名 / 删除 / 置顶]（移动端无右键，长按是唯一通道）；菜单为气泡弹窗，
+ *     锚定被按行下缘（溢出视口则上翻），外罩 scrim 点空白即关。根因修复：计时器仅当移动>10px（真滚动）才取消，
+ *     不再因触摸微抖动（亚像素位移）取消——旧版即因此「长按很难弹出」。
  *   - 相对时间：取「最后一条消息（user 或 assistant）的创建时间」到现在（见 sessions.lastMessageTime），
  *     开面板算一次，不设定时器；排序同样以此为基准，稳定不乱跳。
  *   - 后台生成：复用 .typing-dots（prefers-reduced-motion 自动降级），是「后台继续生成」的反馈闭环。
- *   - LLM 芯片：点按在 全局↔已配置服务商 间循环快切；SP 小标签：点击行内展开编辑器（accent = 有覆盖）。
+ *   - LLM 芯片：只有两个模型，点按在 智谱↔DeepSeek 间两态互切（无「全局」第三态，本来就只有两个模型）；
+ *     SP 小标签：点击行内展开编辑器（无气泡/盒子包裹，accent = 有会话级覆盖）。
  *   - 当前会话：左侧 2px accent 竖线（位置语义，比色块轻）；置顶：行首小别针标记 + 排序优先。
  *
  * 样式外提：所有 CSS 已移入 modal.css（#msg-nav 前缀），本模块不含内联 <style>。
@@ -86,6 +88,23 @@ function relTime(ts) {
     return `${dt.getMonth() + 1}/${dt.getDate()}`;
 }
 
+/**
+ * 会话芯片应显示的模型（只有两个：智谱 / DeepSeek）。
+ * 优先用会话级覆盖的 apiUrl 推断；无覆盖则继承全局默认模型（glm-4-air→智谱，若全局切到 deepseek 则显示 deepseek）。 @param {object} s 列表条目 @returns {'zhipu'|'deepseek'}
+ */
+function effectiveProvider(s) {
+    const cfg = s.llmConfig || null;
+    if (cfg && cfg.apiUrl) {
+        const p = getProviderByUrl(cfg.apiUrl);
+        if (p === 'zhipu' || p === 'deepseek') return p;
+    }
+    return globalProvider(); // 继承全局：仅两模型，按全局默认模型名推断
+}
+/** 全局默认模型 → 服务商（glm-* / zhipu* → 智谱；含 deepseek → DeepSeek）。 @returns {'zhipu'|'deepseek'} */
+function globalProvider() {
+    return (state.settings.model || '').toLowerCase().includes('deepseek') ? 'deepseek' : 'zhipu';
+}
+
 function setupMsgNav() {
     // 双初始化防护：HMR 或重复调用时跳过
     if (document.getElementById('msg-nav')) return;
@@ -153,6 +172,7 @@ function setupMsgNav() {
     function openCtxMenu(id, row) {
         const item = listSessions().find(s => s.id === id);
         if (!item) return;
+        if (navigator.vibrate) { try { navigator.vibrate(12); } catch (_) { /* 不支持忽略 */ } } // 长按触发的轻震反馈（移动端闭环）
         ctxMenuOpen = true;
         const pinned = item.pinned;
         ctxMenu.innerHTML = `
@@ -216,7 +236,8 @@ function setupMsgNav() {
 
     /**
      * 为已展开的行内编辑器填初值并绑定事件（renderSessions 重建 DOM 后调用）。
-     * 预填：会话级覆盖优先，无覆盖以全局默认作编辑起点（留空保存 = 恢复继承全局）。 @param {HTMLElement} ed 编辑器根节点
+     * 预填：会话级覆盖优先，无覆盖以全局默认作编辑起点（留空保存 = 恢复全局默认）。
+     * 无气泡/盒子包裹：编辑器仅 textarea + 操作行 + 一行极淡提示，视觉上不是浮层。 @param {HTMLElement} ed 编辑器根节点
      */
     function fillSpEditor(ed) {
         const id = ed.dataset.id;
@@ -225,10 +246,6 @@ function setupMsgNav() {
         const ta = ed.querySelector('.mn-sp-input');
         const hasOverride = sess.sysPrompt != null && sess.sysPrompt !== '';
         ta.value = hasOverride ? sess.sysPrompt : state.settings.sysPrompt;
-        // 状态标签即时反映：accent 点+亮字 = 会话级覆盖，灰点 = 继承全局
-        const stateEl = ed.querySelector('.mn-sp-state');
-        stateEl.classList.toggle('on', hasOverride);
-        ed.querySelector('.mn-sp-state-text').textContent = hasOverride ? '会话级' : '全局';
         // 键盘：Esc 只收编辑器（拦冒泡防 global.js 连面板一起关）；Ctrl/Cmd+Enter 保存（多行 textarea 裸 Enter 应换行）
         ta.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') { e.stopPropagation(); collapseSpEditor(); }
@@ -333,35 +350,22 @@ function setupMsgNav() {
             const dots = s.streaming ? '<span class="typing-dots" aria-label="生成中"><span></span><span></span><span></span></span>' : '';
             // 置顶标记：行首小别针（仅置顶时显示），与排序「置顶优先」呼应
             const pin = s.pinned ? '<span class="mn-pin" aria-label="已置顶"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4h6l-1 7 3 3v2H7v-2l3-3-1-7Z"/><path d="M12 16v5"/></svg></span>' : '';
-            // LLM 芯片：按会话配置解析服务商（无配置 = 继承全局 → 「全局」灰）。
-            // data-provider 与渲染同源，切换时直接读，杜绝「索引旧值 vs 显示值」双源漂移
-            const cfg = s.llmConfig || null;
-            let providerKey = 'global';
-            let providerName = '全局';
-            let providerClass = '';
-            if (cfg && cfg.apiUrl) {
-                const p = getProviderByUrl(cfg.apiUrl);
-                if (p === 'zhipu') { providerKey = 'zhipu'; providerName = '智谱'; providerClass = ' provider-zhipu'; }
-                else if (p === 'deepseek') { providerKey = 'deepseek'; providerName = 'DeepSeek'; providerClass = ' provider-deepseek'; }
-                else { providerKey = 'custom'; providerName = '自定义'; providerClass = ' provider-custom'; }
-            }
-            // SP 预览：会话级覆盖去空白截 16 字；无覆盖 = 全局。tag 配色区分（accent = 有覆盖 / 灰 = 继承）
+            // LLM 芯片：只有两个模型，显示当前生效模型（会话级覆盖优先，否则继承全局默认），无「全局」第三态。
+            // data-provider 与渲染同源（'zhipu'|'deepseek'），切换时直接读，杜绝「索引旧值 vs 显示值」双源漂移
+            const providerKey = effectiveProvider(s);
+            const providerName = providerKey === 'zhipu' ? '智谱' : 'DeepSeek';
+            const providerClass = ' provider-' + providerKey;
+            // SP 预览：会话级覆盖去空白截 16 字；无覆盖 = 「默认」（继承全局）。accent = 有会话级覆盖
             const hasSp = s.sysPrompt != null && s.sysPrompt !== '';
-            const spText = hasSp ? s.sysPrompt.replace(/\s+/g, ' ').trim().slice(0, 16) + '…' : '全局';
+            const spText = hasSp ? s.sysPrompt.replace(/\s+/g, ' ').trim().slice(0, 16) + '…' : '默认';
             // 行2 右侧的 SP 入口：清晰可点的小 pill（展开行内编辑器），accent 表「有独立提示词」
             const metaRight = `<button type="button" class="mn-sp${hasSp ? ' has-sp' : ''}" data-id="${escapeHtml(s.id)}"><i class="mn-sp-tag">SP</i><span class="mn-sp-text">${escapeHtml(spText)}</span></button>`;
-            // 进入按钮（行1 最右）：显式切换并关面板，替代「整行点击进入」——整行不再有点击热区，彻底消除误触。
-            // 当前会话显示「当前」灰标而非按钮（无需再进自己）
-            const enterBtn = active
-                ? '<span class="mn-current">当前</span>'
-                : `<button type="button" class="mn-enter" data-id="${escapeHtml(s.id)}">进入</button>`;
             return `<div class="mn-session${active ? ' active' : ''}" data-id="${escapeHtml(s.id)}">
                 <div class="mn-row-top">
                     ${pin}
                     <span class="mn-session-title">${escapeHtml(s.title)}</span>
                     ${dots}
                     <button type="button" class="mn-llm-chip${providerClass}" data-id="${escapeHtml(s.id)}" data-provider="${providerKey}">${providerName}</button>
-                    ${enterBtn}
                 </div>
                 <div class="mn-row-meta">
                     <span class="mn-time">${relTime(s.updatedAt)}</span>
@@ -370,45 +374,46 @@ function setupMsgNav() {
                     ${metaRight}
                 </div>
                 <div class="mn-sp-editor${spEditId === s.id ? ' open' : ''}" data-id="${escapeHtml(s.id)}">
-                    <div class="mn-sp-editor-inner">
-                        <div class="mn-sp-box">
-                            <div class="mn-sp-head">
-                                <span class="mn-sp-state"><i class="mn-sp-state-dot"></i><span class="mn-sp-state-text">全局</span></span>
-                                <span class="mn-sp-hint">留空保存 = 恢复全局</span>
-                            </div>
-                            <textarea class="mn-sp-input" rows="4" spellcheck="false"></textarea>
-                            <div class="mn-sp-actions">
-                                <button type="button" class="mn-sp-cancel">取消</button>
-                                <button type="button" class="mn-sp-save">保存</button>
-                            </div>
+                    <div class="mn-sp-inner">
+                        <div class="mn-sp-tip">留空保存 = 采用全局默认提示词</div>
+                        <textarea class="mn-sp-input" rows="4" spellcheck="false"></textarea>
+                        <div class="mn-sp-actions">
+                            <button type="button" class="mn-sp-cancel">取消</button>
+                            <button type="button" class="mn-sp-save">保存</button>
                         </div>
                     </div>
                 </div>
             </div>`;
         }).join('');
 
-        // 行整体仅承载「长按手势」，不再响应点击（进入由独立「进入」按钮负责，整行零点击热区，杜绝误触）
+        // 行级交互：长按手势（整行）+ 点击名字切换（标题）。
+        // 长按根因修复：计时器仅在「移动>10px（真滚动/拖拽）」时取消，触摸微抖动（亚像素）不再误杀——旧版即因此很难弹出。
         sessionsList.querySelectorAll('.mn-session').forEach((row) => {
             const id = row.dataset.id;
-            let pressTimer = 0;
+            const titleEl = row.querySelector('.mn-session-title');
+            let pressTimer = 0, longFired = false, startX = 0, startY = 0;
             row.addEventListener('pointerdown', (e) => {
-                if (e.button !== undefined && e.button !== 0) return;
+                if (e.button && e.button !== 0) return;
                 if (ctxMenuOpen) return;
+                startX = e.clientX; startY = e.clientY;
+                longFired = false; // 每次按下重置：即便上次长按后 click 未派发也不会卡在 true
                 clearTimeout(pressTimer);
-                pressTimer = setTimeout(() => openCtxMenu(id, row), LONG_PRESS_MS);
+                pressTimer = setTimeout(() => { longFired = true; openCtxMenu(id, row); }, LONG_PRESS_MS);
             });
-            const cancelPress = () => clearTimeout(pressTimer);
-            row.addEventListener('pointerup', cancelPress);
-            row.addEventListener('pointermove', cancelPress);
-            row.addEventListener('pointercancel', cancelPress);
-            row.addEventListener('pointerleave', cancelPress);
-        });
-
-        // 进入按钮：显式切换并关面板（switchTo 内置 closeAllModals）。stopPropagation 防冒泡到行（尽管行已无点击逻辑）
-        sessionsList.querySelectorAll('.mn-enter').forEach((btn) => {
-            btn.addEventListener('click', (e) => {
+            const onMove = (e) => {
+                if (pressTimer && (Math.abs(e.clientX - startX) > 10 || Math.abs(e.clientY - startY) > 10)) {
+                    clearTimeout(pressTimer); pressTimer = 0;
+                }
+            };
+            const endPress = () => { clearTimeout(pressTimer); pressTimer = 0; };
+            row.addEventListener('pointermove', onMove);
+            row.addEventListener('pointerup', endPress);
+            row.addEventListener('pointercancel', endPress);
+            // 标题轻点 = 切换会话；长按时 longFired 已置位，随后派发的 click 被吞掉，避免与菜单冲突
+            titleEl.addEventListener('click', (e) => {
                 e.stopPropagation();
-                switchTo(btn.dataset.id);
+                if (longFired) { longFired = false; return; }
+                switchTo(id);
             });
         });
 
@@ -417,7 +422,7 @@ function setupMsgNav() {
         sessionsList.querySelectorAll('.mn-llm-chip').forEach((chip) => {
             chip.addEventListener('pointerdown', (e) => e.stopPropagation());
             chip.addEventListener('click', (e) => {
-                e.stopPropagation(); // 阻止触发 row 的 click（切换/关面板）
+                e.stopPropagation();
                 handleQuickLlmSwitch(chip.dataset.id, chip.dataset.provider);
             });
         });
@@ -426,7 +431,7 @@ function setupMsgNav() {
         sessionsList.querySelectorAll('.mn-sp').forEach((btn) => {
             btn.addEventListener('pointerdown', (e) => e.stopPropagation());
             btn.addEventListener('click', (e) => {
-                e.stopPropagation(); // 阻止触发 row 的 click（切换/关面板）
+                e.stopPropagation();
                 toggleSpEditor(btn.dataset.id);
             });
         });
@@ -439,25 +444,16 @@ function setupMsgNav() {
     }
 
     /**
-     * 快速切换会话 LLM（chip 点击）：全局 → 已配置服务商轮换 → 回全局 的循环。
+     * 快速切换会话 LLM（chip 点击）：只有两个模型，在 智谱↔DeepSeek 间两态互切（无「全局」第三态）。
      * key 复用全局 settings.keys 槽（不存会话，避免密钥明文随会话复制）；
      * 只写会话级配置（当前会话写 state + 落盘，后台会话写存档），永不触碰全局 settings。
-     * 此前 bug：当前会话只写 state + touchIndex（touchIndex 仅改 updatedAt 不同步索引内容）→
-     * chip 显示不变、轮换读索引旧值死循环在同一个目标。现经 saveSession 落盘并同步索引。
-     * @param {string} id 会话 id @param {string} providerKey chip 当前的服务商标识（'global'|'zhipu'|'deepseek'|'custom'，与渲染同源）
+     * @param {string} id 会话 id @param {string} providerKey chip 当前模型标识（'zhipu'|'deepseek'，与渲染同源）
      */
     function handleQuickLlmSwitch(id, providerKey) {
-        // 已配置 key 的服务商（key 非空才算可用）；仅一个也能在 全局↔该服务商 间切换，全无才禁止
-        const configured = Object.keys(LLM_PROVIDERS).filter(p => state.settings.keys[p]);
-        if (!configured.length) {
-            showToast('需在设置中配置 API Key 才能切换', 'warn');
-            return;
-        }
-        // 循环序：null(继承全局) → 已配置服务商…；未识别的 custom 落回全局（点一下回到继承，不自定义轮换）
-        const cycle = [null, ...configured];
-        const cur = providerKey === 'global' ? null : providerKey;
-        const next = cycle[(cycle.indexOf(cur) + 1 + cycle.length) % cycle.length];
-        const nextCfg = next ? { apiUrl: LLM_PROVIDERS[next].url, model: LLM_PROVIDERS[next].model } : null;
+        // 两态互切：当前是智谱→切 DeepSeek，反之→智谱；点一下即设显式会话级覆盖，无「继承全局」中间态
+        const cur = providerKey === 'deepseek' ? 'deepseek' : 'zhipu';
+        const next = cur === 'zhipu' ? 'deepseek' : 'zhipu';
+        const nextCfg = { apiUrl: LLM_PROVIDERS[next].url, model: LLM_PROVIDERS[next].model };
 
         if (id === state.activeSessionId) {
             // 当前会话：写运行时（请求层立即生效）+ saveSession 落盘（内部 updateIndexFromRaw 同步索引 → chip 立即更新、刷新不丢）
@@ -475,7 +471,7 @@ function setupMsgNav() {
             }
         }
         renderSessions();
-        showToast(nextCfg ? '已切换至 ' + LLM_PROVIDERS[next].name : '已恢复全局模型', 'success');
+        showToast('已切换至 ' + LLM_PROVIDERS[next].name, 'success');
     }
 
     /**

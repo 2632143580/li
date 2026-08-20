@@ -499,9 +499,8 @@ body.modal-open *:not(.modal-overlay):not(.modal-overlay *):not(#fs-editor):not(
 #msg-nav .mn-new:hover { background: var(--white-a08); }
 #msg-nav .mn-new svg { width: 16px; height: 16px; flex: none; }
 
-/* 会话行（两行制，整体被动：无点击热区，进入由「进入」按钮负责）：
-   行1 = 置顶标记 + 标题 + LLM 芯片 + 进入按钮；行2 = 时间·条数 + SP 预览 pill（可展开行内编辑器）。
-   左侧 2px accent 竖线表「当前位置」（比色块轻，不与气泡抢注意力）；触控友好：去 300ms 延迟、禁止误选 */
+/* 会话行（两行制：行1 = 置顶标记 + 标题(可点击进入) + LLM 芯片；行2 = 时间·条数 + SP pill）。
+   左侧 2px accent 竖线表「当前会话」（比色块轻）；触控友好：去 300ms 延迟、禁止误选、按压缩放反馈 */
 #msg-nav .mn-session {
     padding: 10px 12px 10px 10px;
     border-left: 2px solid transparent;
@@ -510,13 +509,23 @@ body.modal-open *:not(.modal-overlay):not(.modal-overlay *):not(#fs-editor):not(
     touch-action: manipulation;
 }
 #msg-nav .mn-session:hover { background: var(--white-a04); }
+#msg-nav .mn-session:active { background: var(--white-a06); }
 #msg-nav .mn-session.active { border-left-color: var(--color-accent); background: color-mix(in srgb, var(--color-accent) 7%, transparent); }
 /* 行1：置顶标记 + 标题(flex 撑满省略) + 生成中指示 + LLM 芯片 */
 #msg-nav .mn-row-top { display: flex; align-items: center; gap: 6px; min-width: 0; }
+/* 标题 = 进入入口：cursor 暗示可点；右侧常驻极淡 "›" 作「可进入」暗示（不增噪音），hover/按下高亮 accent */
 #msg-nav .mn-session-title {
-    flex: 1; min-width: 0; color: var(--white-a90); font-size: 13.5px;
+    flex: 1; min-width: 0; color: var(--white-a90); font-size: 13.5px; position: relative;
+    padding-right: 15px; cursor: pointer;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
+#msg-nav .mn-session-title::after {
+    content: '›'; position: absolute; right: 1px; top: 50%; transform: translateY(-50%);
+    color: var(--white-a20); font-size: 15px; line-height: 1; transition: color .2s var(--ease);
+}
+#msg-nav .mn-session:hover .mn-session-title::after,
+#msg-nav .mn-session:active .mn-session-title::after { color: var(--color-accent-bright, var(--color-accent)); }
+#msg-nav .mn-session.active .mn-session-title::after { color: var(--color-accent); }
 /* 置顶标记：行首小别针，与排序「置顶优先」呼应；accent 色点出「人为钉住」语义 */
 #msg-nav .mn-pin { flex: none; color: var(--color-accent-bright, var(--color-accent)); display: inline-flex; }
 #msg-nav .mn-pin svg { width: 12px; height: 12px; }
@@ -553,7 +562,7 @@ body.modal-open *:not(.modal-overlay):not(.modal-overlay *):not(#fs-editor):not(
     color: var(--color-accent-bright, var(--color-accent));
     background: color-mix(in srgb, var(--color-accent) 20%, transparent);
 }
-/* LLM 芯片：小号胶囊，点按缩放反馈；服务商配色区分（紫=智谱 / 绿=DeepSeek / 灰=全局与自定义） */
+/* LLM 芯片：小号胶囊，点按缩放反馈；只有两模型配色区分（紫=智谱 / 绿=DeepSeek），无「全局」第三态 */
 #msg-nav .mn-llm-chip {
     flex: none; padding: 1px 8px; font-size: 10px; line-height: 1.5;
     border-radius: 9px; border: 1px solid transparent;
@@ -563,45 +572,20 @@ body.modal-open *:not(.modal-overlay):not(.modal-overlay *):not(#fs-editor):not(
 #msg-nav .mn-llm-chip:active { transform: scale(0.94); }
 #msg-nav .mn-llm-chip.provider-zhipu { background: rgba(89,102,242,.16); color: #9aa3ff; border-color: rgba(89,102,242,.35); }
 #msg-nav .mn-llm-chip.provider-deepseek { background: rgba(68,193,150,.16); color: #7fd9b8; border-color: rgba(68,193,150,.35); }
-#msg-nav .mn-llm-chip.provider-custom { background: var(--white-a08); color: var(--white-a50); border-color: var(--white-a12); }
-/* 进入按钮（行1 最右）：显式切换会话，替代「整行点击进入」，消除大热区误触。accent 实心高对比 */
-#msg-nav .mn-enter {
-    flex: none; margin-left: 6px; padding: 3px 13px; border: none; border-radius: 7px;
-    background: var(--color-accent); color: var(--white-a95);
-    font: inherit; font-size: 12px; font-weight: 600; cursor: pointer;
-    transition: filter var(--transition-fast, 0.15s), transform .1s var(--ease);
-}
-#msg-nav .mn-enter:hover { filter: brightness(1.12); }
-#msg-nav .mn-enter:active { transform: scale(0.95); }
-/* 当前会话标记（替代进入按钮）：灰标表「已在其中」，不提供再进入 */
-#msg-nav .mn-current {
-    flex: none; margin-left: 6px; padding: 3px 10px; border-radius: 7px;
-    background: var(--white-a08); color: var(--white-a40); font-size: 11px; font-weight: 600;
-}
-/* —— 行内 SP 编辑器：点 SP 预览在该行下方展开 ——
-   取代旧 fixed 气泡（#sp-edit-pop 已删）：底部 sheet(90vh) + 可滚动列表的组合下，
-   fixed 定位数学不成立——列表下半区按钮下方直出屏幕底，上翻又顶出屏幕顶，双溢出不可见。
-   行内展开在文档流内永远可见、无定位计算、宽度自适应面板，移动端天然适配。
+/* —— 行内 SP 编辑器：点 SP 预览在该行下方展开（无气泡/盒子包裹，仅一条细分割线 + textarea + 操作行）——
+   行内展开在文档流内永远可见、无定位计算、宽度自适应，移动端天然适配。
    展开用 max-height（overflow:hidden 夹住）：全浏览器/老 Android WebView 都支持，
-   不依赖 grid-template-rows 0fr→1fr 动画（该特性在部分 WebView 不被支持，会导致编辑器高度恒为 0、
-   点 SP 看不到内容）。内容淡入滞后 60ms，比单纯高度动画更细腻 */
+   不依赖 grid-template-rows 0fr→1fr 动画（该特性在部分 WebView 不被支持，会导致编辑器高度恒为 0） */
 #msg-nav .mn-sp-editor { max-height: 0; overflow: hidden; transition: max-height .24s var(--ease); }
 #msg-nav .mn-sp-editor.open { max-height: 400px; }
-#msg-nav .mn-sp-editor-inner { /* max-height 已夹在 .mn-sp-editor 上，内层无需再 overflow */ }
-#msg-nav .mn-sp-box {
-    margin-top: 4px; padding: 10px 12px;
-    display: flex; flex-direction: column; gap: 8px;
-    background: var(--white-a04); border-radius: 10px;
+#msg-nav .mn-sp-inner {
+    margin-top: 6px; padding-top: 8px; display: flex; flex-direction: column; gap: 8px;
+    border-top: 1px solid var(--white-a08); /* 用细分割线区隔，而非浮层盒子 */
     opacity: 0; transition: opacity .18s var(--ease) .06s;
 }
-#msg-nav .mn-sp-editor.open .mn-sp-box { opacity: 1; }
-/* 编辑器头：状态标签（左）+ 留空提示（右，弱化） */
-#msg-nav .mn-sp-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
-#msg-nav .mn-sp-state { display: inline-flex; align-items: center; gap: 4px; font-size: 10px; color: var(--white-a40); }
-#msg-nav .mn-sp-state-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--white-a30); }
-#msg-nav .mn-sp-state.on { color: var(--color-accent-bright, var(--color-accent)); }
-#msg-nav .mn-sp-state.on .mn-sp-state-dot { background: var(--color-accent); }
-#msg-nav .mn-sp-hint { font-size: 10px; color: var(--white-a40); }
+#msg-nav .mn-sp-editor.open .mn-sp-inner { opacity: 1; }
+/* 极淡提示：留空保存 = 采用全局默认 */
+#msg-nav .mn-sp-tip { font-size: 10px; color: var(--white-a40); }
 #msg-nav .mn-sp-input {
     width: 100%; min-height: 88px; box-sizing: border-box; resize: none;
     background: var(--bg-input); color: var(--white-a90);
