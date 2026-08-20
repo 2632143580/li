@@ -499,33 +499,28 @@ body.modal-open *:not(.modal-overlay):not(.modal-overlay *):not(#fs-editor):not(
 #msg-nav .mn-new:hover { background: var(--white-a08); }
 #msg-nav .mn-new svg { width: 16px; height: 16px; flex: none; }
 
-/* 会话行（两行制：行1 = 置顶标记 + 标题(可点击进入) + LLM 芯片；行2 = 时间·条数 + SP pill）。
-   左侧 2px accent 竖线表「当前会话」（比色块轻）；触控友好：去 300ms 延迟、禁止误选、按压缩放反馈 */
+/* 会话行（两行制：行1 = 置顶标记 + 标题(可点击进入) + LLM 芯片；行2 = 时间·条数 + SP 纯文本）。
+   当前会话以名字左侧 accent 小箭头「›」标记（替代左侧彩色竖条，克制且避开模板感）；触控友好：去 300ms 延迟、禁止误选、按压缩放反馈 */
 #msg-nav .mn-session {
-    padding: 10px 12px 10px 10px;
-    border-left: 2px solid transparent;
+    padding: 10px 12px;
     display: flex; flex-direction: column; gap: 4px;
     user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
     touch-action: manipulation;
 }
 #msg-nav .mn-session:hover { background: var(--white-a04); }
 #msg-nav .mn-session:active { background: var(--white-a06); }
-#msg-nav .mn-session.active { border-left-color: var(--color-accent); background: color-mix(in srgb, var(--color-accent) 7%, transparent); }
+#msg-nav .mn-session.active { background: color-mix(in srgb, var(--color-accent) 7%, transparent); }
 /* 行1：置顶标记 + 标题(flex 撑满省略) + 生成中指示 + LLM 芯片 */
 #msg-nav .mn-row-top { display: flex; align-items: center; gap: 6px; min-width: 0; }
-/* 标题 = 进入入口：cursor 暗示可点；右侧常驻极淡 "›" 作「可进入」暗示（不增噪音），hover/按下高亮 accent */
+/* 标题 = 进入入口：cursor 暗示可点；当前会话在名字左侧加 accent 小箭头「›」作标记（替代左侧彩色竖条，更克制，避开模板感） */
 #msg-nav .mn-session-title {
     flex: 1; min-width: 0; color: var(--white-a90); font-size: 13.5px; position: relative;
-    padding-right: 15px; cursor: pointer;
+    cursor: pointer;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-#msg-nav .mn-session-title::after {
-    content: '›'; position: absolute; right: 1px; top: 50%; transform: translateY(-50%);
-    color: var(--white-a20); font-size: 15px; line-height: 1; transition: color .2s var(--ease);
+#msg-nav .mn-session.active .mn-session-title::before {
+    content: '›'; margin-right: 4px; color: var(--color-accent); font-weight: 700;
 }
-#msg-nav .mn-session:hover .mn-session-title::after,
-#msg-nav .mn-session:active .mn-session-title::after { color: var(--color-accent-bright, var(--color-accent)); }
-#msg-nav .mn-session.active .mn-session-title::after { color: var(--color-accent); }
 /* 置顶标记：行首小别针，与排序「置顶优先」呼应；accent 色点出「人为钉住」语义 */
 #msg-nav .mn-pin { flex: none; color: var(--color-accent-bright, var(--color-accent)); display: inline-flex; }
 #msg-nav .mn-pin svg { width: 12px; height: 12px; }
@@ -535,33 +530,27 @@ body.modal-open *:not(.modal-overlay):not(.modal-overlay *):not(#fs-editor):not(
 #msg-nav .mn-sep { flex: none; color: var(--white-a30); font-size: 11px; }
 /* 消息数：等宽小字不加 badge（数字本身就是信息，加壳是噪音） */
 #msg-nav .mn-count { flex: none; color: var(--white-a30); font: 11px/1 ui-monospace, SFMono-Regular, Menlo, monospace; font-variant-numeric: tabular-nums; }
-/* SP 入口：清晰可点的小 pill（细描边 + 浅底），整条可点行内展开编辑器。
-   左侧 SP 微标签，右侧预览/「全局」；有会话级覆盖时整颗 accent 微光（一眼识别「此会话有独立提示词」）。
+/* SP 入口：去胶囊，纯文本行内可点（整条行内展开编辑器）。
+   左侧 SP 微标签作语义前缀，右侧预览/「默认」；有会话级覆盖时整段 accent 微光（一眼识别「此会话有独立提示词」）。
    max-width 防长 SP 挤掉时间；负 margin 扩热区不占布局（移动端触控友好） */
 #msg-nav .mn-sp {
     flex: none; max-width: 60%; min-width: 0; margin-left: auto; margin-right: -4px;
-    display: inline-flex; align-items: center; gap: 5px; padding: 2px 8px 2px 4px;
-    background: var(--white-a05); border: 1px solid var(--white-a12);
-    border-radius: 999px; font: inherit; font-size: 11px; line-height: 1.4;
-    color: var(--white-a50); cursor: pointer;
-    transition: color .2s var(--ease), background .2s var(--ease), border-color .2s var(--ease);
+    display: inline-flex; align-items: center; gap: 4px; padding: 2px 0;
+    font: inherit; font-size: 11px; line-height: 1.4;
+    color: var(--white-a50); background: none; border: none; cursor: pointer;
+    transition: color .2s var(--ease);
 }
-#msg-nav .mn-sp:hover { color: var(--white-a90); background: var(--white-a10); border-color: var(--white-a20); }
+#msg-nav .mn-sp:hover { color: var(--white-a90); }
 #msg-nav .mn-sp:active { transform: scale(0.96); }
 #msg-nav .mn-sp-text { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-/* SP 微标签：有覆盖 = accent 微光（一眼识别），继承全局 = 灰 */
+/* SP 微标签：有覆盖 = accent 微光（一眼识别），继承全局 = 灰；纯文本不加壳，仅作语义前缀 */
 #msg-nav .mn-sp-tag {
     flex: none; font-size: 9px; font-weight: 700; letter-spacing: .05em;
-    padding: 1px 4px; border-radius: 4px;
-    color: var(--white-a45); background: var(--white-a10);
-    transition: color .2s var(--ease), background .2s var(--ease);
+    color: var(--white-a30); background: none; padding: 0;
+    transition: color .2s var(--ease);
 }
-#msg-nav .mn-sp.has-sp { color: var(--color-accent-bright, var(--color-accent)); border-color: color-mix(in srgb, var(--color-accent) 30%, transparent); background: color-mix(in srgb, var(--color-accent) 8%, transparent); }
-#msg-nav .mn-sp.has-sp:hover { background: color-mix(in srgb, var(--color-accent) 14%, transparent); }
-#msg-nav .mn-sp.has-sp .mn-sp-tag {
-    color: var(--color-accent-bright, var(--color-accent));
-    background: color-mix(in srgb, var(--color-accent) 20%, transparent);
-}
+#msg-nav .mn-sp.has-sp { color: var(--color-accent-bright, var(--color-accent)); }
+#msg-nav .mn-sp.has-sp .mn-sp-tag { color: var(--color-accent-bright, var(--color-accent)); }
 /* LLM 芯片：小号胶囊，点按缩放反馈；只有两模型配色区分（紫=智谱 / 绿=DeepSeek），无「全局」第三态 */
 #msg-nav .mn-llm-chip {
     flex: none; padding: 1px 8px; font-size: 10px; line-height: 1.5;
