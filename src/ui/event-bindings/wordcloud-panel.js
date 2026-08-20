@@ -8,7 +8,7 @@
  *   2. 「指定词查询」：输入 / 点列表词 / 点快捷词条，三种入口都直达结果条，
  *      即时显示该词在当前对话的总次数与用户/AI 拆分；未命中如实提示。
  *   3. 「分词模式」= 一键直达分段按钮「轻量 | 专业」（非下拉、无二次点击）：
- *      专业 = jieba-wasm（CDN 动态加载约 4MB、失败自动回退轻量），选择持久化到 localStorage。
+ *      专业 = jieba-wasm（CDN 首次动态加载约 4MB，词典二进制存 Cache Storage，之后打开若已缓存则默认启用，失败自动回退轻量）。
  *   4. 「快捷词条」：查过的词自动收录（去重、最新在前、上限 10、localStorage 持久化），
  *      点词条直接再查（免输入）；删除 = 右键或长按（词条上不放叉，保持小而净）。
  *   5. 点列表里的词 = 直接查询（填入输入框 + 列表行高亮 + 结果条更新），免手打。
@@ -391,6 +391,21 @@ async function fetchJiebaWasm() {
 }
 
 /**
+ * 检测专业词库是否已缓存到 Cache Storage（首次下载后本地留存，刷新/重开免重下）。
+ * 命中仅说明词典二进制在本地——内存实例（jieba）仍需重新初始化（import 模块 + mod.default(buf)），
+ * 但能省去约 3.8MB 词典下载耗时，实现近秒开。无 Cache API（file:// 等）视作未缓存。
+ * @returns {Promise<boolean>}
+ */
+async function hasCachedJieba() {
+    try {
+        const cache = await caches.open(JIEBA_CACHE_NAME);
+        return !!(await cache.match(JIEBA_WASM_URL));
+    } catch (_) {
+        return false;
+    }
+}
+
+/**
  * 加载 jieba-wasm 并缓存实例。**已实测**（node 跑通 2.4.0）：
  * ① import 模块（小）→ ② 取词典 wasm（Cache Storage 优先，未命中走网络带真实进度）→ ③ `mod.default(buffer)` 初始化 → `mod.cut(text,true)` 返回 string[]。
  * 失败/超时抛错，由调用方回退轻量并如实提示。
@@ -670,17 +685,21 @@ async function applySegmentMode(mode) {
     analyze();
 }
 
-/** 打开面板：恢复快捷词 → 打开模态框 → 从轻量分词开始分析。
- *  专业分词（jieba）只在用户主动点击「专业」时才启用——打开面板一律轻量（用户铁律）。 */
-function openWordCloud() {
+/**
+ * 打开面板：恢复快捷词 → 打开模态框 → 按「专业词库是否已缓存」决定默认分词模式。
+ * 用户铁律（打开一律轻量）已改为：若 Cache Storage 已留存专业词库（首次下载后），
+ * 直接启用专业分词（省下载、近秒开）；首次无缓存仍轻量起步，避免一开面板就触发 3.8MB 下载。
+ */
+async function openWordCloud() {
     quickWords = loadQuickWords();
     renderQuick();
     if (DOM.wordcloudQuery) DOM.wordcloudQuery.value = '';
     openModal('wordcloud-dialog');
-    applySegmentMode('light');
+    const cached = await hasCachedJieba();
+    applySegmentMode(cached ? 'jieba' : 'light');
 }
 
-/** 关闭面板：隐藏并清空查询残留（快捷词与分词模式保留，下次打开恢复）。 */
+/** 关闭面板：隐藏并清空查询残留（快捷词保留；分词模式每次打开按缓存重新决定）。 */
 function closeWordCloud() {
     closeAllModals();
     if (DOM.wordcloudQuery) DOM.wordcloudQuery.value = '';
