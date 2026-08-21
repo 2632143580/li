@@ -58,6 +58,7 @@ export const DEFAULT_SETTINGS = {
     ttsDisplayMode: 'both',   // 文字消息显示模式：'text' 只显示文字 | 'both' 都显示（沿用发语音概率混合） | 'voice' 只显示语音
     ttsAutoRead: false,       // 自动朗读：AI 回复流式生成时逐句自动播放（独立于 ttsEnabled；纯文字模式无语音条，不读）
     showReasoning: true,      // 显示思维链：AI 回复若有 reasoning_content 则在正文上方渲染可折叠「思维链」块；默认开
+    reasoningAutoExpand: true, // 思维链自动展开：AI 回复后思维链默认展开（关闭则默认折叠、可手动展开）；默认开
     ttsCloud: {
         apiKey: '',
         baseUrl: 'https://api.xiaomimimo.com/v1',

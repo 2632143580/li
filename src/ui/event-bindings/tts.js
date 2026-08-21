@@ -65,6 +65,7 @@ function openVoiceModal() {
         if (DOM.setVoiceEnabled) DOM.setVoiceEnabled.checked = !!state.settings.ttsEnabled;
         if (DOM.setAutoRead) DOM.setAutoRead.checked = !!state.settings.ttsAutoRead;
         if (DOM.setShowReasoning) DOM.setShowReasoning.checked = !!state.settings.showReasoning;
+        if (DOM.setReasoningAutoExpand) DOM.setReasoningAutoExpand.checked = !!state.settings.reasoningAutoExpand;
         populateCloudVoices();
         if (DOM.setCloudKey) DOM.setCloudKey.value = state.settings.ttsCloud?.apiKey || '';
         if (DOM.setCloudBase) DOM.setCloudBase.value = state.settings.ttsCloud?.baseUrl || 'https://api.xiaomimimo.com/v1';
@@ -167,6 +168,14 @@ export function bindVoiceSettings() {
         DOM.setShowReasoning.addEventListener('change', () => {
             state.settings.showReasoning = DOM.setShowReasoning.checked;
             renderChat(); // 重新渲染：开启→显示思维链块 / 关闭→隐藏（数据仍在内存，再开即显）
+            saveToLocal(null, true);
+        });
+    }
+    // 思维链自动展开开关（默认展开/默认折叠，可手动切换；折叠态按消息记忆）
+    if (DOM.setReasoningAutoExpand) {
+        DOM.setReasoningAutoExpand.addEventListener('change', () => {
+            state.settings.reasoningAutoExpand = DOM.setReasoningAutoExpand.checked;
+            renderChat(); // 重新渲染：展开→思维链块默认展开 / 折叠→默认收起（数据仍在，可手动展开）
             saveToLocal(null, true);
         });
     }

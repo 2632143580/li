@@ -395,9 +395,20 @@ export function updateMsgReasoning(node, reasoning) {
 }
 
 /**
- * 渲染/更新思维链折叠块（自定义按钮，非原生 details）。挂在气泡 wrapper 内、正文块之前，
+ * 构建心电图 SVG 路径（viewBox 0 0 120 24，基线 y=12）。
+ * 预留「情绪驱动视觉」扩展点：后期按 mood 返回不同波形即可（如兴奋=更密更高尖峰、低落=趋于平直），
+ * 无需改动渲染结构。 @param {string} [mood] @returns {string}
+ */
+function buildEcgPath(mood = 'calm') {
+    // 简约长心电图：3 拍平铺；横向拉伸由 CSS preserveAspectRatio=none 处理（non-scaling-stroke 保线宽锐利）
+    return 'M0 12 H14 L18 4 L22 20 L26 12 H40 L54 12 L58 4 L62 20 L66 12 H80 L94 12 L98 4 L102 20 L106 12 H120';
+}
+
+/**
+ * 渲染/更新思维链块（无气泡 / 无卡片 / 无边框，纯排版）。挂在气泡 wrapper 内、正文块之前，
  * 避免被各显示模式（waifu/voice/both）的 contentEl.innerHTML='' 重建清空。
- * 增量更新：块已存在只改 body 文本与 thinking 态；折叠态由用户 toggle 保持（流式生成中强制展开）。
+ * 头部 = 爱心 + 横向心电图条纹（监护仪式），无文字；折叠态由用户 toggle 记忆（node._reasoningCollapsed），
+ * 新消息默认跟随「自动展开」设置；流式生成中强制展开（思考流动可见）。
  * @param {object} node @param {HTMLElement} wrapper 消息 wrapper（.msg）
  */
 function renderReasoningBlock(node, wrapper) {
@@ -417,25 +428,25 @@ function renderReasoningBlock(node, wrapper) {
         toggle.type = 'button';
         toggle.className = 'reasoning-toggle';
         toggle.setAttribute('aria-expanded', 'true');
-        toggle.innerHTML = '<svg class="rk-ico" viewBox="0 0 100 100" aria-hidden="true" focusable="false"><path class="rk-heart" d="M 50 30 C 50 25, 40 10, 25 20 C 10 30, 10 50, 30 65 C 40 75, 50 85, 50 85 C 50 85, 60 75, 70 65 C 90 50, 90 30, 75 20 C 60 10, 50 25, 50 30 Z"/><path class="rk-ecg" d="M 20 48 L 33 48 L 39 26 L 47 70 L 53 48 L 80 48"/></svg><span class="rk-label"></span><span class="rk-chev"></span>';
+        toggle.innerHTML = '<svg class="rk-ico" viewBox="0 0 100 100" aria-hidden="true" focusable="false"><path class="rk-heart" d="M 50 30 C 50 25, 40 10, 25 20 C 10 30, 10 50, 30 65 C 40 75, 50 85, 50 85 C 50 85, 60 75, 70 65 C 90 50, 90 30, 75 20 C 60 10, 50 25, 50 30 Z"/></svg><svg class="rk-line" viewBox="0 0 120 24" preserveAspectRatio="none" aria-hidden="true"><path d="' + buildEcgPath() + '"/></svg><span class="rk-chev"></span>';
         const body = document.createElement('div');
         body.className = 'reasoning-body';
         block.append(toggle, body);
-        // 折叠：切 .collapsed 类；事件绑一次（domCache 复用不再重复绑）
+        // 折叠：切 .collapsed 类，并记忆到 node._reasoningCollapsed（运行时 UI 态，不序列化）
         toggle.addEventListener('click', () => {
             const collapsed = block.classList.toggle('collapsed');
-            toggle.setAttribute('aria-expanded', String(!collapsed));
+            node._reasoningCollapsed = collapsed;
+            block.querySelector('.reasoning-toggle').setAttribute('aria-expanded', String(!collapsed));
         });
         wrapper.insertBefore(block, bubble);
     }
     block.querySelector('.reasoning-body').textContent = node.reasoning;
-    block.querySelector('.rk-label').textContent = isThinking ? '思考中…' : '思考过程';
+    // 折叠态：流式生成中强制展开；否则用用户手动选择，新消息默认跟随「自动展开」开关
+    const collapsed = isThinking ? false
+        : (typeof node._reasoningCollapsed === 'boolean' ? node._reasoningCollapsed : !state.settings.reasoningAutoExpand);
+    block.classList.toggle('collapsed', collapsed);
     block.classList.toggle('thinking', isThinking);
-    // 流式生成中强制展开（思考流动可见）；非流式保留用户折叠态
-    if (isThinking) {
-        block.classList.remove('collapsed');
-        block.querySelector('.reasoning-toggle').setAttribute('aria-expanded', 'true');
-    }
+    block.querySelector('.reasoning-toggle').setAttribute('aria-expanded', String(!collapsed));
 }
 
 /** 更新缓存命中 UI @param {number} tokens */

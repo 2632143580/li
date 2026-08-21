@@ -182,49 +182,48 @@
 
 /* ====================== 思维链折叠块（自定义按钮，非原生 details；无左竖线） ====================== */
 .reasoning {
-    margin: 0 0 6px;
-    border-radius: var(--radius-md);
-    background: var(--white-a05);          /* 极淡轻卡片：轻到不抢正文，却自成一格「旁注」 */
-    overflow: hidden;
+    margin: 2px 0 8px;                     /* 无卡片 / 无背景 / 无边框：纯排版分隔，不抢正文 */
 }
 .reasoning-toggle {
     display: flex;
     align-items: center;
-    gap: 7px;
+    gap: 8px;
     width: 100%;
-    min-height: 40px;                      /* 移动端触控达标 */
-    padding: 8px 11px;
+    min-height: 34px;                      /* 移动端触控达标 */
+    padding: 3px 2px;
     border: none;
     background: transparent;
     color: var(--white-a75);
     font: inherit;
-    font-size: 0.78rem;
-    letter-spacing: 0.02em;
     cursor: pointer;
     user-select: none;
-    transition: background var(--transition-fast);
+    transition: opacity var(--transition-fast);
 }
 .reasoning-toggle:hover,
-.reasoning-toggle:active { background: var(--white-a08); }
+.reasoning-toggle:active { opacity: 0.78; }
 .rk-ico {
-    width: 17px; height: 17px;
+    width: 15px; height: 15px;
     flex: none;
 }
 .rk-ico .rk-heart { fill: var(--color-accent); opacity: 0.92; transform-origin: 50% 62%; }
-.rk-ico .rk-ecg { fill: none; stroke: var(--white-a90); stroke-width: 5; stroke-linecap: round; stroke-linejoin: round; }
 .reasoning.thinking .rk-ico .rk-heart { animation: rkPulse 1.1s infinite ease-in-out; }
-@keyframes rkPulse { 0%, 100% { opacity: 0.45; } 50% { opacity: 1; } }
-
-/* 语音设置内「显示思维链」说明提示：让用户知道何时会显、为何不显 */
-.voice-tip {
-    margin: 2px 2px 0;
-    font-size: 0.72rem;
-    line-height: 1.55;
-    color: var(--white-a55);
+@keyframes rkPulse { 0%, 100% { opacity: 0.4; } 50% { opacity: 1; } }
+/* 简约长心电图：横向监护仪条纹（viewBox 0 0 120 24），随容器宽度拉伸；non-scaling-stroke 保线宽锐利 */
+.rk-line {
+    flex: 1;
+    min-width: 36px;
+    height: 16px;
+    color: var(--color-accent);
 }
-.rk-label { font-weight: 500; }
+.rk-line path {
+    fill: none;
+    stroke: var(--color-accent);
+    stroke-width: 1.6;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    vector-effect: non-scaling-stroke;
+}
 .rk-chev {
-    margin-left: auto;
     width: 7px; height: 7px;
     border-right: 1.5px solid var(--white-a40);
     border-bottom: 1.5px solid var(--white-a40);
@@ -233,11 +232,19 @@
 }
 .reasoning.collapsed .rk-chev { transform: rotate(45deg); }   /* 收起：指下 */
 .reasoning-body {
-    padding: 2px 12px 10px;
-    font-size: 0.84rem;
+    padding: 4px 2px 2px 23px;             /* 缩进对齐到心电图起点，纯排版 */
+    font-size: 0.82rem;
     line-height: 1.62;
     color: var(--white-a55);               /* 三级淡色：思考≠正文 */
     white-space: pre-wrap;
     word-break: break-word;
 }
 .reasoning.collapsed .reasoning-body { display: none; }
+
+/* 语音设置内「显示思维链」说明提示：让用户知道何时会显、为何不显 */
+.voice-tip {
+    margin: 2px 2px 0;
+    font-size: 0.72rem;
+    line-height: 1.55;
+    color: var(--white-a55);
+}

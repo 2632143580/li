@@ -107,6 +107,15 @@ function globalProvider() {
     return (state.settings.model || '').toLowerCase().includes('deepseek') ? 'deepseek' : 'zhipu';
 }
 
+/**
+ * 会话生效模型名：会话级 llmConfig.model 优先，否则全局默认 model（state.settings.model）。
+ * 用于芯片显示「真实模型标识」而非服务商中文名。 @param {object} s 列表条目 @returns {string}
+ */
+function effectiveModel(s) {
+    if (s.llmConfig && s.llmConfig.model) return s.llmConfig.model;
+    return state.settings.model || '';
+}
+
 function setupMsgNav() {
     // 双初始化防护：HMR 或重复调用时跳过
     if (document.getElementById('msg-nav')) return;
@@ -366,7 +375,7 @@ function setupMsgNav() {
             // LLM 芯片：只有两个模型，显示当前生效模型（会话级覆盖优先，否则继承全局默认），无「全局」第三态。
             // data-provider 与渲染同源（'zhipu'|'deepseek'），切换时直接读，杜绝「索引旧值 vs 显示值」双源漂移
             const providerKey = effectiveProvider(s);
-            const providerName = providerKey === 'zhipu' ? '智谱' : 'DeepSeek';
+            const modelName = effectiveModel(s);
             const providerClass = ' provider-' + providerKey;
             // SP 预览：会话级覆盖去空白截 16 字；无覆盖 = 「默认」（继承全局）。accent = 有会话级覆盖
             const hasSp = s.sysPrompt != null && s.sysPrompt !== '';
@@ -378,7 +387,7 @@ function setupMsgNav() {
                     ${pin}
                     <span class="mn-session-title">${escapeHtml(s.title)}</span>
                     ${dots}
-                    <button type="button" class="mn-llm-chip${providerClass}" data-id="${escapeHtml(s.id)}" data-provider="${providerKey}">${providerName}</button>
+                    <button type="button" class="mn-llm-chip${providerClass}" data-id="${escapeHtml(s.id)}" data-provider="${providerKey}">${escapeHtml(modelName)}</button>
                 </div>
                 <div class="mn-row-meta">
                     <span class="mn-time">${relTime(s.updatedAt)}</span>
