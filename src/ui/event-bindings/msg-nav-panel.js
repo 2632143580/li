@@ -404,6 +404,8 @@ function setupMsgNav() {
             row.addEventListener('pointerdown', (e) => {
                 if (e.button && e.button !== 0) return; // 右键交给原生 contextmenu
                 if (ctxMenuOpen) return;
+                // SP 编辑区 / 输入框内按下：不触发整行长按菜单（修复「编辑区长按误弹气泡」）
+                if (e.target.closest('input, textarea, [contenteditable], .mn-sp-editor')) return;
                 startX = lastX = e.clientX; startY = lastY = e.clientY;
                 longFired = false; // 每次按下重置：即便上次长按后 click 未派发也不会卡在 true
                 clearTimeout(pressTimer);
@@ -431,6 +433,8 @@ function setupMsgNav() {
             row.addEventListener('pointerup', endPress);
             // 原生长按/右键：直接开菜单（移动端最可靠的触发通道）。preventDefault 掐掉系统选择/复制菜单
             row.addEventListener('contextmenu', (e) => {
+                // 编辑区 / 输入框内：放行系统菜单（不拦、不弹自定义菜单）
+                if (e.target.closest('input, textarea, [contenteditable], .mn-sp-editor')) return;
                 e.preventDefault();
                 if (ctxMenuOpen) return;
                 longFired = true;

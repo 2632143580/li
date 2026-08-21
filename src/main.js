@@ -33,6 +33,7 @@ import { bus, EVENTS } from './core/bus.js';
 import { initBgTriggers } from './ui/bg-trigger.js';
 // 禁止词引擎 UI：副作用导入即完成引擎加载 + 事件订阅 + DOM 创建（AI 回复命中词库时弹提示条）
 import './ui/moderator-ui.js';
+import { moderator } from './engines/moderator-engine.js'; // 禁止词引擎单例（加载后由 main hydrate）
 import { initCompanionSay } from './companion-say.js'; // 外部"主动说话"入口（App 注入用）
 
 // 性能诊断模式：URL 带 ?perf=1 时加载诊断 overlay（手机访问 http://<本机IP>:5173/?perf=1）
@@ -143,6 +144,7 @@ export function init() {
         updateInputLayout();
         renderChat();
     }
+    moderator.load(); // 从存档 settings.moderator 恢复词库与模板（构造时 settings 尚未加载）
 
     // 绑定所有事件
     bindEvents();

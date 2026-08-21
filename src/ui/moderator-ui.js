@@ -107,7 +107,7 @@ btn.onclick = () => {
 document.getElementById('mod-save-btn').onclick = () => {
     const wordsText = document.getElementById('mod-words-input').value;
     moderator.syncWordsByText(wordsText);
-    moderator.prefixTemplate = document.getElementById('mod-prefix-input').value || '（警告：触发禁止词）';
+    moderator.prefixTemplate = document.getElementById('mod-prefix-input').value || '（警告：已触发禁止词「{words}」，请更换表达方式）';
     moderator.save();
     document.getElementById('mod-count').textContent = moderator.words.length;
     pop.classList.remove('show');

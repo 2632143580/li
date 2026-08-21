@@ -167,7 +167,7 @@ export function bindVoiceSettings() {
         state.settings.ttsProb = p / 100;
         DOM.setVoiceProbVal.textContent = p + '%';
         saveToLocal(null, true);
-        // 已渲染消息的掷骰结果已冻结在 node._voiceChosen，改概率只影响之后的新消息
+        // 注：voice 模式已恒渲染语音条（getRenderKind 不再按概率掷骰），node._voiceChosen 为历史残留字段，不影响显示
     });
 
     // 文字消息显示模式（只显示文字 / 都显示 / 只显示语音）：覆盖 getRenderKind 的语音/文字决策

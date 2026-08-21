@@ -68,11 +68,10 @@ export function getBubbleClass(role, isError = false) {
  * 该 AI 消息的渲染形态（受「文字消息显示模式」总控 +「发语音概率」按消息一次性掷骰）。
  * 显示模式（ttsDisplayMode）优先级最高：
  *   - 'text'  只显示文字：恒为纯文本，忽略语音回复开关与概率。
- *   - 'voice' 只显示语音：恒为语音条（原默认观感）；按「发语音概率」决定每条消息是否变语音条，其余纯文字。
+ *   - 'voice' 只显示语音：恒为语音条（含括号动作作轻提示，不朗读）；不再按概率降级为文字，
+ *            保证「只显示语音」名副其实（修复反馈：含（）消息被概率降级成文字气泡）。
  *   - 'both'  都显示（默认）：每条消息「语音条 + 文字」同时呈现（忽略发语音概率，永远都给）。
  * 硬条件：ttsEnabled 总开关关 → 退化纯文字；仅 assistant + 非错误。
- * 概率（仅 voice 模式生效）：每条消息首次渲染时掷一次 Math.random() < ttsProb，结果存 node._voiceChosen，
- * 保证流式多帧重渲染不反复翻转（同一消息稳定不变）。
  * @param {object} node @returns {'text'|'voice'|'both'}
  */
 function getRenderKind(node) {
@@ -80,11 +79,7 @@ function getRenderKind(node) {
     if (!state.settings.ttsEnabled) return 'text';          // 语音回复总开关关 → 纯文字
     const mode = state.settings.ttsDisplayMode || 'both';
     if (mode === 'text') return 'text';                     // 只显示文字
-    if (mode === 'voice') {                                  // 只显示语音：按概率决定本条是否变语音条
-        const p = (typeof state.settings.ttsProb === 'number') ? state.settings.ttsProb : 1;
-        if (node._voiceChosen === undefined) node._voiceChosen = Math.random() < p;
-        return node._voiceChosen ? 'voice' : 'text';
-    }
+    if (mode === 'voice') return 'voice';                   // 只显示语音：恒语音条（括号动作轻提示）
     return 'both';                                           // 都显示：语音条 + 文字（每条都给）
 }
 

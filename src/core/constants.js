@@ -64,6 +64,11 @@ export const DEFAULT_SETTINGS = {
         voice: 'mimo_default'
     },
     keys: { zhipu: '', deepseek: '' },
+    // 禁止词引擎：词库 + 前缀模板（随 settings 一并序列化，跨设备 / 导出备份保留）
+    moderator: {
+        words: [],
+        prefixTemplate: '（警告：已触发禁止词「{words}」，请更换表达方式）'
+    },
     bgDimOpacity: 0.4,
     bgTransform: { scale: 1, xPct: 0, yPct: 0 },
     quickTheme: null
