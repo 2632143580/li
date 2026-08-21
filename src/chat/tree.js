@@ -114,7 +114,7 @@ export function ensureCurrentEndNode() {
 }
 
 // splitSentences 已抽离到 src/core/text-split.js（纯函数，便于单元测试）。
-// 旧实现把 ~ ～ … 也当句尾断句，导致 waifu 模式单行文本被拆成多行气泡（已修复）。
+// 旧实现把 ~ ～ … 也当句尾断句，导致分句渲染下单行文本被拆成多行气泡（已修复的历史 bug）。
 // 此处仅重新导出，保持 tree.js 对外 API 不变。
 export { splitSentences };
 
@@ -205,9 +205,6 @@ export function applySettings() {
     // 构建来源后缀：本地构建=本地，GitHub Actions 构建=github（由 vite.config.js 经 import.meta.env.VITE_BUILD_ENV 注入）
     document.title = state.settings.aiName + ' · ' + (import.meta.env.VITE_BUILD_ENV || '本地');
     // --msg-font-size 已由 tokens.css 提供默认 16px（chat.css 消费），字号设置移除后不再用 JS 覆写（2026-08-16）
-    state.waifuMode = state.settings.waifuMode || false;
-    DOM.chat.classList.toggle('waifu-mode', state.waifuMode);
-    DOM.btnWaifuToggle.classList.toggle('active', state.waifuMode);
     inputRenderer.markDirty();
 }
 

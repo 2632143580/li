@@ -52,8 +52,6 @@
     --color-accent-glow: rgba(150, 220, 130, 0.5);
     --color-accent-dim: rgba(150, 220, 130, 0.3);
     --color-user-bright: rgba(240, 208, 160, 0.9);
-    /* waifu 模式开关激活态专用色（原硬编码 rgba(240,180,200)，提为 token 纳入换肤可控范围） */
-    --color-waifu-active: rgba(240, 180, 200, 1);
 
     /* 输入框 Canvas 绘制专用变量 — 供 ThemeEngine 覆盖 */
     --input-ring-normal: rgba(200,220,180,.15);

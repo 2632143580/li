@@ -59,8 +59,6 @@ export const state = {
      * @type {Map<string, object>}
      */
     pending: new Map(),
-    /** 妻子模式（气泡分句显示）的运行时开关，由 settings.waifuMode 同步而来 @type {boolean} */
-    waifuMode: false,
     /** 持久化设置，结构见 DEFAULT_SETTINGS @type {typeof DEFAULT_SETTINGS} */
     settings: {
         ...DEFAULT_SETTINGS,

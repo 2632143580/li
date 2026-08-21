@@ -15,7 +15,7 @@
  */
 import { DOM } from '../core/dom.js';
 import { state } from '../core/store.js';
-import { splitSentences } from '../core/text-split.js';
+import { splitSentences, stripActions } from '../core/text-split.js';
 import { cleanForSpeech, speakSentence, enqueueAutoSentence, clearAutoQueue } from '../engines/tts-engine.js';
 
 /** 当前播放中的语音条 DOM（互斥：新条播放前先停旧条） @type {HTMLElement|null} */
@@ -42,8 +42,9 @@ export function resetTileTracking() {
  */
 export function renderVoiceTiles(contentEl, node, isStreaming) {
     if (!node.content) { contentEl.textContent = ''; return; }
-    // 断句用原始内容（保留段落换行语义），展示 / 朗读用清洗后文本
-    const tiles = splitSentences(node.content)
+    // 断句用原始内容（保留段落换行语义），展示 / 朗读用清洗后文本；
+    // action 段（括号动作）先整段剔除——语音不读动作、不生成语音条（2026-08-21）
+    const tiles = splitSentences(stripActions(node.content))
         .map(s => cleanForSpeech(s))
         .filter(s => s.trim());
     if (!tiles.length) { contentEl.textContent = ''; return; }
@@ -108,7 +109,8 @@ function rebuild(contentEl, tiles) {
  */
 export function renderBoth(contentEl, node, isStreaming) {
     if (!node.content) { contentEl.textContent = ''; return; }
-    const rows = splitSentences(node.content)
+    // action 段先剔除（语音不读动作）；文字行同样不含动作描写，与纯文字模式的轻提示分离渲染保持口径一致
+    const rows = splitSentences(stripActions(node.content))
         .map(s => ({ raw: s, clean: cleanForSpeech(s) }))
         .filter(r => r.clean.trim());
     if (!rows.length) { contentEl.textContent = ''; return; }

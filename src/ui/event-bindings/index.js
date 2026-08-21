@@ -2,7 +2,7 @@
  * 事件绑定聚合层（Stage 3 解耦产出 · 瘦聚合层）。
  *
  * 本目录下的事件绑定已按职责拆分为同级的子模块：
- *   data-exchange / monitor / waifu / settings / quick-theme /
+ *   data-exchange / monitor / settings / quick-theme /
  *   plugin-panel / global。
  * 本文件只做两件事：
  *   1) 作为 tempSettings 活绑定的间接转发出口 —— chat/tree.js 经此读取实时值（红线，勿在此重建副本）；
@@ -29,7 +29,6 @@ import '../context-menu.js';
 import '../input-manager.js';
 import './data-exchange.js';
 import './monitor.js';
-import './waifu.js';
 import './tts.js';
 import './settings.js';
 import './plugin-panel.js';

@@ -26,8 +26,7 @@
 .msg.user .msg-footer,
 /* 三层结构下 footer 移出 .msg.user 气泡(bubble 是 wrapper.firstChild、footer 是 wrapper 的兄弟节点)，
    用相邻兄弟选择器命中"紧跟在 user 气泡后面"的 footer，让用户消息的分支导航右对齐贴边。
-   依赖 wrapper 的子节点顺序：[bubble, footer]——见 tree-render.js buildMsgDom。
-   命中间接覆盖普通模式和 waifu 模式的 user 角色（P3 后统一用 .msg.user）。 */
+   依赖 wrapper 的子节点顺序：[bubble, footer]——见 tree-render.js buildMsgDom。 */
 .chat-bubble--user + .msg-footer {
     justify-content: flex-end;
 }

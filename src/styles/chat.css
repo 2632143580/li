@@ -63,10 +63,8 @@
 
 /* 语音条消息（含 .vt 子元素）只由子 .vt 各自入场动画表达，关闭外层 .msg 的 fadeIn，
    避免「外层淡入上滑 + 内层语音条再入场」的双重入场（简约化，用户拍板优化）。
-   与 waifu 模式 .msg.ai{animation:none} 同一思路：容器不重复入场。 */
-.msg:has(.vt) {
-    animation: none;
-}
+   该规则现由 waifu.css .msg.ai:not(.chat-bubble){animation:none} 统一承担
+   （AI 语音条容器外层恒为 msg ai 无 chat-bubble，2026-08-21 waifu 开关移除后不再需要 :has 特判）。 */
 
 /* 颜色加 !important 抗主题覆盖：主题的 body { color } 或 通配 color 会压过 .ai/.user，
    导致 ai/user 字体变黑/看不清（用户报告 bug）。气泡底色由主题 .chat-bubble--ai/--user 管，
@@ -82,15 +80,16 @@
     text-align: left;
     color: var(--color-ai) !important;
 }
-/* waifu 分句气泡内文字继承父 .msg.ai 颜色；同时子元素自身也加一层保险，
+/* 分句气泡内文字继承父 .msg.ai 颜色；同时子元素自身也加一层保险，
    避免主题把 .waifu-bubble 的 color 覆盖成黑色。 */
 .msg.ai .waifu-bubble {
     color: var(--color-ai) !important;
 }
 
-/* 语义化气泡类：统一普通模式与 waifu 模式的视觉契约。
+/* 语义化气泡类：用户消息与 AI 错误消息的视觉契约（AI 非错误消息外层不带 chat-bubble，
+   由 waifu.css 的 .waifu-bubble 分句泡 / .vt 语音条各自承担气泡视觉）。
    结构外观(padding/border-radius)在此统一定义；配色由主题通过 .chat-bubble--ai/--user 覆盖，
-   默认无底色(普通模式 AI 透明、绿底仅 waifu 分句泡自带)，避免硬编码背景破坏普通模式默认外观。
+   默认无底色，避免硬编码背景破坏主题外观。
    不对称圆角(微信/iMessage 风)：朝向发送方的角收小、其余角放大——
    user 居右→收 top-right；ai 居左→收 top-left。waifu 分句泡沿用 .chat-bubble--ai 同款不对称。 */
 .chat-bubble {
@@ -110,7 +109,7 @@
    .error-msg 挂在 bubble 外层（带 .chat-bubble--ai），共享气泡结构，只覆盖颜色/边框。
    入场动画已清零：错误靠配色 + 虚线边框表达，不再叠加抖动/淡入（简约化，用户拍板"清0"）。
    注：@keyframes shake 仍保留，供 modal.css .js-shake 与 quick-theme.js 无效输入提示复用。
-   max-width:85% 覆盖 waifu 模式下 #chat.waifu-mode .msg.ai 的 100%，让错误气泡收缩显示。 */
+   max-width:85% 覆盖 waifu.css .msg.ai:not(.chat-bubble) 的 100%，让错误气泡收缩显示。 */
 .error-msg {
     max-width: 85%;
     color: var(--color-error);
