@@ -12,9 +12,9 @@ import { Logger } from './logger.js';
 import { showToast } from './toast.js'; // 保存/加载失败改为可见提示（不再仅 console.warn 静默）
 import { state } from './store.js';
 import { DEFAULT_SETTINGS, STORAGE_KEY, SESSION_KEY_PREFIX } from './constants.js';
-import { ensureKeysObject } from './utils.js';
+import { ensureKeysObject, KEY_PROVIDERS } from './utils.js';
 import { DOM } from './dom.js';
-import { migrateErrorFlags, getLastNodeInPath } from './tree-core.js';
+import { migrateErrorFlags, getLastNodeInPath, serializeTree } from './tree-core.js';
 import { genSessionId, getEffectiveSysPrompt, freshStats, buildIndexEntry, lastMessageTime, migrateV3ToV4 } from './sessions.js';
 
 /** 防抖保存定时器句柄 @type {number|null} */
@@ -24,6 +24,7 @@ let indicatorTimer = null;
 
 /**
  * 白名单清洗 settings（只保留 DEFAULT_SETTINGS 出现的键，防止运行时派生数据 / 历史残留键污染存档）。
+ * keys 内部再按 KEY_PROVIDERS 白名单浅拷（历史存档 / 运行时写入的 custom 槽位一并剔除）。
  * @returns {object} 清洗后的 settings 副本
  */
 function cleanSettingsForSave() {
@@ -31,6 +32,11 @@ function cleanSettingsForSave() {
     const clean = {};
     for (const key in state.settings) {
         if (allowedKeys.has(key)) clean[key] = state.settings[key];
+    }
+    if (clean.keys) {
+        const keyObj = {};
+        for (const p of KEY_PROVIDERS) keyObj[p] = clean.keys[p] || '';
+        clean.keys = keyObj;
     }
     return clean;
 }
@@ -137,7 +143,9 @@ export function persistSession(id = state.activeSessionId, snapshot) {
     const updatedAt = lastMessageTime(tree) || (prev ? prev.updatedAt : Date.now());
     const raw = {
         id,
-        chatTree: tree,
+        // 白名单序列化（P4-10）：剔除节点上的运行时标记（_autoReadArmed/_autoEnq 等），
+        // 与 load 时 clearRuntimeFlags、导出口径三方一致；time 是合法持久字段照常保留
+        chatTree: serializeTree(tree),
         stats: stats || freshStats(),
         sysPrompt: sysPrompt ?? null,
         llmConfig: llmConfig,
@@ -298,9 +306,6 @@ function applyLoadedSettings(settings) {
         }
         Object.assign(state.settings, filtered);
         ensureKeysObject(state.settings);
-        if (!Array.isArray(state.settings.availableModels)) {
-            state.settings.availableModels = [];
-        }
     }
 }
 

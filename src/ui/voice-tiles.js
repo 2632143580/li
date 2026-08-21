@@ -15,7 +15,7 @@
  */
 import { DOM } from '../core/dom.js';
 import { state } from '../core/store.js';
-import { splitSentences, stripActions } from '../core/text-split.js';
+import { splitSentences, splitWaifuSegments } from '../core/text-split.js';
 import { cleanForSpeech, speakSentence, enqueueAutoSentence, clearAutoQueue } from '../engines/tts-engine.js';
 
 /** 当前播放中的语音条 DOM（互斥：新条播放前先停旧条） @type {HTMLElement|null} */
@@ -34,7 +34,44 @@ export function resetTileTracking() {
 }
 
 /**
- * 渲染 / 增量更新语音条到 contentEl。
+ * 扁平化渲染项（语音模式与「都显示」共用）：
+ *   text 段 → { type:'tile', text:清洗后, raw:原文, idx:tile 全局序号 }
+ *   action 段（括号动作）→ { type:'action', text:括号内文字 }
+ * action 与纯文字模式（renderWaifuContent）同款渲染为 .waifu-action 轻提示——
+ * 含语音的消息同样展示（）内容（用户 2026-08-21 反馈），但不朗读、不生成语音条。
+ * idx 用 tile 专属计数器（跳过 action）：跨流式帧前缀稳定，供播放回调 / 自动朗读精确匹配。
+ * @param {string} content @returns {Array<{type:string,text:string,raw?:string,idx?:number}>}
+ */
+function buildVoiceItems(content) {
+    const items = [];
+    let tileIdx = 0;
+    for (const seg of splitWaifuSegments(content)) {
+        if (seg.type === 'action') {
+            if (seg.text && seg.text.trim()) items.push({ type: 'action', text: seg.text });
+        } else {
+            for (const s of splitSentences(seg.text)) {
+                const clean = cleanForSpeech(s);
+                if (clean.trim()) items.push({ type: 'tile', text: clean, raw: s, idx: tileIdx++ });
+            }
+        }
+    }
+    return items;
+}
+
+/** 追加一个渲染项（tile → 语音条；action → 轻提示） @param {HTMLElement} contentEl @param {object} item @param {number} pos 位置序（错峰动画用） */
+function addVoiceItem(contentEl, item, pos) {
+    if (item.type === 'action') {
+        const a = document.createElement('div');
+        a.className = 'waifu-action';
+        a.textContent = item.text; // textContent 防 XSS
+        contentEl.appendChild(a);
+        return;
+    }
+    addTile(contentEl, item.text, item.idx, pos);
+}
+
+/**
+ * 渲染 / 增量更新语音条到 contentEl（「只显示语音」模式）。
  * @param {HTMLElement} contentEl 装载层（.bubble-content）
  * @param {object} node 消息节点
  * @param {boolean} isStreaming 是否流式生成中（流式时增量追加，结束后全量重建）
@@ -42,58 +79,57 @@ export function resetTileTracking() {
  */
 export function renderVoiceTiles(contentEl, node, isStreaming) {
     if (!node.content) { contentEl.textContent = ''; return; }
-    // 断句用原始内容（保留段落换行语义），展示 / 朗读用清洗后文本；
-    // action 段（括号动作）先整段剔除——语音不读动作、不生成语音条（2026-08-21）
-    const tiles = splitSentences(stripActions(node.content))
-        .map(s => cleanForSpeech(s))
-        .filter(s => s.trim());
-    if (!tiles.length) { contentEl.textContent = ''; return; }
+    const items = buildVoiceItems(node.content);
+    if (!items.length) { contentEl.textContent = ''; return; }
 
-    const existing = Array.from(contentEl.querySelectorAll('.vt'));
+    const existing = Array.from(contentEl.querySelectorAll(':scope > .vt, :scope > .waifu-action'));
+    const typeOf = (el) => el.classList.contains('waifu-action') ? 'action' : 'tile';
 
     if (isStreaming) {
-        if (existing.length < tiles.length) {
-            // 修（自动朗读中段重播）：流式期某句上一帧是末句只显示半句，本帧长出新句后它不再是末句，
-            // 但原逻辑只 addTile 新句、从不回写旧句 dataset.text → 旧句停在半句陈旧态。
-            // 流式期 maybeAutoRead 用陈旧 dataset.text 入队一次、流结束 rebuild 用整句再入队一次，
-            // 去重键 idx:text 不同拦不住[exi 同一句被朗读两次（半句+整句）。先把它对齐成当前正确整句。
-            for (let i = 0; i < existing.length; i++) {
-                if (existing[i].dataset.text !== tiles[i]) {
-                    existing[i].dataset.text = tiles[i];
-                    syncRevealedText(existing[i]);
+        if (existing.length > items.length) { rebuild(contentEl, items); }
+        else {
+            // 类型翻转（括号「未闭合→闭合」导致旧 text 段回缩为 action；理论前缀结构保证不发生，防御兜底）→ 全量重建
+            const typeOk = existing.every((el, i) => items[i] && typeOf(el) === items[i].type);
+            if (!typeOk) { rebuild(contentEl, items); }
+            else {
+                // 逐项回写（流式末句持续增长 / action 文本变化），再 append 新增项——append-only 会残留半句
+                for (let i = 0; i < existing.length; i++) {
+                    if (typeOf(existing[i]) === 'action') {
+                        if (existing[i].textContent !== items[i].text) existing[i].textContent = items[i].text;
+                    } else if (existing[i].dataset.text !== items[i].text) {
+                        existing[i].dataset.text = items[i].text;
+                        syncRevealedText(existing[i]);
+                    }
                 }
+                for (let i = existing.length; i < items.length; i++) addVoiceItem(contentEl, items[i], i);
             }
-            for (let i = existing.length; i < tiles.length; i++) addTile(contentEl, tiles[i], i);
-        } else if (existing.length > tiles.length) {
-            rebuild(contentEl, tiles);
-        } else if (existing.length) {
-            // 数量一致：仅更新最后一句（流式时末句持续增长）
-            existing[existing.length - 1].dataset.text = tiles[tiles.length - 1];
-            syncRevealedText(existing[existing.length - 1]);
         }
         maybeAutoRead(node, isStreaming, contentEl); // 语音条已入 DOM 后再入队（修①⑩：避免绑旧节点 / 新句延迟）
         return;
     }
 
-    // 非流式：仅当结构（数量 / 文本）变化才重建，保留用户已展开的「转文字」与播放态
-    let mismatch = existing.length !== tiles.length;
+    // 非流式：仅当结构（数量 / 类型 / 文本）变化才重建，保留用户已展开的「转文字」与播放态
+    let mismatch = existing.length !== items.length;
     if (!mismatch) {
         for (let i = 0; i < existing.length; i++) {
-            if (existing[i].dataset.text !== tiles[i]) { mismatch = true; break; }
+            const el = existing[i];
+            if (typeOf(el) !== items[i].type) { mismatch = true; break; }
+            const txt = items[i].type === 'action' ? el.textContent : el.dataset.text;
+            if (txt !== items[i].text) { mismatch = true; break; }
         }
     }
-    if (mismatch) rebuild(contentEl, tiles);
+    if (mismatch) rebuild(contentEl, items);
     maybeAutoRead(node, isStreaming, contentEl); // 同上：重建后 DOM 已稳定再入队
 }
 
 /** 全量重建（结构变化 / 首次）：重建前记录正在播放的句，重建后把 is-playing 转移到新节点，
  *  不调用 stopCurrent（修①：避免流结束重建截断自动朗读音频 / 抹掉动画）。
- *  自动朗读跨重建应续播，手动停止由 clearAutoQueue 负责。 @param {HTMLElement} contentEl @param {Array<string>} tiles */
-function rebuild(contentEl, tiles) {
+ *  自动朗读跨重建应续播，手动停止由 clearAutoQueue 负责。 @param {HTMLElement} contentEl @param {Array<object>} items */
+function rebuild(contentEl, items) {
     const playingIdx = (playingTile && contentEl.contains(playingTile)) ? playingTile.dataset.idx : null;
     if (playingTile && contentEl.contains(playingTile)) playingTile = null; // 仅清追踪，不停音频
     contentEl.innerHTML = '';
-    tiles.forEach((t, i) => addTile(contentEl, t, i));
+    items.forEach((it, i) => addVoiceItem(contentEl, it, i));
     if (playingIdx !== null) {
         // 按句序 idx 转移（非文本）：重复句也能精确续播到原句，不误定位到同文本第一句
         const live = Array.from(contentEl.querySelectorAll('.vt')).find(t => t.dataset.idx === playingIdx);
@@ -102,48 +138,62 @@ function rebuild(contentEl, tiles) {
 }
 
 /**
- * 渲染「都显示」：每条 AI 消息同时呈现语音条 + 文字（逐句「波形在上、文字在下」）。
- * 与 renderVoiceTiles 同构（增量/流式/全量重建），只是每个句子多挂一个 .vt-both-text 原文块。
+ * 渲染「都显示」：每条 AI 消息同时呈现语音条 + 文字（逐句「波形在上、文字在下」），
+ * action 段同样渲染为 .waifu-action 轻提示（与纯文字 / 只显示语音模式同口径）。
+ * 与 renderVoiceTiles 同构（增量/流式/全量重建）。
  * 复用 makeTileEl（allowReveal=false：文字已常显，无需右键转文字）。
  * @param {HTMLElement} contentEl @param {object} node @param {boolean} isStreaming
  */
 export function renderBoth(contentEl, node, isStreaming) {
     if (!node.content) { contentEl.textContent = ''; return; }
-    // action 段先剔除（语音不读动作）；文字行同样不含动作描写，与纯文字模式的轻提示分离渲染保持口径一致
-    const rows = splitSentences(stripActions(node.content))
-        .map(s => ({ raw: s, clean: cleanForSpeech(s) }))
-        .filter(r => r.clean.trim());
-    if (!rows.length) { contentEl.textContent = ''; return; }
+    const items = buildVoiceItems(node.content);
+    if (!items.length) { contentEl.textContent = ''; return; }
 
-    const existing = Array.from(contentEl.querySelectorAll('.vt-both-row'));
+    const existing = Array.from(contentEl.querySelectorAll(':scope > .vt-both-row, :scope > .waifu-action'));
+    const typeOf = (el) => el.classList.contains('waifu-action') ? 'action' : 'row';
 
     if (isStreaming) {
-        if (existing.length < rows.length) {
-            for (let i = existing.length; i < rows.length; i++) addBothRow(contentEl, rows[i], i);
-        } else if (existing.length > rows.length) {
-            rebuildBoth(contentEl, rows);
-        } else {
-            const last = existing[existing.length - 1];
-            const tile = last.querySelector('.vt');
-            if (tile) {
-                tile.dataset.text = rows[rows.length - 1].clean;
-                syncRevealedText(tile); // 流式末句持续增长：同步 .vt-text，防「右键转文字」残留半句首字（与 renderVoiceTiles 同口径）
+        if (existing.length > items.length) { rebuildBoth(contentEl, items); }
+        else {
+            const typeOk = existing.every((el, i) => items[i] && typeOf(el) === items[i].type);
+            if (!typeOk) { rebuildBoth(contentEl, items); }
+            else {
+                for (let i = 0; i < existing.length; i++) {
+                    const el = existing[i];
+                    if (typeOf(el) === 'action') {
+                        if (el.textContent !== items[i].text) el.textContent = items[i].text;
+                        continue;
+                    }
+                    // 末行（row）流式持续增长：回写语音条清洗文本与原文
+                    const tile = el.querySelector('.vt');
+                    if (tile && tile.dataset.text !== items[i].text) {
+                        tile.dataset.text = items[i].text;
+                        syncRevealedText(tile); // 防「右键转文字」残留半句首字（与 renderVoiceTiles 同口径）
+                    }
+                    const txt = el.querySelector('.vt-both-text');
+                    if (txt) txt.textContent = items[i].raw;
+                }
+                for (let i = existing.length; i < items.length; i++) addBothItem(contentEl, items[i], i);
             }
-            const txt = last.querySelector('.vt-both-text');
-            if (txt) txt.textContent = rows[rows.length - 1].raw;
         }
         maybeAutoRead(node, isStreaming, contentEl); // 语音条已入 DOM 后再入队（修①⑩）
         return;
     }
 
-    let mismatch = existing.length !== rows.length;
+    let mismatch = existing.length !== items.length;
     if (!mismatch) {
         for (let i = 0; i < existing.length; i++) {
-            const tile = existing[i].querySelector('.vt');
-            if (tile && tile.dataset.text !== rows[i].clean) { mismatch = true; break; }
+            const el = existing[i];
+            if (typeOf(el) !== items[i].type) { mismatch = true; break; }
+            if (typeOf(el) === 'action') {
+                if (el.textContent !== items[i].text) { mismatch = true; break; }
+            } else {
+                const tile = el.querySelector('.vt');
+                if (!tile || tile.dataset.text !== items[i].text) { mismatch = true; break; }
+            }
         }
     }
-    if (mismatch) rebuildBoth(contentEl, rows);
+    if (mismatch) rebuildBoth(contentEl, items);
     maybeAutoRead(node, isStreaming, contentEl); // 同上：重建后 DOM 已稳定再入队
 }
 
@@ -186,31 +236,34 @@ function maybeAutoRead(node, isStreaming, contentEl) {
     };
     if (isStreaming) {
         node._autoReadArmed = true;
-        for (let i = 0; i < tilesEls.length - 1; i++) enq(tilesEls[i].dataset.text, i); // 末句未完不读
+        for (let i = 0; i < tilesEls.length - 1; i++) enq(tilesEls[i].dataset.text, tilesEls[i].dataset.idx); // 末句未完不读
     } else if (node._autoReadArmed) {
-        for (let i = 0; i < tilesEls.length; i++) enq(tilesEls[i].dataset.text, i); // 流结束补齐末句
+        for (let i = 0; i < tilesEls.length; i++) enq(tilesEls[i].dataset.text, tilesEls[i].dataset.idx); // 流结束补齐末句
         node._autoReadArmed = false;            // 解除武装，防历史重渲染重复读
     }
 }
 
-/** 新增一行「语音条 + 文字」 @param {HTMLElement} contentEl @param {{raw:string,clean:string}} row @param {number} idx */
-function addBothRow(contentEl, row, idx = 0) {
+/** 追加一行「语音条 + 文字」（都显示模式的 tile 项） @param {HTMLElement} contentEl @param {object} item @param {number} pos 位置序（错峰动画用） */
+function addBothItem(contentEl, item, pos = 0) {
     const wrap = document.createElement('div');
     wrap.className = 'vt-both-row';
-    wrap.appendChild(makeTileEl(row.clean, idx, false));
+    wrap.appendChild(makeTileEl(item.text, item.idx, false, pos));
     const txt = document.createElement('div');
     txt.className = 'vt-both-text';
-    txt.textContent = row.raw; // 原文（保留标点/emoji）用于阅读；朗读用清洗后的 clean
+    txt.textContent = item.raw; // 原文（保留标点/emoji）用于阅读；朗读用清洗后的 text
     wrap.appendChild(txt);
     contentEl.appendChild(wrap);
 }
 
-/** 全量重建「都显示」（结构变化 / 首次）：同 rebuild，重建后转移 is-playing（修①） @param {HTMLElement} contentEl @param {Array<{raw:string,clean:string}>} rows */
-function rebuildBoth(contentEl, rows) {
+/** 全量重建「都显示」（结构变化 / 首次）：同 rebuild，重建后转移 is-playing（修①） @param {HTMLElement} contentEl @param {Array<object>} items */
+function rebuildBoth(contentEl, items) {
     const playingIdx = (playingTile && contentEl.contains(playingTile)) ? playingTile.dataset.idx : null;
     if (playingTile && contentEl.contains(playingTile)) playingTile = null; // 仅清追踪，不停音频
     contentEl.innerHTML = '';
-    rows.forEach((r, i) => addBothRow(contentEl, r, i));
+    items.forEach((it, i) => {
+        if (it.type === 'action') addVoiceItem(contentEl, it, i);
+        else addBothItem(contentEl, it, i);
+    });
     if (playingIdx !== null) {
         const live = Array.from(contentEl.querySelectorAll('.vt')).find(t => t.dataset.idx === playingIdx);
         if (live) { playingTile = live; live.classList.add('is-playing'); } // 续播句动画不丢
@@ -220,15 +273,17 @@ function rebuildBoth(contentEl, rows) {
 /**
  * 构建一条语音条 DOM（.vt，点击播放 / 再点停止 / 右键转文字）。
  * 抽成工厂供「只显示语音」与「都显示」两套渲染复用。
- * @param {string} text 清洗后文本 @param {number} [idx=0] 句序（错峰动画延迟） @param {boolean} [allowReveal=true] 是否允许右键「转文字」（都显示模式下文字已常显，故关闭）
+ * @param {string} text 清洗后文本 @param {number} [idx=0] 句序（tile 全局序号，跨流式帧稳定；播放回调按它精确定位）
+ * @param {boolean} [allowReveal=true] 是否允许右键「转文字」（都显示模式下文字已常显，故关闭）
+ * @param {number} [pos] 位置序（错峰动画延迟用，缺省回落 idx）
  * @returns {HTMLElement}
  */
-function makeTileEl(text, idx = 0, allowReveal = true) {
+function makeTileEl(text, idx = 0, allowReveal = true, pos) {
     const tile = document.createElement('div');
     tile.className = 'vt';
     tile.dataset.text = text;
     tile.dataset.idx = String(idx); // 句序唯一标识：供 buildTileCb/rebuild 精确匹配，同消息内重复句（如"好的。好的。"）也能区分
-    tile.style.animationDelay = (idx * 55) + 'ms'; // 流式逐条错峰淡入
+    tile.style.animationDelay = ((pos ?? idx) * 55) + 'ms'; // 流式逐条错峰淡入
     // 气泡宽度随句子长度（长句宽、短句窄，一眼可辨句子长短）——原 22 根波形条靠条数撑宽，
     // 现 3 点固定，改由句长直接驱动宽度；封顶 320px（CSS max-width:82% 兜底）
     tile.style.width = Math.min(320, 72 + Math.round(text.length * 4)) + 'px';
@@ -259,9 +314,9 @@ function makeTileEl(text, idx = 0, allowReveal = true) {
     return tile;
 }
 
-/** 新建一条语音条并挂事件（「只显示语音」用，允许右键转文字） @param {HTMLElement} contentEl @param {string} text 清洗后文本 @param {number} [idx=0] */
-function addTile(contentEl, text, idx = 0) {
-    contentEl.appendChild(makeTileEl(text, idx, true));
+/** 新建一条语音条并挂事件（「只显示语音」用，允许右键转文字） @param {HTMLElement} contentEl @param {string} text 清洗后文本 @param {number} [idx=0] 句序 @param {number} [pos] 位置序（错峰动画用） */
+function addTile(contentEl, text, idx = 0, pos) {
+    contentEl.appendChild(makeTileEl(text, idx, true, pos));
 }
 
 /**

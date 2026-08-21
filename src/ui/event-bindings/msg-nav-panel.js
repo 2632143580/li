@@ -393,25 +393,39 @@ function setupMsgNav() {
         //   旧版在 pointercancel 上 clearTimeout 把计时器杀掉 → 菜单永远开不了。现改为——
         //   ① 主触发用原生 contextmenu 事件（移动端长按 / 桌面右键都会派发，最可靠），preventDefault 掐掉系统菜单；
         //   ② pointer 计时器仅作兜底（contextmenu 未触发时 600ms 打开）；
-        //   ③ pointercancel 不再取消计时器（它是长按被浏览器接管的预期信号，不是用户松手）；仅真滚动(>10px)与松手(<600ms)取消。
-        //   ④ 两种通道都把 longFired 置位，随后派发的 click 被吞掉，避免「长按后误触发进入」。
+        //   ③ pointercancel 按位移分流：已滑 >10px = 滚动场景 → 取消计时器；未动 = 长按被浏览器接管 → 保留；
+        //   ④ 慢滑误触修复（用户 2026-08-21 反馈）：长按的语义是「按住不动」——任何 pointermove 都重置 600ms 计时，
+        //      慢速滑动时计时器被持续重置，滑多久都不会弹菜单；停止移动 600ms 才触发。位移 >10px 则直接取消（真滚动）。
+        //   ⑤ 两种触发通道都把 longFired 置位，随后派发的 click 被吞掉，避免「长按后误触发进入」。
         sessionsList.querySelectorAll('.mn-session').forEach((row) => {
             const id = row.dataset.id;
             const titleEl = row.querySelector('.mn-session-title');
-            let pressTimer = 0, longFired = false, startX = 0, startY = 0;
+            let pressTimer = 0, longFired = false, startX = 0, startY = 0, lastX = 0, lastY = 0;
             row.addEventListener('pointerdown', (e) => {
                 if (e.button && e.button !== 0) return; // 右键交给原生 contextmenu
                 if (ctxMenuOpen) return;
-                startX = e.clientX; startY = e.clientY;
+                startX = lastX = e.clientX; startY = lastY = e.clientY;
                 longFired = false; // 每次按下重置：即便上次长按后 click 未派发也不会卡在 true
                 clearTimeout(pressTimer);
                 pressTimer = setTimeout(() => { longFired = true; openCtxMenu(id, row); }, LONG_PRESS_MS);
             });
             const onMove = (e) => {
-                if (pressTimer && (Math.abs(e.clientX - startX) > 10 || Math.abs(e.clientY - startY) > 10)) {
+                lastX = e.clientX; lastY = e.clientY; // 记录最新触点，pointercancel 分流用
+                if (!pressTimer) return;
+                if (Math.abs(e.clientX - startX) > 10 || Math.abs(e.clientY - startY) > 10) {
                     clearTimeout(pressTimer); pressTimer = 0; // 真滚动/拖拽 → 不是长按，取消
+                } else {
+                    // 微小移动：重置计时（长按=按住不动；慢滑时持续重置，杜绝 600ms 慢滑误触菜单）
+                    clearTimeout(pressTimer);
+                    pressTimer = setTimeout(() => { longFired = true; openCtxMenu(id, row); }, LONG_PRESS_MS);
                 }
             };
+            // 浏览器接管手势（滚动或长按都会派发 pointercancel）：按累计位移分流——滑动中=取消，静止长按=保留
+            row.addEventListener('pointercancel', () => {
+                if (pressTimer && (Math.abs(lastX - startX) > 10 || Math.abs(lastY - startY) > 10)) {
+                    clearTimeout(pressTimer); pressTimer = 0;
+                }
+            });
             const endPress = () => { clearTimeout(pressTimer); pressTimer = 0; }; // 松手早于 600ms = 轻点，不触发菜单
             row.addEventListener('pointermove', onMove);
             row.addEventListener('pointerup', endPress);

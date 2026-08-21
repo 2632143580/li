@@ -199,18 +199,6 @@
 
 .voice-body { padding: 8px 18px 6px; }
 
-/* 语音提示文案：左侧强调竖线 + 极浅底色的「信息卡」，提升可读性与设计感（原纯淡字段落太轻、几乎读不清） */
-.vt-hint {
-    font-size: 11.5px;
-    color: var(--white-a60);
-    line-height: 1.6;
-    margin: 0 0 14px;
-    padding: 9px 11px;
-    border-left: 2.5px solid var(--color-accent);
-    background: color-mix(in srgb, var(--color-accent) 7%, transparent);
-    border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
-}
-
 /* 设置行：标签左、控件右，行间分隔线 */
 .voice-row {
     display: flex;
@@ -271,8 +259,6 @@
     padding: 8px 10px;
     margin: 6px 0 2px;
 }
-.rate--disabled { opacity: 0.55; }
-.rate--disabled .val { color: var(--white-a50); min-width: auto; }
 .voice-row .lab {
     font-size: 13px;
     color: var(--white-a80);
@@ -402,9 +388,7 @@
     color: var(--color-accent-solid);
 }
 
-/* 发语音概率：快捷预设按钮（从不 0% / 总是 100%） */
-.voice-presets { display: flex; gap: 8px; justify-content: flex-end; }
-/* 预设 / 清空 / 测试等小操作按钮统一为圆角 chip，轻量精致 */
+/* 清空 / 测试等小操作按钮统一为圆角 chip，轻量精致（原「从不/总是」概率预设行已移除） */
 .voice-preset {
     font: inherit;
     font-size: 12px;

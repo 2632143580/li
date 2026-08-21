@@ -81,16 +81,6 @@
 }
 .mini-btn:hover { border-color: var(--white-a20); color: var(--white-a40); }
 .llm-actions { display: flex; align-items: center; gap: 8px; }
-.mini-btn.llm-reset {
-    display: inline-flex; align-items: center; justify-content: center;
-    margin-left: 0; padding: 5px 12px;
-    font-size: 11px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase;
-    color: var(--white-a70); border-color: var(--white-a10);
-}
-.mini-btn.llm-reset:hover { border-color: var(--white-a30); color: var(--white-a90); }
-.mini-btn.llm-reset.armed {
-    border-color: var(--color-error); color: var(--color-error);
-}
 
 .prompt-textarea {
     width: 100%;

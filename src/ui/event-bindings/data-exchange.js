@@ -8,9 +8,10 @@ import { armClickConfirm } from './click-confirm.js';
 import { state } from '../../core/store.js';
 import { DEFAULT_SETTINGS } from '../../core/constants.js';
 import { closeAllModals } from '../../core/modal.js';
-import { ensureKeysObject } from '../../core/utils.js';
+import { ensureKeysObject, KEY_PROVIDERS } from '../../core/utils.js';
 import { saveToLocal, saveSession } from '../../core/storage.js';
 import { renumberTreeIds } from '../../core/sessions.js';
+import { serializeTree } from '../../core/tree-core.js';
 import { updateInputLayout } from '../input-renderer.js';
 import {
     applySettings, migrateErrorFlags,
@@ -32,6 +33,12 @@ export function bindDataExchangeEvents() {
         for (const key in state.settings) {
             if (allowedKeys.has(key)) cleanSettings[key] = state.settings[key];
         }
+        // keys 槽位白名单浅拷（剔除运行时可能被写入的 custom 槽位，与 cleanSettingsForSave 同口径）
+        if (cleanSettings.keys) {
+            const keyObj = {};
+            for (const p of KEY_PROVIDERS) keyObj[p] = cleanSettings.keys[p] || '';
+            cleanSettings.keys = keyObj;
+        }
         // 脱敏：导出备份不得含明文密钥（修 P0-2：原实现把 apiKey / keys / 云端 TTS Key 连同聊天记录写入 .json，随文件泄露）。
         // 深拷贝纯 JSON 后清空敏感字段；导入方缺失密钥时回退到用户重新填写，避免密钥随备份文件落地。
         const masked = JSON.parse(JSON.stringify(cleanSettings));
@@ -40,7 +47,8 @@ export function bindDataExchangeEvents() {
         if (masked.ttsCloud) masked.ttsCloud.apiKey = '';
         const dataStr = JSON.stringify({
             settings: masked,
-            chatTree: state.chatTree
+            // 白名单序列化（P4-10）：与 persistSession 落盘同口径，剔除节点运行时标记
+            chatTree: serializeTree(state.chatTree)
         }, null, 2);
         const blob = new Blob([dataStr], { type: "application/json" });
         const url = URL.createObjectURL(blob);

@@ -55,7 +55,8 @@ export function bindSettingsEvents() {
     DOM.settingsIcon.addEventListener('click', () => {
         setTempSettings(JSON.parse(JSON.stringify(state.settings)));
         ensureKeysObject(tempSettings);
-        if (!tempSettings.availableModels) tempSettings.availableModels = [];
+        // 模型清单是内存缓存（state.availableModels，不序列化）：挂到暂存对象供 populateModelSelect 读改
+        tempSettings.availableModels = state.availableModels;
         bgDimPreviewBackup = state.settings.bgDimOpacity;
 
         const currentProvider = getProviderByUrl(tempSettings.apiUrl);
@@ -176,25 +177,6 @@ export function bindSettingsEvents() {
         DOM.providerHint.textContent = '';
         syncTagStates(); // 切标签后 URL/KEY 都变了，刷新虚线框/实心框
     });
-
-    // 重置 API（二次确认：首次点击进入「待确认」态，再次点击才执行；armClickConfirm 替代原生 confirm 弹窗）
-    function resetApi() {
-        tempSettings.apiUrl = DEFAULT_SETTINGS.apiUrl;
-        tempSettings.apiKey = DEFAULT_SETTINGS.apiKey;
-        tempSettings.model = DEFAULT_SETTINGS.model;
-
-        const provider = getProviderByUrl(tempSettings.apiUrl);
-        ensureKeysObject(tempSettings);
-        tempSettings.keys[provider] = tempSettings.apiKey;
-
-        DOM.setApiUrl.value = DEFAULT_SETTINGS.apiUrl;
-        DOM.setApiKey.value = DEFAULT_SETTINGS.apiKey;
-        tempSettings.availableModels = [DEFAULT_SETTINGS.model];
-        populateModelSelect(tempSettings.availableModels, DEFAULT_SETTINGS.model);
-        checkProviderMatch();
-        syncTagStates(); // 重置后按默认值刷新标签态
-    }
-    armClickConfirm(DOM.btnResetApi, resetApi, { armedText: '确认重置?' });
 
     // 模型列表刷新（图标按钮：用 .spinning 旋转代替文案，避免覆盖 SVG）
     DOM.btnFetchModels.addEventListener('click', async (e) => {

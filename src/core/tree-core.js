@@ -139,3 +139,33 @@ export function findMaxId(node) {
     }
     return max;
 }
+
+/**
+ * 序列化白名单：节点允许落盘（存档 / 导出 JSON）的字段，与 createNode 产物一一对应。
+ * 运行时标记（_autoReadArmed / _autoEnq 等下划线私有字段）不在此列——统一在此拦截，
+ * serialize / deserialize 口径一致（用户 2026-08-21 反馈 P4-10：此前 save/export 直写原始树，
+ * 运行时标记跟着落档，只有 load 时才清理，两边口径不一致）。
+ * @type {Set<string>}
+ */
+const NODE_SERIALIZE_KEYS = ['id', 'role', 'content', 'time', 'children', 'selectedChildIndex', 'isError'];
+
+/**
+ * 产出「干净可序列化」的树副本：逐节点按 NODE_SERIALIZE_KEYS 白名单重建。
+ * 供 storage.persistSession（落盘）与 data-exchange（导出 JSON）共用——
+ * 单一出口保证任何新挂到 node 上的运行时字段都进不了存档。
+ * 注意：返回新对象，不修改原树（内存节点的运行时标记在会话内继续有效）。
+ * @param {object} node - 子树根节点（通常是 state.chatTree 或导入的树）
+ * @returns {object|null} 白名单清洗后的新树；入参为空时返回 null
+ */
+export function serializeTree(node) {
+    if (!node || typeof node !== 'object') return null;
+    const out = {};
+    for (const k of NODE_SERIALIZE_KEYS) {
+        if (k === 'children') {
+            out.children = (node.children || []).map(serializeTree).filter(Boolean);
+        } else if (node[k] !== undefined) {
+            out[k] = node[k];
+        }
+    }
+    return out;
+}

@@ -68,11 +68,6 @@
             <path d="M4 6v6c0 1.66 3.58 3 8 3s8-1.34 8-3V6"></path>
             <path d="M4 12v6c0 1.66 3.58 3 8 3s8-1.34 8-3v-6"></path>
         </symbol>
-        <symbol id="i-stack" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M12 2 2 7l10 5 10-5-10-5z"></path>
-            <path d="M2 17l10 5 10-5"></path>
-            <path d="M2 12l10 5 10-5"></path>
-        </symbol>
         <symbol id="i-window" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
             <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path>
         </symbol>
@@ -181,8 +176,8 @@
             <svg id="btn-log-toggle" class="icon-btn log-toggle-btn" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-label="更新日志"><path d="M5 7h14M5 12h14M5 17h9"/></svg>
             <!-- 语音设置入口：点击打开「语音设置模态框」（句句发语音：开/关 + 发语音概率 + 音色 + 语速）；图标点亮=语音回复已开启 -->
             <svg id="btn-tts-toggle" class="icon-btn tts-toggle-btn tts-on"><use href="#i-vol-on"/></svg>
-            <!-- 消息导航入口：极简消息列表 + 高频词下划线（与词云融化）；位于词云左侧呼应联动 -->
-            <svg id="btn-msg-nav" class="icon-btn" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-label="消息导航"><circle cx="12" cy="12" r="9"/><path d="M15.5 8.5l-2 5-5 2 2-5z" fill="currentColor" stroke="none"/></svg>
+            <!-- 消息导航入口：双气泡 = 会话/消息集合，尾端小气泡呼应「切换分支」；与顶栏其他图标（列表/云/音量/圆环）零语义冲突 -->
+            <svg id="btn-msg-nav" class="icon-btn" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-label="消息导航"><path d="M14 9a2 2 0 0 1-2 2H6l-4 4V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2z"/><path d="M18 9h2a2 2 0 0 1 2 2v11l-4-4h-6a2 2 0 0 1-2-2v-1"/></svg>
             <!-- 词云分析入口：统计当前对话路径消息词频（原在左栏折叠工具排，2026-08-16 移至右上角顶栏常驻） -->
             <svg id="btn-wordcloud" class="icon-btn"><use href="#i-cloud"/></svg>
         <div id="settings-icon" class="icon-btn settings-ring">
@@ -256,8 +251,8 @@
     <!-- 当前背景常驻指示器（需求十九：固定位置显示背景名/来源） -->
     <div id="bg-current-indicator"></div>
 
-    <!-- 全屏编辑器入口按钮 -->
-    <svg id="fs-trigger-btn" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.8)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+    <!-- 全屏编辑器入口按钮（stroke 由 CSS 按 --white-aXX 主题阶控制，深浅主题自动翻转） -->
+    <svg id="fs-trigger-btn" viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
         <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"></path>
     </svg>
 
@@ -392,7 +387,6 @@
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>
                             </button>
                         </div>
-                        <button class="mini-btn llm-reset" id="btn-reset-api">RESET</button>
                     </div>
 
                     <!-- URL 气泡：input id=set-apiUrl（对齐 DOM.setApiUrl） -->
@@ -460,8 +454,6 @@
                 <span id="voice-modal-close" class="modal-x vh-x">&times;</span>
             </div>
             <div class="voice-body">
-                <p class="vt-hint">语音条点一下播放、再点一下停止；右键语音条可「转文字」看原文。<b>文字消息显示</b>三选一：只显示文字 / 都显示（语音条+文字逐句同现）/ 只显示语音。「只显示语音」按「发语音概率」决定每条消息是否变语音条；wife 模式下语音以气泡内嵌小喇叭呈现。</p>
-
                 <div class="voice-row">
                     <span class="lab">语音回复<small>AI 回复以语音条形式呈现</small></span>
                     <label class="toggle-switch">
@@ -477,28 +469,12 @@
                         <span class="toggle-slider"></span>
                     </label>
                 </div>
-                <p class="vt-hint vt-hint--auto">「自动朗读」开启后：只显示文字模式不自动读（无语音条可播）；其余模式 AI 边生成边逐句出声，无需手动点。首次打开页面、尚未任何操作时的第一条，浏览器会拦下自动出声（自动播放策略），发一次消息后即完全自动。</p>
 
                 <div class="voice-row">
                     <span class="lab">发语音概率<small>每条 AI 消息按概率决定语音 / 文字</small></span>
                     <div class="rate">
                         <input type="range" id="set-voiceProb" class="slider" min="0" max="100" step="5" value="100">
                         <span id="set-voiceProb-val" class="val">100%</span>
-                    </div>
-                </div>
-                <div class="voice-row voice-prob-row">
-                    <span class="lab"></span>
-                    <div class="voice-presets">
-                        <button type="button" id="set-voiceProb-0" class="voice-preset">从不 0%</button>
-                        <button type="button" id="set-voiceProb-100" class="voice-preset">总是 100%</button>
-                    </div>
-                </div>
-
-                <div class="voice-row">
-                    <span class="lab">语音源<small>系统离线免费 / 云端更自然需联网</small></span>
-                    <div class="voice-seg">
-                        <button type="button" id="set-voiceSourceSystem" class="voice-seg-btn">系统</button>
-                        <button type="button" id="set-voiceSourceCloud" class="voice-seg-btn">云端</button>
                     </div>
                 </div>
 
@@ -511,28 +487,7 @@
                     </div>
                 </div>
 
-                <div id="voice-system-panel" class="voice-subpanel">
-                    <div class="voice-row">
-                        <span class="lab">音色</span>
-                        <div class="vt-voice">
-                            <button type="button" id="voice-name-trigger" class="vt-voice-trigger">
-                                <span id="voice-name-text">自动（系统推荐中文女声）</span>
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
-                            </button>
-                            <div id="voice-name-options" class="vt-voice-options"></div>
-                        </div>
-                    </div>
-
-                    <div class="voice-row">
-                        <span class="lab">语速</span>
-                        <div class="rate">
-                            <input type="range" id="set-voiceRate" class="slider" min="0.5" max="2" step="0.1" value="1">
-                            <span id="set-voiceRate-val" class="val">1.0x</span>
-                        </div>
-                    </div>
-                </div>
-
-                <div id="voice-cloud-panel" class="voice-subpanel" style="display:none">
+                <div id="voice-cloud-panel" class="voice-subpanel">
                     <p class="vt-warn">云端走小米 MiMo-V2.5-TTS，浏览器直连、无需服务端；API Key 仅存本机（个人自用，勿公开部署分享存档）。当前限时免费。</p>
                     <div class="voice-row voice-row--cache">
                         <div class="vcache">
@@ -571,12 +526,6 @@
                     <div class="voice-row">
                         <span class="lab">模型<small>默认 mimo-v2.5-tts</small></span>
                         <input type="text" id="set-cloudModel" class="vt-input" placeholder="mimo-v2.5-tts" autocomplete="off">
-                    </div>
-                    <div class="voice-row">
-                        <span class="lab">语速</span>
-                        <div class="rate rate--disabled">
-                            <span class="val">云端暂不支持语速调节</span>
-                        </div>
                     </div>
                     <div class="voice-row">
                         <span class="lab">连接测试<small>一句话验证 Key/音色可用</small></span>

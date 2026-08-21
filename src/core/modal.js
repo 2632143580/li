@@ -23,7 +23,9 @@ const MODAL_IDS = [
 ];
 
 /**
- * 关闭所有主面板（可排除若干 id——如 crop-modal 从 bg-modal 打开时不能关掉 bg-modal）
+ * 关闭所有主面板（可排除若干 id——如 crop-modal 从 bg-modal 打开时不能关掉 bg-modal）。
+ * 同时关闭监控栏「上下文上限编辑气泡」#ctx-edit-pop——它用 hidden 属性显隐（非 display 体系），
+ * 不进 MODAL_IDS，在此单独处理，保证它与所有主面板互斥（用户 2026-08-21 反馈：两者曾能同时打开）。
  * @param {string|string[]} [exclude] 排除的 id 或 id 数组，不参与关闭
  * @returns {void}
  */
@@ -35,6 +37,8 @@ export function closeAllModals(exclude) {
         if (!el) return;
         el.style.display = 'none';
     });
+    const ctxPop = document.getElementById('ctx-edit-pop');
+    if (ctxPop && !ex.includes('ctx-edit-pop')) ctxPop.hidden = true;
     syncBodyScrollLock();
 }
 

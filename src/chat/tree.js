@@ -155,9 +155,19 @@ export function regenerate(node, parentNode) {
     state.waiting = true;
     inputRenderer.markDirty();
 
-    const aiNode = createNode("assistant", "");
-    parentNode.children.push(aiNode);
-    parentNode.selectedChildIndex = parentNode.children.length - 1;
+    let aiNode;
+    if (node.isError) {
+        // 错误重试：原地复用该节点（清空错误内容重发），不 push 新子节点——
+        // 否则每次重试都在 parent 下多一个分支，分支导航被连续错误/重试淹没（用户 2026-08-21 反馈）
+        node.isError = false;
+        node.content = '';
+        aiNode = node;
+    } else {
+        // 正常重新生成：新节点 = 新分支（保留旧回复可切换对比）
+        aiNode = createNode("assistant", "");
+        parentNode.children.push(aiNode);
+    }
+    parentNode.selectedChildIndex = parentNode.children.indexOf(aiNode);
     state.currentEndNode = aiNode;
 
     touchIndex(state.activeSessionId); // 发消息即触索引 updatedAt（同 sendMessage）

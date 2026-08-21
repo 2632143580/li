@@ -62,9 +62,13 @@ export const state = {
     /** 持久化设置，结构见 DEFAULT_SETTINGS @type {typeof DEFAULT_SETTINGS} */
     settings: {
         ...DEFAULT_SETTINGS,
-        keys: { ...DEFAULT_SETTINGS.keys },
-        availableModels: []
+        keys: { ...DEFAULT_SETTINGS.keys }
     },
+    /**
+     * 可用模型列表（内存缓存，不序列化）——每次动态拉取 / 手动输入累积，仅存活于本次页面会话。
+     * 序列化边界：模型清单由 /models 动态拉取即可，落档无意义（远端随时增删）；缓存属运行时态。 @type {string[]}
+     */
+    availableModels: [],
     /** DOM 元素缓存：node.id(number) → HTMLElement @type {Map<number, HTMLElement>} */
     domCache: new Map(),
     /**

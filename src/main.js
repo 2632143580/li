@@ -123,8 +123,9 @@ export function init() {
     resize();
     applySettings();
 
-    if (state.settings.availableModels.length === 0) {
-        state.settings.availableModels.push(state.settings.model);
+    // 模型清单缓存以当前模型打底（拉取 /models 后由 populateModelSelect 合并扩充）
+    if (state.availableModels.length === 0) {
+        state.availableModels.push(state.settings.model);
     }
 
     // 背景引擎就绪。默认背景底色由 :root --color-bg 兜底（CSS 已设置），不挂任何 Canvas 动画插件——

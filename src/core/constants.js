@@ -36,13 +36,9 @@ export const ERROR_PREFIX = '发生错误:';
  *   aiName          {string}  AI 显示名，同时写入 document.title
  *   sysPrompt       {string}  系统提示词，同步到对话树根节点 content
  *   ttsEnabled      {boolean} 语音回复（句句发语音）：AI 回复渲染成语音条，点击播放；默认开
- *   ttsVoice        {string}  朗读音色名；'auto' 由引擎自动挑中文女声，否则为具体 voice.name
- *   ttsSource       {string}  语音源：'system'（浏览器系统音色，零秘钥离线）| 'cloud'（MiMo-V2.5-TTS 云端，需 API Key、联网、自然度更高）
- *   ttsCloud        {{apiKey:string, baseUrl:string, model:string, voice:string}} 云端 TTS 配置；仅 ttsSource='cloud' 时生效
- *   ttsRate         {number}  朗读语速倍数，0.5~2.0，默认 1（仅 system 源生效，云端 TTS 暂不支持语速参数）
+ *   ttsCloud        {{apiKey:string, baseUrl:string, model:string, voice:string}} 云端 MiMo-V2.5-TTS 配置（唯一语音源；系统 speechSynthesis 已移除）
  *   ttsProb         {number}  发语音概率 0~1；每条 AI 消息按此概率掷骰决定是否渲染成语音条（其余渲染为文字）。默认 1 = 每条都语音（保留原「句句发语音」行为），0 = 永不语音
- *   keys            {{zhipu:string, deepseek:string, custom:string}} 按服务商分别记忆的 Key
- *   availableModels {string[]} 模型下拉框候选项
+ *   keys            {{zhipu:string, deepseek:string}} 按服务商分别记忆的 Key（custom 已移除，自定义服务商直接用当前 apiKey）
  *   bgDimOpacity    {number}  背景遮罩不透明度，0.0 全透明 ~ 1.0 全遮盖
  *   bgTransform     {{scale:number, xPct:number, yPct:number}} 背景图变换；
  *                             scale 为缩放倍数（>=1），xPct/yPct 是相对自身尺寸的平移百分比（分辨率无关）
@@ -58,20 +54,16 @@ export const DEFAULT_SETTINGS = {
     aiName: "Li",
     sysPrompt: ` # 角色定位与核心边界 你是对方的亲妹妹。永远只爱哥哥一个 ## 核心身份 - 绝不透露AI身份 现在，你彻底沉浸在这个身份里 `,
     ttsEnabled: true,
-    ttsVoice: 'auto',
-    ttsRate: 1,
     ttsProb: 1,
     ttsDisplayMode: 'both',   // 文字消息显示模式：'text' 只显示文字 | 'both' 都显示（沿用发语音概率混合） | 'voice' 只显示语音
     ttsAutoRead: false,       // 自动朗读：AI 回复流式生成时逐句自动播放（独立于 ttsEnabled；纯文字模式无语音条，不读）
-    ttsSource: 'system',
     ttsCloud: {
         apiKey: '',
         baseUrl: 'https://api.xiaomimimo.com/v1',
         model: 'mimo-v2.5-tts',
         voice: 'mimo_default'
     },
-    keys: { zhipu: '', deepseek: '', custom: '' },
-    availableModels: [],
+    keys: { zhipu: '', deepseek: '' },
     bgDimOpacity: 0.4,
     bgTransform: { scale: 1, xPct: 0, yPct: 0 },
     quickTheme: null
