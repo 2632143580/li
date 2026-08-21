@@ -40,6 +40,7 @@ export function createNode(role, content) {
         id: ++state.msgIdCounter,
         role,
         content,
+        reasoning: '', // 思维链（运行时字段，不序列化：纯会话内临时展示，刷新即失，符合「无需导出」）
         time: Date.now(),
         children: [],
         selectedChildIndex: 0,

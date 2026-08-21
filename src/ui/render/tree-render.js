@@ -101,6 +101,11 @@ export function renderContent(contentEl, node) {
     if (cur && cur !== rk) contentEl.innerHTML = ''; // 模式切换强制清空重建（修复「切换显示模式不立即生效」）
     contentEl.dataset.rk = rk;
 
+    // 思维链折叠块（自定义按钮，非原生 details）：assistant 非错误节点才渲染，插在气泡上方（避免被正文 innerHTML='' 清空）
+    if (node.role === 'assistant' && !node.isError) {
+        renderReasoningBlock(node, contentEl.closest('.msg') || contentEl.parentElement);
+    }
+
     if (rk === 'waifu') { renderWaifuContent(contentEl, node, isStreaming); return; }
     if (rk === 'voice') {
         renderVoiceTiles(contentEl, node, isStreaming);
@@ -364,6 +369,72 @@ export function updateMsgContent(node, content) {
         renderContent(p.contentEl, p.node);
         DOM.chat.scrollTop = DOM.chat.scrollHeight;
     });
+}
+
+/**
+ * 实时落思维链（reasoning）并增量渲染：复用 updateMsgContent 的 rAF 合并机制，
+ * 写 node.reasoning 后由 renderContent 内的 renderReasoningBlock 增量更新折叠块文本（不重建、不闪）。
+ * reasoning 为运行时字段、不序列化（刷新即失，符合「无需导出」）。 @param {object} node @param {string} reasoning
+ */
+export function updateMsgReasoning(node, reasoning) {
+    node.reasoning = reasoning; // 先落数据：即使 rAF 合并多次 chunk，渲染读的也是最新
+    const div = state.domCache.get(node.id);
+    if (!div) return;
+    const contentEl = div.querySelector('.bubble-content');
+    if (!contentEl) return;
+    _pendingStream = { contentEl, node };
+    if (_streamFrame) return;
+    _streamFrame = requestAnimationFrame(() => {
+        _streamFrame = null;
+        const p = _pendingStream;
+        _pendingStream = null;
+        if (!p) return;
+        renderContent(p.contentEl, p.node);
+        DOM.chat.scrollTop = DOM.chat.scrollHeight;
+    });
+}
+
+/**
+ * 渲染/更新思维链折叠块（自定义按钮，非原生 details）。挂在气泡 wrapper 内、正文块之前，
+ * 避免被各显示模式（waifu/voice/both）的 contentEl.innerHTML='' 重建清空。
+ * 增量更新：块已存在只改 body 文本与 thinking 态；折叠态由用户 toggle 保持（流式生成中强制展开）。
+ * @param {object} node @param {HTMLElement} wrapper 消息 wrapper（.msg）
+ */
+function renderReasoningBlock(node, wrapper) {
+    const bubble = wrapper.querySelector(':scope > .bubble') || wrapper.firstChild;
+    const existing = wrapper.querySelector(':scope > .reasoning');
+    // 关开关 / 无思维链 → 不渲染（数据仍在内存，开关再开即显）
+    if (!(state.settings.showReasoning && node.reasoning)) {
+        if (existing) existing.remove();
+        return;
+    }
+    const isThinking = (node === state.currentEndNode && state.waiting);
+    let block = existing;
+    if (!block) {
+        block = document.createElement('div');
+        block.className = 'reasoning';
+        const toggle = document.createElement('button');
+        toggle.type = 'button';
+        toggle.className = 'reasoning-toggle';
+        toggle.setAttribute('aria-expanded', 'true');
+        toggle.innerHTML = '<span class="rk-ico"></span><span class="rk-label">思维链</span><span class="rk-chev"></span>';
+        const body = document.createElement('div');
+        body.className = 'reasoning-body';
+        block.append(toggle, body);
+        // 折叠：切 .collapsed 类；事件绑一次（domCache 复用不再重复绑）
+        toggle.addEventListener('click', () => {
+            const collapsed = block.classList.toggle('collapsed');
+            toggle.setAttribute('aria-expanded', String(!collapsed));
+        });
+        wrapper.insertBefore(block, bubble);
+    }
+    block.querySelector('.reasoning-body').textContent = node.reasoning;
+    block.classList.toggle('thinking', isThinking);
+    // 流式生成中强制展开（思考流动可见）；非流式保留用户折叠态
+    if (isThinking) {
+        block.classList.remove('collapsed');
+        block.querySelector('.reasoning-toggle').setAttribute('aria-expanded', 'true');
+    }
 }
 
 /** 更新缓存命中 UI @param {number} tokens */
