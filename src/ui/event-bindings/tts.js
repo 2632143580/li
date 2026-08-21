@@ -162,7 +162,7 @@ export function bindVoiceSettings() {
         });
     }
 
-    // 显示思维链开关（决定有 reasoning 的 AI 回复是否渲染可折叠思维链块；runtime 字段不序列化）
+    // 显示思维链开关（决定有 reasoning 的 AI 回复是否渲染可折叠思维链块；随对话缓存持久化，与正文一致）
     if (DOM.setShowReasoning) {
         DOM.setShowReasoning.addEventListener('change', () => {
             state.settings.showReasoning = DOM.setShowReasoning.checked;

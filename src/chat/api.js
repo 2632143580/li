@@ -124,7 +124,7 @@ export async function streamChat(messages, onChunk, onDone, onError, sessionId, 
         const dec = new TextDecoder();
         let buf = "";
         let full = "";
-        let reasoning = ""; // 思维链累积（智谱 GLM / DeepSeek 返 reasoning_content）；不序列化，纯会话内临时展示
+        let reasoning = ""; // 思维链累积（智谱 GLM / DeepSeek 返 reasoning_content）；随对话缓存持久化（与正文一致，刷新/重开仍在）
         let lastUsage = null; // 累积最近一次 usage（含 prompt/completion/total/cache 命中）
 
         while (true) {

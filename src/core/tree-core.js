@@ -40,7 +40,7 @@ export function createNode(role, content) {
         id: ++state.msgIdCounter,
         role,
         content,
-        reasoning: '', // 思维链（运行时字段，不序列化：纯会话内临时展示，刷新即失，符合「无需导出」）
+        reasoning: '', // 思维链（随对话缓存持久化，与正文一致；刷新/重开仍在，等同图片/语音）
         time: Date.now(),
         children: [],
         selectedChildIndex: 0,
@@ -148,7 +148,7 @@ export function findMaxId(node) {
  * 运行时标记跟着落档，只有 load 时才清理，两边口径不一致）。
  * @type {Set<string>}
  */
-const NODE_SERIALIZE_KEYS = ['id', 'role', 'content', 'time', 'children', 'selectedChildIndex', 'isError'];
+const NODE_SERIALIZE_KEYS = ['id', 'role', 'content', 'reasoning', 'time', 'children', 'selectedChildIndex', 'isError'];
 
 /**
  * 产出「干净可序列化」的树副本：逐节点按 NODE_SERIALIZE_KEYS 白名单重建。

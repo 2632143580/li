@@ -417,7 +417,7 @@ function renderReasoningBlock(node, wrapper) {
         toggle.type = 'button';
         toggle.className = 'reasoning-toggle';
         toggle.setAttribute('aria-expanded', 'true');
-        toggle.innerHTML = '<span class="rk-ico"></span><span class="rk-label">思维链</span><span class="rk-chev"></span>';
+        toggle.innerHTML = '<svg class="rk-ico" viewBox="0 0 100 100" aria-hidden="true" focusable="false"><path class="rk-heart" d="M 50 30 C 50 25, 40 10, 25 20 C 10 30, 10 50, 30 65 C 40 75, 50 85, 50 85 C 50 85, 60 75, 70 65 C 90 50, 90 30, 75 20 C 60 10, 50 25, 50 30 Z"/><path class="rk-ecg" d="M 20 48 L 33 48 L 39 26 L 47 70 L 53 48 L 80 48"/></svg><span class="rk-label"></span><span class="rk-chev"></span>';
         const body = document.createElement('div');
         body.className = 'reasoning-body';
         block.append(toggle, body);
@@ -429,6 +429,7 @@ function renderReasoningBlock(node, wrapper) {
         wrapper.insertBefore(block, bubble);
     }
     block.querySelector('.reasoning-body').textContent = node.reasoning;
+    block.querySelector('.rk-label').textContent = isThinking ? '思考中…' : '思考过程';
     block.classList.toggle('thinking', isThinking);
     // 流式生成中强制展开（思考流动可见）；非流式保留用户折叠态
     if (isThinking) {
