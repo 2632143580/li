@@ -13,10 +13,10 @@
  *
  * 导入：
  *   - core/dom        DOM（#chat 等 id 句柄）
- *   - core/state      state（currentEndNode / waiting / waifuMode / domCache / stats / settings）
+ *   - core/state      state（currentEndNode / waiting / domCache / stats / settings）
  *   - core/utils      formatTokens（token 数格式化）
  *   - core/storage    saveToLocal（分支导航按钮保存）
- *   - core/text-split splitSentences（妻子模式断句）
+ *   - core/text-split splitSentences（分句）/ splitWaifuSegments（text/action 段分离）
  *   - core/tree-core  getCurrentPath / getLastNodeInPath（纯数据，无 DOM）
  *   - ui/context-menu showContextMenu（消息右键菜单）
  *
@@ -29,7 +29,7 @@ import { DOM } from '../../core/dom.js';
 import { state } from '../../core/store.js';
 import { formatTokens } from '../../core/utils.js';
 import { saveToLocal } from '../../core/storage.js';
-import { splitSentences } from '../../core/text-split.js';
+import { splitSentences, splitWaifuSegments } from '../../core/text-split.js';
 import { clearAutoQueue } from '../../engines/tts-engine.js'; // 分支切换即停当前自动朗读（tree-render 不依赖 cleanForSpeech，断句清洗在 voice-tiles 内完成）
 import { getCurrentPath, getLastNodeInPath } from '../../core/tree-core.js';
 import { bus, EVENTS } from '../../core/bus.js';
@@ -39,34 +39,28 @@ import { renderVoiceTiles, renderBoth } from '../voice-tiles.js'; // 语音回�
 /**
  * 生成气泡外层容器的 className（buildMsgDom 与 renderMessage 共用，消除重复书写）
  *
- * 规则：
- *   - 普通模式：msg [role] chat-bubble chat-bubble--[role]
- *   - 语音条模式（AI + 语音开启 + 非错误）：msg ai（外层不带 chat-bubble，
- *       视觉载体是子 .vt 语音条——避免「大气泡套小语音气泡」的非 waifu 嵌套缺陷，用户 2026-08-14）
- *   - waifu 模式 AI（W2 起与普通模式同路径，外层 className 仅由 isVoice 决定；不再生成 .waifu-bubble 分句泡）
- *   - waifu 模式 user：同普通模式（user 不分句，统一 .msg）
- *   - 错误节点：强制带 chat-bubble--ai（.error-msg 挂在 .chat-bubble--ai 体系下）
+ * 规则（2026-08-21 waifu 开关移除后：AI 非错误消息恒走分句/语音条形态）：
+ *   - 用户消息：msg user chat-bubble chat-bubble--user（单气泡，不分句）
+ *   - AI 非错误：msg ai（外层不带 chat-bubble——纯文字是分句气泡 .waifu-bubble、
+ *       语音是 .vt 语音条，子元素各自成气泡。绝不让外层大气泡包裹子气泡，见
+ *       2026-08-11.md 三层结构契约）
+ *   - 错误节点：msg ai chat-bubble chat-bubble--ai（.error-msg 挂在 .chat-bubble--ai 体系下，
+ *       保持单气泡，不走分句/action 识别）
  *
- * 关键不变量：外层带 chat-bubble 时，其内部只装「文字/分句泡」且 footer 在 bubble 之外；
- *   一旦外层不该有视觉气泡（语音条 / waifu 分句），就返回 'msg ai' 让子元素各自成气泡，
- *   绝不让外层大气泡包裹子气泡（见 2026-08-11.md 三层结构契约与本次嵌套修复）。
+ * 关键不变量：外层带 chat-bubble 时，其内部只装「文字」且 footer 在 bubble 之外；
+ *   外层无气泡视觉（'msg ai'）时，子元素（分句泡/语音条/action 轻提示）各自承担视觉。
  *
  * @param {string} role - 'user' | 'assistant'
- * @param {boolean} waifuMode - 是否 waifu 模式
  * @param {boolean} [isError=false] - 是否错误节点
- * @param {boolean} [isVoice=false] - 是否语音条模式（AI + 语音开启 + 非错误）
  * @returns {string} className
  */
-export function getBubbleClass(role, waifuMode, isError = false, isVoice = false) {
+export function getBubbleClass(role, isError = false) {
     // node.role 是 'user'/'assistant'，CSS 类名用 'user'/'ai'，需映射
     const cls = role === 'assistant' ? 'ai' : role;
     const base = `msg ${cls} chat-bubble chat-bubble--${cls}`;
     if (isError) return base;
-    // 语音条模式（AI + 语音开启 + 非错误）：外层仅布局容器（msg ai），不带 chat-bubble 视觉类，
-    // 真正的气泡由子元素 .vt 语音条承担，杜绝外层大气泡包裹子语音条（2026-08-11 嵌套修复）。
-    // waifu 模式（W2）：语音开启时套普通布局（.vt 各自成气泡），纯文字时恢复分句气泡（.waifu-bubble 各自成气泡）；
-    //   两者都让外层不带 chat-bubble，避免「大气泡套子气泡」嵌套缺陷。故 waifuMode 与 isVoice 同效。
-    if ((waifuMode || isVoice) && role === 'assistant') return 'msg ai';
+    // AI 非错误恒为布局容器（msg ai）：分句气泡 / 语音条 / action 轻提示均由子元素渲染
+    if (role === 'assistant') return 'msg ai';
     return base;
 }
 
@@ -104,9 +98,10 @@ export function renderContent(contentEl, node) {
 
     const kind = getRenderKind(node);
 
-    // 渲染子类型：waifu 在纯文字场景仍保留分句气泡（W2 仅语音/都显示套普通布局）
+    // 渲染子类型：AI 纯文字恒走分句气泡（2026-08-21 waifu 开关移除，分句成为唯一渲染方式；
+    // 语音/都显示仍走 voice-tiles 路径，错误消息保持单气泡）
     let rk = kind;
-    if (state.waifuMode && node.role === 'assistant' && !node.isError && kind === 'text') rk = 'waifu';
+    if (node.role === 'assistant' && !node.isError && kind === 'text') rk = 'waifu';
     const cur = contentEl.dataset.rk;
     if (cur && cur !== rk) contentEl.innerHTML = ''; // 模式切换强制清空重建（修复「切换显示模式不立即生效」）
     contentEl.dataset.rk = rk;
@@ -203,10 +198,8 @@ export function buildMsgDom(node, parentNode) {
     // bubble：被主题插件命中的视觉气泡容器
     const bubble = document.createElement('div');
     // className 统一由 getBubbleClass 生成（buildMsgDom 与 renderMessage 共用，消除重复书写）。
-    // isVoice：AI + 语音开启 + 非错误 → 外层不带 chat-bubble，语音条 .vt 自身成气泡（防嵌套）。
-    // isVoice：AI + 语音开启 + 非错误 + 按 ttsProb 掷骰（getRenderKind 按消息一次性定，流式不翻转）
-    const isVoice = getRenderKind(node) !== 'text';
-    bubble.className = getBubbleClass(node.role, state.waifuMode, node.isError, isVoice);
+    // AI 非错误恒 'msg ai'（子元素各自成气泡）；用户/错误消息带 chat-bubble 视觉类。
+    bubble.className = getBubbleClass(node.role, node.isError);
 
     // contentDiv：内容装载层（透明），语音条 / 文字由 renderContent 写入；外层已隔离插件样式，无需额外中和。
     // 类名 .bubble-content 让 renderMessage 用 querySelector 定位，不依赖 firstChild 位置。
@@ -300,13 +293,10 @@ export function renderMessage(node, parentNode) {
         state.domCache.set(node.id, div);
     }
 
-    // 每次渲染按当前模式重新生成 className（用 getBubbleClass，与 buildMsgDom 共用）。
+    // 每次渲染重新生成 className（用 getBubbleClass，与 buildMsgDom 共用）。
     // 消除旧补丁：domCache 复用的旧节点可能残留另一模式的 className，强制覆盖确保一致。
     const bubble = div.firstChild;
-    // isVoice：运行时切换语音开关也要同步外层 className（文字气泡 ↔ 语音条容器）。
-    // isVoice：AI + 语音开启 + 非错误 + 按 ttsProb 掷骰（getRenderKind 按消息一次性定，流式不翻转）
-    const isVoice = getRenderKind(node) !== 'text';
-    bubble.className = getBubbleClass(node.role, state.waifuMode, node.isError, isVoice);
+    bubble.className = getBubbleClass(node.role, node.isError);
 
     // 用 querySelector 定位 contentDiv，不依赖 firstChild 位置（更稳健）。
     renderContent(div.querySelector('.bubble-content'), node);
@@ -454,33 +444,61 @@ export function resetMonitorStats() {
 }
 
 /**
- * waifu 模式「纯文字」渲染 — 分句气泡（W2 语义：仅语音关闭 / 只显示文字时保留 waifu 分句观感；
- *   语音开启（都显示 / 只显示语音）时由 W2 普通布局 .vt 承担，不在此分句）。纯文字场景无语音，故无内嵌播放。
+ * AI「纯文字」渲染 — 分句气泡 + action 轻提示交替（2026-08-21 起 AI 纯文字消息的唯一渲染方式，
+ *   原 waifu 开关已移除；语音/都显示由 voice-tiles.js 的 .vt 承担，不在此路径）。
+ *
+ * 段结构：splitWaifuSegments 先把文本切成 text/action 交替段，text 段再经 splitSentences
+ *   细分成句（每句一个 .waifu-bubble），action 段渲染为 .waifu-action 轻提示（括号内文字、
+ *   不进语音、不带气泡底色）。渲染项扁平化后保持原顺序。
+ *
+ * 流式增量（关键，勿退回 append-only）：
+ *   action 括号「未闭合 → 闭合」切换时，已渲染的旧 text 段文本会回缩（"你好(笑" → "你好" + action"笑"），
+ *   只 append 新段不回写旧段会残留半句。故数量不减少时先逐段回写（类型+文本），再 append 新增段；
+ *   类型翻转（理论前缀结构保证不发生，防御兜底）或数量减少时全量重建。
+ *   与 renderVoiceTiles 流式回写修复（voice-tiles.js）同口径。
  * @param {HTMLElement} contentEl @param {object} node @param {boolean} isStreaming
  */
 export function renderWaifuContent(contentEl, node, isStreaming) {
     if (!node.content) { contentEl.textContent = ''; return; }
-    const sentences = splitSentences(node.content);
-    const existing = Array.from(contentEl.querySelectorAll('.waifu-bubble'));
-    const mk = (s, idx) => {
+    // 扁平化渲染项：text 段细分句子 → 气泡；action 段 → 轻提示；空文本段跳过（空气泡防御）
+    const items = [];
+    for (const seg of splitWaifuSegments(node.content)) {
+        if (seg.type === 'action') {
+            items.push(seg);
+        } else {
+            for (const s of splitSentences(seg.text)) {
+                if (s) items.push({ type: 'text', text: s });
+            }
+        }
+    }
+    const existing = Array.from(contentEl.querySelectorAll(':scope > .waifu-bubble, :scope > .waifu-action'));
+    const mk = (item, idx) => {
         const b = document.createElement('div');
-        b.className = 'waifu-bubble chat-bubble chat-bubble--ai';
+        b.className = item.type === 'action' ? 'waifu-action' : 'waifu-bubble chat-bubble chat-bubble--ai';
         if (idx != null) b.style.animationDelay = (idx * 120) + 'ms';
-        b.textContent = s;
+        b.textContent = item.text;
         return b;
     };
+    const rebuild = () => { contentEl.innerHTML = ''; items.forEach((it, i) => contentEl.appendChild(mk(it, i))); };
     if (isStreaming) {
-        if (existing.length < sentences.length) {
-            for (let i = existing.length; i < sentences.length; i++) contentEl.appendChild(mk(sentences[i], i));
-        } else if (existing.length > sentences.length) {
-            contentEl.innerHTML = '';
-            sentences.forEach((s, i) => contentEl.appendChild(mk(s, i)));
-        } else if (sentences.length > 0) {
-            existing[existing.length - 1].textContent = sentences[sentences.length - 1];
+        if (existing.length > items.length) { rebuild(); return; }
+        // 类型不一致（前缀翻转，防御兜底）→ 全量重建；一致则先回写已变化段（含旧段回缩），再 append 新段
+        const typeOk = existing.every((el, i) =>
+            (items[i].type === 'action') === el.classList.contains('waifu-action'));
+        if (!typeOk) { rebuild(); return; }
+        for (let i = 0; i < existing.length; i++) {
+            if (existing[i].textContent !== items[i].text) existing[i].textContent = items[i].text;
         }
+        for (let i = existing.length; i < items.length; i++) contentEl.appendChild(mk(items[i], i));
         return;
     }
-    let mismatch = existing.length !== sentences.length;
-    if (!mismatch) for (let i = 0; i < existing.length; i++) if (existing[i].textContent !== sentences[i]) { mismatch = true; break; }
-    if (mismatch) { contentEl.innerHTML = ''; sentences.forEach((s, i) => contentEl.appendChild(mk(s, i))); }
+    let mismatch = existing.length !== items.length;
+    if (!mismatch) {
+        for (let i = 0; i < existing.length; i++) {
+            const wantAction = items[i].type === 'action';
+            const isAction = existing[i].classList.contains('waifu-action');
+            if (wantAction !== isAction || existing[i].textContent !== items[i].text) { mismatch = true; break; }
+        }
+    }
+    if (mismatch) rebuild();
 }

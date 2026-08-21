@@ -23,12 +23,12 @@
     "ai": ".chat-bubble--ai",
     "user": ".chat-bubble--user",
     "coveredByAi": [".chat-bubble--ai", ".waifu-bubble"],
-    "note": ".waifu-bubble 已被 .chat-bubble--ai 覆盖；主题上色只瞄准 --ai/--user 即可同时管普通模式与看板娘模式，单独列 .waifu-bubble 易误导 AI 漏掉普通 .msg。"
+    "note": ".waifu-bubble 已被 .chat-bubble--ai 覆盖；主题上色只瞄准 --ai/--user 即可同时管所有 AI 气泡（分句泡/错误气泡），单独列 .waifu-bubble 易误导 AI 漏掉其他 .chat-bubble--ai。"
   },
   "domLayerId": "#bg-dom-layer",
   "radiusToken": "--radius-md",
   "tokens": {
-    "color": ["--color-bg", "--color-user", "--color-ai", "--color-accent", "--color-accent-soft", "--color-error", "--color-accent-bright", "--color-accent-solid", "--color-accent-glow", "--color-accent-dim", "--color-user-bright", "--color-waifu-active"],
+    "color": ["--color-bg", "--color-user", "--color-ai", "--color-accent", "--color-accent-soft", "--color-error", "--color-accent-bright", "--color-accent-solid", "--color-accent-glow", "--color-accent-dim", "--color-user-bright"],
     "radius": ["--radius-sm", "--radius-md", "--radius-lg"],
     "transition": ["--transition-fast", "--transition-normal", "--transition-smooth"],
     "whiteAlpha": ["--white-a03", "--white-a05", "--white-a06", "--white-a08", "--white-a10", "--white-a12", "--white-a20", "--white-a30", "--white-a35", "--white-a40", "--white-a45", "--white-a50", "--white-a60", "--white-a70", "--white-a80", "--white-a90"],

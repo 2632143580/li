@@ -11,7 +11,7 @@
  *      - 非法 .txt 插件（含 import/export）→ 抛出清晰中文引导，不再裸报
  *        "Cannot use import statement outside a module"
  */
-import { splitSentences } from '../src/core/text-split.js';
+import { splitSentences, splitWaifuSegments, stripActions } from '../src/core/text-split.js';
 
 // ── 模拟应用内插件加载器（与 src/chat/api.js 的 import 分支一致）──
 function loadPlugin(codeString) {
@@ -88,6 +88,71 @@ test('无标点长文本不误拆', () => {
 test('混合：单句问候 + 真实多句 各自正确', () => {
     if (splitSentences('哥哥，你来了呀~').length !== 1) throw new Error('问候应单段');
     if (splitSentences('吃了吗？没吃的话我陪你。').length !== 2) throw new Error('多句应 2 段');
+});
+
+// ===== 一·五、splitWaifuSegments / stripActions（动作分离）边界 =====
+const deepEq = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+test('动作分离：半角括号 → text/action 交替', () => {
+    const r = splitWaifuSegments('你好呀(轻笑)今天天气不错。');
+    const want = [{ type: 'text', text: '你好呀' }, { type: 'action', text: '轻笑' }, { type: 'text', text: '今天天气不错。' }];
+    if (!deepEq(r, want)) throw new Error('实际 ' + JSON.stringify(r));
+});
+test('动作分离：全角括号同样识别', () => {
+    const r = splitWaifuSegments('来了呀（跑过来）哥哥！');
+    const want = [{ type: 'text', text: '来了呀' }, { type: 'action', text: '跑过来' }, { type: 'text', text: '哥哥！' }];
+    if (!deepEq(r, want)) throw new Error('实际 ' + JSON.stringify(r));
+});
+test('动作分离：同类嵌套只取最外层', () => {
+    const r = splitWaifuSegments('a(b(c)b)d');
+    const want = [{ type: 'text', text: 'a' }, { type: 'action', text: 'b(c)b' }, { type: 'text', text: 'd' }];
+    if (!deepEq(r, want)) throw new Error('实际 ' + JSON.stringify(r));
+});
+test('动作分离：异类括号不配对 → 整体归 text（不误切）', () => {
+    const r = splitWaifuSegments('a(b）c');
+    const want = [{ type: 'text', text: 'a(b）c' }];
+    if (!deepEq(r, want)) throw new Error('半角开+全角闭未配对应整体归 text，实际 ' + JSON.stringify(r));
+});
+test('动作分离：未闭合括号整体归 text（流式中间态，不报错）', () => {
+    const r = splitWaifuSegments('你好(轻笑');
+    const want = [{ type: 'text', text: '你好(轻笑' }];
+    if (!deepEq(r, want)) throw new Error('实际 ' + JSON.stringify(r));
+});
+test('动作分离：空括号跳过（不生成段）', () => {
+    const r = splitWaifuSegments('你好()今天()很好。');
+    const want = [{ type: 'text', text: '你好今天很好。' }];
+    if (!deepEq(r, want)) throw new Error('实际 ' + JSON.stringify(r));
+});
+test('动作分离：纯空白内容括号跳过', () => {
+    const r = splitWaifuSegments('你好(   )呀');
+    const want = [{ type: 'text', text: '你好呀' }];
+    if (!deepEq(r, want)) throw new Error('实际 ' + JSON.stringify(r));
+});
+test('动作分离：纯 action 输入 → 仅 action 段（无空文本段混入）', () => {
+    const r = splitWaifuSegments('(轻笑)');
+    const want = [{ type: 'action', text: '轻笑' }];
+    if (!deepEq(r, want)) throw new Error('实际 ' + JSON.stringify(r));
+});
+test('动作分离：空串契约', () => {
+    const r = splitWaifuSegments('');
+    const want = [{ type: 'text', text: '' }];
+    if (!deepEq(r, want)) throw new Error('实际 ' + JSON.stringify(r));
+});
+test('动作分离：action 内容 trim（括号内空白不入段）', () => {
+    const r = splitWaifuSegments('嗯( 偷偷看你 )嗯。');
+    if (r[1].text !== '偷偷看你') throw new Error('实际 ' + JSON.stringify(r));
+});
+test('stripActions：括号+内容整体剔除（语音不读动作）', () => {
+    const r = stripActions('你好(轻笑)今天天气不错。真的。');
+    if (r !== '你好今天天气不错。真的。') throw new Error('实际 ' + JSON.stringify(r));
+});
+test('stripActions：全角/嵌套/未闭合一致性', () => {
+    if (stripActions('（跑过来）哥哥！') !== '哥哥！') throw new Error('全角剔除失败');
+    if (stripActions('a(b(c)b)d') !== 'ad') throw new Error('嵌套剔除失败');
+    if (stripActions('你好(轻笑') !== '你好(轻笑') throw new Error('未闭合应原样保留');
+    if (stripActions('') !== '') throw new Error('空串契约失败');
+});
+test('stripActions：全 action 输入返回空串（语音模式无语音条）', () => {
+    if (stripActions('(轻笑)(低头)') !== '') throw new Error('实际 ' + stripActions('(轻笑)(低头)'));
 });
 
 // ===== 二、插件场景（.txt 非模块加载器）=====

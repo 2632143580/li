@@ -54,7 +54,7 @@ LI/
 | `bus.js` | 事件总线（`bus` + `EVENTS`） | `bus.js:38` 用 `CustomEvent` 的 `detail` 字段 |
 | `modal.js` | 模态框统一开关 | |
 | `toast.js` | 轻提示 toast | |
-| `text-split.js` | 断句纯函数（`splitSentences`，waifu 分句依赖） | |
+| `text-split.js` | 断句纯函数（`splitSentences` 分句 + `splitWaifuSegments`/`stripActions` 动作分离） | |
 | `registry.js` | UI 注册表（`registerUI`/`initUI`，事件绑定层调度核心） | |
 
 ### `src/engines/` — 引擎（注册/挂载/运行）
@@ -87,7 +87,6 @@ LI/
 | `event-bindings/monitor.js` | 监控面板（用量/状态灯） | |
 | `event-bindings/topbar.js` | 左顶栏折叠 | |
 | `event-bindings/tts.js` | 语音设置模态框交互 | |
-| `event-bindings/waifu.js` | waifu 模式开关 | |
 | `event-bindings/data-exchange.js` | 导入/导出对话存档 | `data-exchange.js:34` 导出脱敏；`:64-72` 导入白名单排除密钥 |
 | `event-bindings/global.js` | 全局事件（窗口缩放/快捷键/ESC 链） | ESC 链以 `MODAL_IDS` 单一清单遍历 |
 | `event-bindings/click-confirm.js` | 危险操作二次确认（被 settings/data-exchange 引用） | |
@@ -107,7 +106,7 @@ LI/
 | `base.css` | 基础元素样式 |
 | `background.css` | 背景层样式 |
 | `chat.css` | 对话区样式（含 `.chat-bubble--ai/--user` 契约钩子） |
-| `waifu.css` | waifu 模式样式（`.waifu-bubble` 契约钩子） |
+| `waifu.css` | AI 分句气泡样式（`.waifu-bubble` 契约钩子 + `.waifu-action` 动作轻提示） |
 | `tts.css` | 语音条/语音模态框样式 |
 | `topbar.css` | 顶栏样式 |
 | `monitor.css` | 监控面板样式 |

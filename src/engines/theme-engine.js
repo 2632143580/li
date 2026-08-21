@@ -106,7 +106,7 @@ export const ThemeEngine = {
         }
 
         this.activeThemes.push(instance);
-        // 标记已有主题激活：用于门控 waifu 默认绿底皮肤(让主题统一接管 waifu 气泡外观)
+        // 标记已有主题激活：用于门控分句气泡默认皮肤（让主题统一接管 AI 气泡外观，见 waifu.css）
         document.body.classList.add('theme-active');
         syncThemeLightClass(); // 主题挂载后同步浅色信号（驱动状态色双套系统翻转）
         updateInputColors(); // 主题挂载后刷新输入框颜色缓存

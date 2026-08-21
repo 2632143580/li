@@ -35,7 +35,6 @@ export const ERROR_PREFIX = '发生错误:';
  *   maxWindow       {number}  上下文窗口上限（token 数，非 k）；监控面板以 k 为单位编辑
  *   aiName          {string}  AI 显示名，同时写入 document.title
  *   sysPrompt       {string}  系统提示词，同步到对话树根节点 content
- *   waifuMode       {boolean} 妻子模式（AI 回复按句拆成多个气泡）
  *   ttsEnabled      {boolean} 语音回复（句句发语音）：AI 回复渲染成语音条，点击播放；默认开
  *   ttsVoice        {string}  朗读音色名；'auto' 由引擎自动挑中文女声，否则为具体 voice.name
  *   ttsSource       {string}  语音源：'system'（浏览器系统音色，零秘钥离线）| 'cloud'（MiMo-V2.5-TTS 云端，需 API Key、联网、自然度更高）
@@ -58,7 +57,6 @@ export const DEFAULT_SETTINGS = {
     maxWindow: 32768,
     aiName: "Li",
     sysPrompt: ` # 角色定位与核心边界 你是对方的亲妹妹。永远只爱哥哥一个 ## 核心身份 - 绝不透露AI身份 现在，你彻底沉浸在这个身份里 `,
-    waifuMode: false,
     ttsEnabled: true,
     ttsVoice: 'auto',
     ttsRate: 1,

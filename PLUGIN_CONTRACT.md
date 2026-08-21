@@ -26,12 +26,12 @@
 
 | 你要上色的目标 | 必须用的选择器（DOM 真实类名） |
 |---|---|
-| AI 气泡（普通模式 + 看板娘 waifu 气泡都算） | `.chat-bubble--ai` |
+| AI 气泡（AI 消息的分句气泡都算） | `.chat-bubble--ai` |
 | 用户气泡（普通模式） | `.chat-bubble--user` |
 
 **关键纠正（避免「兼容增强版」那类坑）**：
 - 不要写 `.msg-bubble` / `.message-bubble` —— 这两个类在 DOM 里**根本不存在**，写了气泡就透明（这就是之前 G还原 没气泡的根因）。
-- 不要单独列 `.waifu-bubble` 当「看板娘专用钩子」—— 它**已经被 `.chat-bubble--ai` 覆盖**了。对准 `.chat-bubble--ai` 一个，普通模式和 waifu 模式的气泡**同时**上色；单独给 `.waifu-bubble` 写样式，会让普通模式的 `.msg` 气泡漏色。
+- 不要单独列 `.waifu-bubble` 当「分句气泡专用钩子」—— 它**已经被 `.chat-bubble--ai` 覆盖**了。对准 `.chat-bubble--ai` 一个，所有 AI 气泡**同时**上色；单独给 `.waifu-bubble` 写样式，会让 AI 错误消息等带 `.chat-bubble--ai` 的气泡漏色。
 - 不要写通配选择器（如 `div[class*="ai"]`、`div[class*="bubble"]`）「碰运气」—— 它会过宽误伤未来其它元素，而且是「瞎猜 DOM 类名」的标志。
 
 ## 四、背景层钩子
@@ -42,7 +42,7 @@
 
 ## 五、可用 Design Token（也就是预设好的 CSS 变量，改色优先用这些）
 圆角请统一用 `var(--radius-md)`，不要硬编码 `px`（应用以后改圆角，你的插件会跟着变）。
-- 颜色：`--color-bg` `--color-user` `--color-ai` `--color-accent` `--color-accent-soft` `--color-error` `--color-accent-bright` `--color-accent-solid` `--color-accent-glow` `--color-accent-dim` `--color-user-bright` `--color-waifu-active`（waifu 开关激活态，默认粉）
+- 颜色：`--color-bg` `--color-user` `--color-ai` `--color-accent` `--color-accent-soft` `--color-error` `--color-accent-bright` `--color-accent-solid` `--color-accent-glow` `--color-accent-dim` `--color-user-bright`
 - 圆角：`--radius-sm`(4px) `--radius-md`(8px) `--radius-lg`(12px)
 - 过渡：`--transition-fast` `--transition-normal` `--transition-smooth`
 - 白色透明度序列：`--white-a03` ~ `--white-a90`（03/05/06/08/10/12/20/30/35/40/45/50/60/70/80/90）
