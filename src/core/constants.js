@@ -36,7 +36,8 @@ export const ERROR_PREFIX = '发生错误:';
  *   aiName          {string}  AI 显示名，同时写入 document.title
  *   sysPrompt       {string}  系统提示词，同步到对话树根节点 content
  *   ttsEnabled      {boolean} 语音回复（句句发语音）：AI 回复渲染成语音条，点击播放；默认开
- *   ttsCloud        {{apiKey:string, baseUrl:string, model:string, voice:string}} 云端 MiMo-V2.5-TTS 配置（唯一语音源；系统 speechSynthesis 已移除）
+ *   ttsCloud        {{apiKey:string, voice:string}} 云端 MiMo-V2.5-TTS 配置（唯一语音源；系统 speechSynthesis 已移除）。
+ *                                                  baseUrl/model/默认音色已提为死常量 TTS_CLOUD（src/core/config.js），不再序列化——url 是死的、模型固定，仅 key(+音色) 存 local。
  *   ttsProb         {number}  发语音概率 0~1；每条 AI 消息按此概率掷骰决定是否渲染成语音条（其余渲染为文字）。默认 1 = 每条都语音（保留原「句句发语音」行为），0 = 永不语音
  *   keys            {{zhipu:string, deepseek:string}} 按服务商分别记忆的 Key（custom 已移除，自定义服务商直接用当前 apiKey）
  *   bgDimOpacity    {number}  背景遮罩不透明度，0.0 全透明 ~ 1.0 全遮盖
@@ -60,10 +61,8 @@ export const DEFAULT_SETTINGS = {
     showReasoning: true,      // 显示思维链：AI 回复若有 reasoning_content 则在正文上方渲染可折叠「思维链」块；默认开
     reasoningAutoExpand: true, // 思维链自动展开：AI 回复后思维链默认展开（关闭则默认折叠、可手动展开）；默认开
     ttsCloud: {
-        apiKey: '',
-        baseUrl: 'https://api.xiaomimimo.com/v1',
-        model: 'mimo-v2.5-tts',
-        voice: 'mimo_default'
+        apiKey: '',            // 云端 Key：唯一敏感项，明文存本机（personal 自用）；baseUrl/model 见 config.js 的 TTS_CLOUD（硬编码，不序列化）
+        voice: 'mimo_default'  // 用户自选音色（MiMo 预置清单），随设置持久化
     },
     keys: { zhipu: '', deepseek: '' },
     // 禁止词引擎：词库 + 前缀模板（随 settings 一并序列化，跨设备 / 导出备份保留）

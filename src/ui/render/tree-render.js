@@ -35,6 +35,7 @@ import { getCurrentPath, getLastNodeInPath } from '../../core/tree-core.js';
 import { bus, EVENTS } from '../../core/bus.js';
 import { showContextMenu } from '../context-menu.js';
 import { renderVoiceTiles, renderBoth } from '../voice-tiles.js'; // 语音回复（句句发语音）；renderWaifuContent 为本模块本地定义
+import { buildEcgHeartSvg } from '../../plugins/ecg-heart.js'; // 思维链头部图标：取自用户 love.svg 的爱心 + 心电图折线（插件，按情绪换波形）
 
 /**
  * 生成气泡外层容器的 className（buildMsgDom 与 renderMessage 共用，消除重复书写）
@@ -394,15 +395,7 @@ export function updateMsgReasoning(node, reasoning) {
     });
 }
 
-/**
- * 构建心电图 SVG 路径（viewBox 0 0 120 24，基线 y=12）。
- * 预留「情绪驱动视觉」扩展点：后期按 mood 返回不同波形即可（如兴奋=更密更高尖峰、低落=趋于平直），
- * 无需改动渲染结构。 @param {string} [mood] @returns {string}
- */
-function buildEcgPath(mood = 'calm') {
-    // 简约长心电图：3 拍平铺；横向拉伸由 CSS preserveAspectRatio=none 处理（non-scaling-stroke 保线宽锐利）
-    return 'M0 12 H14 L18 4 L22 20 L26 12 H40 L54 12 L58 4 L62 20 L66 12 H80 L94 12 L98 4 L102 20 L106 12 H120';
-}
+
 
 /**
  * 渲染/更新思维链块（无气泡 / 无卡片 / 无边框，纯排版）。挂在气泡 wrapper 内、正文块之前，
@@ -428,7 +421,7 @@ function renderReasoningBlock(node, wrapper) {
         toggle.type = 'button';
         toggle.className = 'reasoning-toggle';
         toggle.setAttribute('aria-expanded', 'true');
-        toggle.innerHTML = '<svg class="rk-ico" viewBox="0 0 100 100" aria-hidden="true" focusable="false"><path class="rk-heart" d="M 50 30 C 50 25, 40 10, 25 20 C 10 30, 10 50, 30 65 C 40 75, 50 85, 50 85 C 50 85, 60 75, 70 65 C 90 50, 90 30, 75 20 C 60 10, 50 25, 50 30 Z"/></svg><svg class="rk-line" viewBox="0 0 120 24" preserveAspectRatio="none" aria-hidden="true"><path d="' + buildEcgPath() + '"/></svg><span class="rk-chev"></span>';
+        toggle.innerHTML = buildEcgHeartSvg(node._emotion) + '<span class="rk-chev"></span>';
         const body = document.createElement('div');
         body.className = 'reasoning-body';
         block.append(toggle, body);

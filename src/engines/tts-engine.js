@@ -15,6 +15,7 @@
  * 依赖：core/store（settings.ttsCloud）、core/logger、core/voice-cache（IndexedDB 持久化）
  */
 import { state } from '../core/store.js';
+import { TTS_CLOUD } from '../core/config.js';
 import { Logger } from '../core/logger.js';
 import { showToast } from '../core/toast.js';
 // 云端 TTS 音频持久化层（IndexedDB，复刻背景图持久化）：读路径命中磁盘、写路径落盘、容量统计
@@ -32,8 +33,7 @@ export const MIMO_VOICES = [
     { id: 'Milo', name: 'Milo', lang: 'en', gender: '男' },
     { id: 'Dean', name: 'Dean', lang: 'en', gender: '男' }
 ];
-/** MiMo 开放平台默认 base（用户可改，一般不动） @type {string} */
-const MIMO_DEFAULT_BASE = 'https://api.xiaomimimo.com/v1';
+/** MiMo 端点 / 模型 / 默认音色已提为死常量 TTS_CLOUD（src/core/config.js），硬编码不序列化。 */
 
 /** 当前正在播放的云端 audio（互斥：新播放先停旧的） @type {HTMLAudioElement|null} */
 let activeCloudAudio = null;
@@ -60,8 +60,8 @@ let onCloudCacheChange = null;         // tts.js 设置，缓存变化时刷新�
  */
 function cloudCacheKey(text, cfg) {
     const voice = cfg.voice || 'mimo_default';
-    const model = cfg.model || 'mimo-v2.5-tts';
-    const base = (cfg.baseUrl || MIMO_DEFAULT_BASE).replace(/\/+$/, '');
+    const model = TTS_CLOUD.model;
+    const base = TTS_CLOUD.baseUrl.replace(/\/+$/, '');
     return base + '|' + model + '|' + voice + '|' + text;
 }
 /** 写入缓存并触发 LRU 淘汰（超条数/字节丢最旧） @param {string} key @param {Blob} blob */
@@ -105,7 +105,7 @@ async function fetchCloudAudioCached(text, cfg) {
             key, blob,
             bytes: blob.size,
             voice: cfg.voice || 'mimo_default',
-            model: cfg.model || 'mimo-v2.5-tts',
+            model: TTS_CLOUD.model,
             text,
             savedAt: Date.now()
         }).then(() => onCloudCacheChange?.()).catch(() => {});
@@ -293,10 +293,10 @@ async function fetchCloudAudio(text, cfg) {
     const apiKey = (cfg.apiKey || '').trim();
     if (!apiKey) throw new Error('缺少 API Key');
     if (!text) throw new Error('合成文本为空');
-    const base = (cfg.baseUrl || MIMO_DEFAULT_BASE).replace(/\/+$/, '');
+    const base = TTS_CLOUD.baseUrl.replace(/\/+$/, '');
     const url = base + '/chat/completions';
     const body = {
-        model: cfg.model || 'mimo-v2.5-tts',
+        model: TTS_CLOUD.model,
         messages: [
             { role: 'user', content: '' },           // 风格可选（暂空）
             { role: 'assistant', content: text }       // 目标合成文本必须放 assistant

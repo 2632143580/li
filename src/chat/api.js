@@ -90,6 +90,9 @@ export async function streamChat(messages, onChunk, onDone, onError, sessionId, 
         // enable_cache 为 DeepSeek 专属缓存开关；智谱 GLM 等无此字段，发送会被拒绝，故仅 DeepSeek 附加（按生效中的 apiUrl 判定）
         if (provider === 'deepseek') {
             reqBody.enable_cache = true;
+            // DeepSeek 思考模型（v4-flash / reasoner / r1 等）显式开启 thinking，确保返回 reasoning_content（思维链）。
+            // V4-Flash 思考默认开，但显式声明更稳；非思考模型（如旧 deepseek-chat，已废弃）不匹配则不附加，避免被拒。
+            if (/v4|reasoner|r1|thinking/i.test(model)) reqBody.thinking = { type: 'enabled' };
         }
 
         const resp = await fetch(apiUrl, {

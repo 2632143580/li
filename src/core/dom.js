@@ -41,7 +41,7 @@ export const DOM = {};
         'set-voiceProb', 'set-voiceProb-val',
         'voice-cloud-panel',
         'set-cloudKey', 'cloud-key-toggle', 'cloud-voice-trigger', 'cloud-voice-text', 'cloud-voice-options',
-        'set-cloudBase', 'set-cloudModel', 'cloud-test', 'cloud-test-result',
+        'cloud-test', 'cloud-test-result',
         'set-cloud-cache-stat', 'set-cloud-cache-bar', 'cloud-cache-clear',
         // 文字消息显示模式（只显示文字 / 都显示 / 只显示语音）
         'set-disp-text', 'set-disp-both', 'set-disp-voice',

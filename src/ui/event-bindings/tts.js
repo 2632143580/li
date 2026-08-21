@@ -68,8 +68,6 @@ function openVoiceModal() {
         if (DOM.setReasoningAutoExpand) DOM.setReasoningAutoExpand.checked = !!state.settings.reasoningAutoExpand;
         populateCloudVoices();
         if (DOM.setCloudKey) DOM.setCloudKey.value = state.settings.ttsCloud?.apiKey || '';
-        if (DOM.setCloudBase) DOM.setCloudBase.value = state.settings.ttsCloud?.baseUrl || 'https://api.xiaomimimo.com/v1';
-        if (DOM.setCloudModel) DOM.setCloudModel.value = state.settings.ttsCloud?.model || 'mimo-v2.5-tts';
         syncProbUI();
         syncDisplayModeUI();
         refreshCloudCacheStat(); // 打开即显示当前缓存条数 / 大小（内部已判空）
@@ -209,18 +207,6 @@ export function bindVoiceSettings() {
             saveToLocal(null, true);
         });
     }
-
-    // 云端接口地址 / 模型（高级，一般不动；写入存档便于排查）
-    const bindCloudText = (el, key) => {
-        if (!el) return;
-        el.addEventListener('input', () => {
-            if (!state.settings.ttsCloud) state.settings.ttsCloud = {};
-            state.settings.ttsCloud[key] = el.value.trim();
-            saveToLocal(null, true);
-        });
-    };
-    bindCloudText(DOM.setCloudBase, 'baseUrl');
-    bindCloudText(DOM.setCloudModel, 'model');
 
     // 云端连接测试：一句话验证配置可用，结果直接显示在模态框内（红/绿），不再静默失败
     if (DOM.cloudTest) {

@@ -202,26 +202,20 @@
 .reasoning-toggle:hover,
 .reasoning-toggle:active { opacity: 0.78; }
 .rk-ico {
-    width: 15px; height: 15px;
+    width: 16px; height: 16px;
     flex: none;
 }
+/* 爱心：取自用户 love.svg，fill 交主题色（accent）；thinking 时呼吸 */
 .rk-ico .rk-heart { fill: var(--color-accent); opacity: 0.92; transform-origin: 50% 62%; }
 .reasoning.thinking .rk-ico .rk-heart { animation: rkPulse 1.1s infinite ease-in-out; }
 @keyframes rkPulse { 0%, 100% { opacity: 0.4; } 50% { opacity: 1; } }
-/* 简约长心电图：横向监护仪条纹（viewBox 0 0 120 24），随容器宽度拉伸；non-scaling-stroke 保线宽锐利 */
-.rk-line {
-    flex: 1;
-    min-width: 36px;
-    height: 16px;
-    color: var(--color-accent);
-}
-.rk-line path {
+/* 心电图：同样取自 love.svg 折线，stroke 用 --color-bg 在透明块上「切」出波形（忠实还原黑线切白心），随主题自适应 */
+.rk-ico .rk-ecg {
     fill: none;
-    stroke: var(--color-accent);
-    stroke-width: 1.6;
+    stroke: var(--color-bg);
+    stroke-width: 4;
     stroke-linecap: round;
     stroke-linejoin: round;
-    vector-effect: non-scaling-stroke;
 }
 .rk-chev {
     width: 7px; height: 7px;

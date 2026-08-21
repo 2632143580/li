@@ -40,6 +40,7 @@ import { loadSession, persistSession, saveSession, setSessionPinned } from '../.
 import { showToast } from '../../core/toast.js';
 import { getEffectiveSysPrompt } from '../../core/sessions.js';
 import { armClickConfirm } from './click-confirm.js';
+import { LLM_PROVIDERS } from '../../core/config.js';
 
 registerUI('msg-nav', setupMsgNav);
 
@@ -54,16 +55,7 @@ const LONG_PRESS_MS = 600;
 /** 角色色点：与词云分色一致（user 暖橙 / ai 冷蓝） @type {Object<string,string>} */
 const ROLE_DOT = { user: '#ff9f43', assistant: '#4dabf7' };
 
-/**
- * 快速切换可用的服务商常量：端点与默认模型。
- * url 与 index.html 的 provider-tab data-url 保持一致（避免两端漂移）；
- * model 为各自官方默认模型（切换后若不换 model，服务商会因模型名不匹配拒绝请求）。
- * @type {Object<string,{name:string,url:string,model:string}>}
- */
-const LLM_PROVIDERS = {
-    zhipu: { name: '智谱', url: 'https://open.bigmodel.cn/api/paas/v4/chat/completions', model: 'glm-4-air' },
-    deepseek: { name: 'DeepSeek', url: 'https://api.deepseek.com/v1/chat/completions', model: 'deepseek-chat' }
-};
+// 快速切换可用的服务商常量：端点与默认模型已集中到 core/config.js 的 LLM_PROVIDERS（死常量，不序列化）。
 
 /** 读上次 tab（默认 'sessions'） @returns {'sessions'|'messages'} */
 function readTab() {
