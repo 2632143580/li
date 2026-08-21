@@ -69,6 +69,12 @@ export const state = {
      * 序列化边界：模型清单由 /models 动态拉取即可，落档无意义（远端随时增删）；缓存属运行时态。 @type {string[]}
      */
     availableModels: [],
+    /**
+     * 按服务商缓存的「已拉取模型列表」：{ zhipu:[...], deepseek:[...], custom:[...] }。
+     * 实时请求 /models 得到，随全局键落 localStorage（刷新不丢），不进导出备份。
+     * 设置页切服务商 / 会话芯片快切时据此自动配套模型。 @type {Object<string,string[]>}
+     */
+    modelCache: {},
     /** DOM 元素缓存：node.id(number) → HTMLElement @type {Map<number, HTMLElement>} */
     domCache: new Map(),
     /**

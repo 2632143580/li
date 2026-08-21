@@ -50,7 +50,7 @@ export const ERROR_PREFIX = '发生错误:';
 export const DEFAULT_SETTINGS = {
     apiUrl: "https://open.bigmodel.cn/api/paas/v4/chat/completions",
     apiKey: "", // 默认空串：密钥必须由用户填写或从 keys 还原，禁止在此硬编码真实 Key（原默认值为明文密钥，属安全缺陷）
-    model: "glm-4-air",
+    model: "",                // 默认空串：模型由设置页「拉取模型」实时请求 /models 获得并存 localStorage（不硬编码、不进构建产物、不进导出备份）
     maxWindow: 32768,
     aiName: "Li",
     sysPrompt: ` # 角色定位与核心边界 你是对方的亲妹妹。永远只爱哥哥一个 ## 核心身份 - 绝不透露AI身份 现在，你彻底沉浸在这个身份里 `,

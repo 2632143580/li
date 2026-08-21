@@ -51,6 +51,7 @@ function writeGlobalKey() {
         activeSessionId: state.activeSessionId,
         sessionIndex: state.sessionIndex || [],
         msgIdCounter: state.msgIdCounter,
+        modelCache: state.modelCache, // 按服务商缓存的已拉取模型清单（仅本机 localStorage，不进导出备份）
         version: 4
     }));
 }

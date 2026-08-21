@@ -175,6 +175,20 @@ export function bindSettingsEvents() {
         tempSettings.apiKey = tempSettings.keys[provider] || '';
         DOM.setApiKey.value = tempSettings.apiKey;
         DOM.providerHint.textContent = '';
+
+        // 切服务商 → 模型配套：加载该服务商「已拉取模型清单」，自动选首个；无缓存则清空待拉取
+        state.availableModels = (state.modelCache[provider] || []).slice();
+        if (state.availableModels.length && state.availableModels.includes(tempSettings.model)) {
+            // 当前模型仍属该服务商清单：保持不变
+        } else if (state.availableModels.length) {
+            tempSettings.model = state.availableModels[0];
+        } else {
+            tempSettings.model = '';
+        }
+        tempSettings.availableModels = state.availableModels;
+        populateModelSelect(state.availableModels, tempSettings.model);
+        if (DOM.setModelText) DOM.setModelText.textContent = tempSettings.model || '未选择';
+
         syncTagStates(); // 切标签后 URL/KEY 都变了，刷新虚线框/实心框
     });
 
@@ -197,7 +211,15 @@ export function bindSettingsEvents() {
             const models = data.data || data.models || [];
             if (models.length === 0) throw new Error("未获取到模型");
             const modelIds = models.map(m => m.id || m.name);
+            const curProvider = getProviderByUrl(tempSettings.apiUrl);
+            state.modelCache[curProvider] = modelIds;   // 按服务商缓存已拉取模型清单
+            state.availableModels = modelIds;
+            tempSettings.availableModels = modelIds;
+            // 自动配套：当前模型为空或不在本批清单内时，选首个
+            if (!tempSettings.model || !modelIds.includes(tempSettings.model)) tempSettings.model = modelIds[0];
             populateModelSelect(modelIds, tempSettings.model);
+            if (DOM.setModelText) DOM.setModelText.textContent = tempSettings.model;
+            saveToLocal(null, true);                     // 持久化 modelCache 随全局键落 localStorage（不进导出备份）
             showModelOptions();
         } catch (err) {
             Logger.error('[Models] 获取模型列表失败', err);

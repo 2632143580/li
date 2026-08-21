@@ -2,8 +2,12 @@
  * 思维链图标插件：爱心 + 心电图波形（监护仪式），纯图标无文字。
  *
  * 设计来源：用户上传的 love.svg（白色爱心 + 黑色心电图折线合体图）。
- *   - 去黑底 rect，颜色交主题：heart 用 --color-accent，ecg 用 --color-bg（在透明块上「切」出波形，忠实还原 love.svg 的黑线切白心）。
- *   - 单文件内联 SVG（非 canvas）：更轻、随主题、可平铺；后期想做 canvas 监护仪 / 更密波形，只换 buildSvg 实现即可。
+ * 去黑底 rect，颜色交主题：爱心 fill 用 --color-accent，心电图 stroke 用 --color-accent。
+ *
+ * 关键：爱心与心电图是「两个独立组件」——
+ *   - buildHeartSvg() 只产爱心（取自用户 love.svg 的 path），可独立复用 / 单独定位。
+ *   - buildEcgSvg(emotion) 只产心电图折线（按情绪换波形），可独立复用 / 单独动画。
+ *   - buildEcgHeartSvg() 仅做组合（两者并列），保持向后兼容；渲染层也可分别取两个组件自行排版。
  *
  * 情绪视觉挂钩（用户预留需求）：ECG_WAVEFORMS 按 emotion 返回不同波形 path，
  *   渲染层传 node._emotion（默认 'calm'）→ 后期接插件即可按情绪换波形，无需改渲染结构。
@@ -27,14 +31,31 @@ export const ECG_WAVEFORMS = {
 };
 
 /**
- * 构建思维链图标 SVG（爱心 + 心电图，纯图标）。
+ * 爱心组件（独立 <svg>）：取自用户 love.svg 的白色爱心 path，fill 交主题色。
+ * @returns {string} 内联 SVG 字符串
+ */
+export function buildHeartSvg() {
+    return '<svg class="rk-ico rk-heart-ico" viewBox="0 0 100 100" aria-hidden="true" focusable="false">'
+        + '<path class="rk-heart" d="' + HEART_PATH + '"/></svg>';
+}
+
+/**
+ * 心电图组件（独立 <svg>）：按情绪取波形 path，stroke 交主题色。与爱心是两个独立组件。
  * @param {string} [emotion='calm'] 情绪键，决定心电图波形（见 ECG_WAVEFORMS）
  * @returns {string} 内联 SVG 字符串
  */
-export function buildEcgHeartSvg(emotion = 'calm') {
+export function buildEcgSvg(emotion = 'calm') {
     const wave = ECG_WAVEFORMS[emotion] || ECG_WAVEFORMS.calm;
-    return '<svg class="rk-ico" viewBox="0 0 100 100" aria-hidden="true" focusable="false">'
-        + '<path class="rk-heart" d="' + HEART_PATH + '"/>'
-        + '<path class="rk-ecg" d="' + wave + '"/>'
-        + '</svg>';
+    return '<svg class="rk-ico rk-ecg-ico" viewBox="0 0 100 100" aria-hidden="true" focusable="false" preserveAspectRatio="none">'
+        + '<path class="rk-ecg" d="' + wave + '"/></svg>';
+}
+
+/**
+ * 组合（向后兼容）：爱心 + 心电图 两个独立 <svg> 并列。
+ * 渲染层也可改用 buildHeartSvg() / buildEcgSvg() 单独取两个组件自行排版。
+ * @param {string} [emotion='calm'] 情绪键
+ * @returns {string} 内联 SVG 字符串
+ */
+export function buildEcgHeartSvg(emotion = 'calm') {
+    return buildHeartSvg() + buildEcgSvg(emotion);
 }

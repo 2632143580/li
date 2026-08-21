@@ -498,7 +498,9 @@ function setupMsgNav() {
         // 两态互切：当前是智谱→切 DeepSeek，反之→智谱；点一下即设显式会话级覆盖，无「继承全局」中间态
         const cur = providerKey === 'deepseek' ? 'deepseek' : 'zhipu';
         const next = cur === 'zhipu' ? 'deepseek' : 'zhipu';
-        const nextCfg = { apiUrl: LLM_PROVIDERS[next].url, model: LLM_PROVIDERS[next].model };
+        // 模型不硬编码：用该服务商「已拉取模型清单」的首个（无缓存则空串，由用户拉取 / 手填）
+        const pulled = state.modelCache[next] || [];
+        const nextCfg = { apiUrl: LLM_PROVIDERS[next].url, model: pulled[0] || '' };
 
         if (id === state.activeSessionId) {
             // 当前会话：写运行时（请求层立即生效）+ saveSession 落盘（内部 updateIndexFromRaw 同步索引 → chip 立即更新、刷新不丢）

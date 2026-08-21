@@ -13,6 +13,7 @@ import './style.css';
 import { DOM, setViewport, W, H, uiCtx } from './core/dom.js';
 import { Logger } from './core/logger.js';
 import { state } from './core/store.js';
+import { getProviderByUrl } from './core/utils.js';
 import { loadFromLocal, createFirstSession, saveSession } from './core/storage.js';
 import { BgEngine } from './engines/bg-engine.js';
 import { ThemeEngine } from './engines/theme-engine.js';
@@ -124,10 +125,9 @@ export function init() {
     resize();
     applySettings();
 
-    // 模型清单缓存以当前模型打底（拉取 /models 后由 populateModelSelect 合并扩充）
-    if (state.availableModels.length === 0) {
-        state.availableModels.push(state.settings.model);
-    }
+    // 模型清单：从 localStorage 的 modelCache 恢复「当前服务商」的已拉取列表（不硬编码、刷新不丢）
+    const initProvider = getProviderByUrl(state.settings.apiUrl);
+    state.availableModels = (state.modelCache[initProvider] || []).slice();
 
     // 背景引擎就绪。默认背景底色由 :root --color-bg 兜底（CSS 已设置），不挂任何 Canvas 动画插件——
     // 星空插件已移除：满屏动画画布是移动端常态 GPU 的持续帧驱动源之一（实测约贡献 70%→60% 的 10%）。
