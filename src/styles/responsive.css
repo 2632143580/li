@@ -106,34 +106,6 @@
     }
 }
 
-/* ====================== 全局移动端排版 ====================== */
-@media (max-width: 640px) {
-    #chat {
-        padding: calc(58px + env(safe-area-inset-top)) 14px calc(112px + env(safe-area-inset-bottom)) 14px;
-    }
-    .msg { max-width: 92%; margin-bottom: 22px; line-height: 1.72; }
-    .top-bar, .top-bar-left { top: calc(10px + env(safe-area-inset-top)); }
-    .top-bar { right: 10px; max-width: calc(100vw - 20px); }
-    .top-bar-left { left: 10px; max-width: calc(100vw - 20px); }
-    .tb-row { gap: 6px; }
-    .tb-body { padding: 8px; gap: 8px; }
-    #bottom-mask { height: 104px; }
-    .modal-content { max-height: calc(100dvh - 24px); overflow: auto; overscroll-behavior: contain; }
-    button, [role="button"] { min-height: 40px; }
-}
-
-@media (max-width: 380px) {
-    #chat { padding-left: 10px; padding-right: 10px; }
-    .msg { max-width: 96%; }
-    .top-bar { gap: 4px; }
-    .top-bar-left { max-width: 55vw; }
-}
-
-@media (orientation: landscape) and (max-height: 520px) {
-    #chat { padding-top: calc(46px + env(safe-area-inset-top)); padding-bottom: 84px; }
-    #bottom-mask { height: 76px; }
-}
-
 /* ====================== 浮层面板（更新日志 / 消息导航）手机端适配 ======================
  * 移动端 sheet-body 高度与桌面端一致：90vh（统一所有 sheet 面板高度，已在 modal.css 单一事实来源处设置，
  *   此处不再重复，避免隐性耦合与覆盖冲突）。
