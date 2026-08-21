@@ -39,6 +39,7 @@ import { getProviderByUrl } from '../../core/utils.js';
 import { loadSession, persistSession, saveSession, setSessionPinned } from '../../core/storage.js';
 import { showToast } from '../../core/toast.js';
 import { getEffectiveSysPrompt } from '../../core/sessions.js';
+import { armClickConfirm } from './click-confirm.js';
 
 registerUI('msg-nav', setupMsgNav);
 
@@ -200,13 +201,23 @@ function setupMsgNav() {
         const left = Math.min(Math.max(8, r.left), window.innerWidth - mw - 8);
         ctxMenu.style.top = top + 'px';
         ctxMenu.style.left = left + 'px';
+        // 删除：二次点击确认（复用 click-confirm，避免误删会话）。首点按钮翻「确认删除?」且菜单保持；再点才执行
+        const delBtn = ctxMenu.querySelector('[data-act="delete"]');
+        if (delBtn) {
+            armClickConfirm(delBtn, () => {
+                closeCtxMenu();
+                removeSession(id);
+                renderSessions(); // 非当前会话删除后索引已更新，需手动重渲染列表
+            }, { armedText: '确认删除?', resetMs: 3000 });
+        }
+        // 其余菜单项（重命名 / 置顶）走统一 handler；删除已由上方接管故跳过
         ctxMenu.querySelectorAll('button').forEach((b) => {
+            if (b.dataset.act === 'delete') return;
             b.addEventListener('click', (e) => {
                 e.stopPropagation();
                 const act = b.dataset.act;
                 closeCtxMenu();
                 if (act === 'rename') startRename(row, id);
-                else if (act === 'delete') { removeSession(id); renderSessions(); } // 非当前会话删除后索引已更新，需手动重渲染列表
                 else if (act === 'pin') togglePin(id);
             });
         });
