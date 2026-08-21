@@ -1,0 +1,182 @@
+/* Li v3：阅读空间重构
+ * 视觉原则：安静、清晰、留白；不依赖装饰性渐变或控制台隐喻。
+ */
+:root {
+    --v3-paper: #f4f1ea;
+    --v3-ink: #252522;
+    --v3-muted: #77746c;
+    --v3-line: rgba(37, 37, 34, .13);
+    --v3-panel: rgba(250, 248, 243, .94);
+    --v3-accent: #587b61;
+    --v3-accent-soft: rgba(88, 123, 97, .12);
+    --v3-user: #e4eadf;
+    --v3-danger: #a85a4b;
+    --v3-shadow: 0 12px 40px rgba(38, 36, 29, .08);
+    --v3-radius: 14px;
+}
+.theme-light {
+    --v3-paper: #f4f1ea;
+    --v3-ink: #252522;
+    --v3-muted: #77746c;
+    --v3-line: rgba(37, 37, 34, .13);
+    --v3-panel: rgba(250, 248, 243, .94);
+}
+:root:not(.theme-light) {
+    --v3-paper: #191b19;
+    --v3-ink: #eeeae0;
+    --v3-muted: #aaa79c;
+    --v3-line: rgba(238, 234, 224, .14);
+    --v3-panel: rgba(30, 32, 29, .95);
+    --v3-user: rgba(82, 112, 88, .55);
+    --v3-shadow: 0 14px 44px rgba(0, 0, 0, .22);
+}
+
+html, body {
+    background: var(--v3-paper) !important;
+    color: var(--v3-ink);
+    font-family: "Inter", "PingFang SC", "Microsoft YaHei", sans-serif;
+}
+body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    border: 1px solid var(--v3-line);
+}
+#bg, #bg-dom-layer, #bg-img-layer, #bg-dim-layer { opacity: .08; }
+#chat {
+    position: fixed;
+    inset: 0;
+    z-index: 4;
+    width: min(100%, 900px);
+    margin: 0 auto;
+    padding: 108px clamp(18px, 5vw, 72px) 176px;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--v3-line) transparent;
+}
+#bottom-mask {
+    z-index: 5;
+    height: 190px;
+    background: linear-gradient(to bottom, transparent, var(--v3-paper) 76%);
+}
+#ui-canvas { z-index: 12; }
+
+.top-bar, .top-bar-left {
+    top: 24px;
+    z-index: 20;
+    background: transparent;
+    border: 0;
+    box-shadow: none;
+}
+.top-bar { right: max(18px, calc((100vw - 900px) / 2)); gap: 4px; padding: 0; }
+.top-bar-left { left: max(18px, calc((100vw - 900px) / 2)); }
+.top-bar::before {
+    content: "Li";
+    display: block;
+    margin-right: 18px;
+    color: var(--v3-ink);
+    font: 600 16px/40px Georgia, serif;
+    letter-spacing: .02em;
+}
+.top-bar .icon-btn, .top-bar-left .icon-btn {
+    width: 40px;
+    height: 40px;
+    padding: 10px;
+    color: var(--v3-muted);
+    border-radius: 50%;
+    background: transparent;
+    border: 1px solid transparent;
+    transition: color .18s ease, background .18s ease, border-color .18s ease;
+}
+.top-bar .icon-btn:hover, .top-bar .icon-btn:focus-visible,
+.top-bar-left .icon-btn:hover, .top-bar-left .icon-btn:focus-visible {
+    color: var(--v3-ink);
+    background: var(--v3-accent-soft);
+    border-color: var(--v3-line);
+}
+.monitor-bar { background: transparent; border: 0; padding: 0; color: var(--v3-muted); }
+.monitor-light { background: transparent; }
+.tb-body { background: var(--v3-panel); border: 1px solid var(--v3-line); box-shadow: var(--v3-shadow); border-radius: var(--v3-radius); }
+
+.msg {
+    max-width: min(680px, 100%);
+    width: auto;
+    margin: 0 auto 34px;
+    color: var(--v3-ink) !important;
+    font-size: clamp(15px, 1.55vw, 17px);
+    line-height: 1.85;
+    text-shadow: none;
+    user-select: text;
+    -webkit-user-select: text;
+}
+.msg.user { margin-left: auto; margin-right: 0; text-align: left; }
+.msg.ai { margin-left: 0; margin-right: auto; text-align: left; }
+.msg.user::before, .msg.ai::before {
+    display: block;
+    margin-bottom: 8px;
+    color: var(--v3-muted);
+    font: 600 11px/1.4 "Inter", sans-serif;
+    letter-spacing: .08em;
+}
+.msg.user::before { content: "你"; text-align: right; }
+.msg.ai::before { content: "Li"; font-family: Georgia, serif; font-size: 14px; letter-spacing: 0; }
+.chat-bubble, .chat-bubble--user, .chat-bubble--ai {
+    border-radius: var(--v3-radius);
+    padding: 12px 16px;
+    background: transparent;
+    border: 1px solid var(--v3-line);
+}
+.chat-bubble--user { background: var(--v3-user); border-color: transparent; }
+.chat-bubble--ai { background: var(--v3-panel); }
+.msg.ai .waifu-bubble { color: var(--v3-ink) !important; background: transparent; border: 0; box-shadow: none; }
+.msg.user .chat-bubble { color: var(--v3-ink) !important; }
+.error-msg { color: var(--v3-danger) !important; border-color: color-mix(in srgb, var(--v3-danger) 35%, transparent); background: color-mix(in srgb, var(--v3-danger) 7%, transparent); }
+
+#hiddenInput { color: var(--v3-ink); }
+#fs-trigger-btn { opacity: .5; }
+
+/* Canvas 输入区外壳：将原本漂浮的绘制区域收束成纸面上的一条工具托盘。 */
+#ui-canvas {
+    left: 50%;
+    top: auto;
+    bottom: max(18px, env(safe-area-inset-bottom));
+    width: min(calc(100% - 32px), 760px) !important;
+    height: 72px !important;
+    transform: translateX(-50%);
+    border: 1px solid var(--v3-line);
+    border-radius: 18px;
+    background: var(--v3-panel);
+    box-shadow: var(--v3-shadow);
+}
+
+.modal-overlay { background: rgba(25, 27, 25, .34); backdrop-filter: blur(4px); }
+.modal-content, .sheet-body, .settings-panel {
+    background: var(--v3-panel) !important;
+    color: var(--v3-ink);
+    border: 1px solid var(--v3-line) !important;
+    border-radius: 20px !important;
+    box-shadow: var(--v3-shadow) !important;
+}
+button, input, textarea, select { font: inherit; }
+button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible {
+    outline: 2px solid var(--v3-accent);
+    outline-offset: 3px;
+}
+
+@media (max-width: 640px) {
+    #chat { padding: 84px 18px calc(150px + env(safe-area-inset-bottom)); }
+    .top-bar, .top-bar-left { top: max(10px, env(safe-area-inset-top)); }
+    .top-bar { right: 10px; }
+    .top-bar-left { left: 10px; }
+    .top-bar::before { margin-right: 4px; }
+    .top-bar .icon-btn, .top-bar-left .icon-btn { width: 42px; height: 42px; }
+    .msg { max-width: 100%; margin-bottom: 28px; font-size: 16px; line-height: 1.78; }
+    .msg.user { max-width: 92%; }
+    #ui-canvas { width: calc(100% - 20px) !important; bottom: max(10px, env(safe-area-inset-bottom)); }
+    .modal-content { width: calc(100% - 20px) !important; max-height: calc(100dvh - 24px); overflow-y: auto; }
+}
+@media (prefers-reduced-motion: reduce) {
+    #bg, #bg-dom-layer, #bg-img-layer, #bg-dim-layer { transition: none !important; }
+}
