@@ -1,11 +1,13 @@
 /* ====================== 设计令牌 ====================== */
 :root {
     --msg-font-size: 16px;
-    --color-bg: #080b14;
-    --color-user: rgba(240, 208, 160, 0.95);
-    --color-ai: rgba(170, 208, 160, 0.95);
-    --color-accent: rgba(150, 220, 130, 0.9);
-    --color-accent-soft: rgba(150, 220, 130, 0.15);
+    --color-bg: #101315;
+    --color-surface: #171c1d;
+    --color-surface-raised: #202728;
+    --color-user: #e4c9a1;
+    --color-ai: #c5d6c5;
+    --color-accent: #a8c7a7;
+    --color-accent-soft: rgba(168, 199, 167, 0.14);
     --color-error: rgba(255, 100, 100, 0.9);
     --radius-sm: 4px;
     --radius-md: 8px;

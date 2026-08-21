@@ -40,7 +40,7 @@
 
 /* ====================== 消息样式 ====================== */
 .msg {
-    max-width: 85%;
+    max-width: min(78ch, 85%);
     /* 宽度收缩到内容宽度：block 元素 width:auto 会拉伸占满 85% 导致气泡拉满、文本贴一侧留白；
        设为 fit-content 后气泡随文本长短自适应，配合 .user/.ai 的 margin auto 实现右/左对齐 */
     width: fit-content;
