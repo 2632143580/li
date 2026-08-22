@@ -64,8 +64,7 @@ function openVoiceModal() {
     try {
         if (DOM.setVoiceEnabled) DOM.setVoiceEnabled.checked = !!state.settings.ttsEnabled;
         if (DOM.setAutoRead) DOM.setAutoRead.checked = !!state.settings.ttsAutoRead;
-        if (DOM.setShowReasoning) DOM.setShowReasoning.checked = !!state.settings.showReasoning;
-        if (DOM.setReasoningAutoExpand) DOM.setReasoningAutoExpand.checked = !!state.settings.reasoningAutoExpand;
+        // 显示思维链/自动展开两开关已移设置页（用户 2026-08-22），此处不再同步
         populateCloudVoices();
         if (DOM.setCloudKey) DOM.setCloudKey.value = state.settings.ttsCloud?.apiKey || '';
         syncProbUI();
@@ -157,23 +156,6 @@ export function bindVoiceSettings() {
         DOM.setAutoRead.addEventListener('change', () => {
             state.settings.ttsAutoRead = DOM.setAutoRead.checked;
             if (!state.settings.ttsAutoRead) clearAutoQueue(); // 关闭自动朗读即停当前自动播
-            saveToLocal(null, true);
-        });
-    }
-
-    // 显示思维链开关（决定有 reasoning 的 AI 回复是否渲染可折叠思维链块；随对话缓存持久化，与正文一致）
-    if (DOM.setShowReasoning) {
-        DOM.setShowReasoning.addEventListener('change', () => {
-            state.settings.showReasoning = DOM.setShowReasoning.checked;
-            renderChat(); // 重新渲染：开启→显示思维链块 / 关闭→隐藏（数据仍在内存，再开即显）
-            saveToLocal(null, true);
-        });
-    }
-    // 思维链自动展开开关（默认展开/默认折叠，可手动切换；折叠态按消息记忆）
-    if (DOM.setReasoningAutoExpand) {
-        DOM.setReasoningAutoExpand.addEventListener('change', () => {
-            state.settings.reasoningAutoExpand = DOM.setReasoningAutoExpand.checked;
-            renderChat(); // 重新渲染：展开→思维链块默认展开 / 折叠→默认收起（数据仍在，可手动展开）
             saveToLocal(null, true);
         });
     }

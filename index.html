@@ -424,6 +424,34 @@
 
             <hr class="section-divider">
 
+            <!-- 2.5 思考与思维链（用户 2026-08-22：显示/自动展开两开关自语音设置移入 + 新增按模型的思考强度） -->
+            <div class="section">
+                <div class="section-title">思考与思维链</div>
+                <!-- 思考强度：分段按钮由 settings.js 按 tempSettings.model 匹配预设动态渲染；
+                     无匹配预设时隐藏本行（多数模型无此参数） -->
+                <div class="set-thinking-row" id="set-thinking-row" style="display:none;">
+                    <span class="lab">思考强度<small id="set-thinking-hint"></small></span>
+                    <div class="voice-seg" id="set-thinking-seg"></div>
+                </div>
+                <div class="voice-row">
+                    <span class="lab">显示思维链<small>AI 思考过程（可折叠，随对话缓存）</small></span>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="set-showReasoning">
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+                <div class="voice-row">
+                    <span class="lab">思维链自动展开<small>AI 回复后思维链默认展开</small></span>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="set-reasoningAutoExpand">
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+                <p class="voice-tip">开启后，支持「思维链」的模型（如 DeepSeek-R1、智谱 GLM）会在回答上方显示一段可折叠的思考过程；不支持的模型不返回，故不显示——这是模型能力差异，并非功能失效。已显示的内容随对话缓存，刷新 / 重开仍在。</p>
+            </div>
+
+            <hr class="section-divider">
+
             <!-- 3. 背景遮罩浓度（仿真框仅作预览；set-bgDim / set-bgDim-val 对齐） -->
             <div class="section">
                 <div class="section-title">遮罩浓度</div>
@@ -469,23 +497,6 @@
                         <span class="toggle-slider"></span>
                     </label>
                 </div>
-
-                <div class="voice-row">
-                    <span class="lab">显示思维链<small>AI 思考过程（可折叠，随对话缓存）</small></span>
-                    <label class="toggle-switch">
-                        <input type="checkbox" id="set-showReasoning">
-                        <span class="toggle-slider"></span>
-                    </label>
-                </div>
-
-                <div class="voice-row">
-                    <span class="lab">思维链自动展开<small>AI 回复后思维链默认展开</small></span>
-                    <label class="toggle-switch">
-                        <input type="checkbox" id="set-reasoningAutoExpand">
-                        <span class="toggle-slider"></span>
-                    </label>
-                </div>
-                <p class="voice-tip">开启后，支持「思维链」的模型（如 DeepSeek-R1、智谱 GLM）会在回答上方显示一段可折叠的思考过程；不支持的模型不返回，故不显示——这是模型能力差异，并非功能失效。已显示的内容随对话缓存，刷新 / 重开仍在。</p>
 
                 <div class="voice-row">
                     <span class="lab">发语音概率<small>每条 AI 消息按概率决定语音 / 文字</small></span>

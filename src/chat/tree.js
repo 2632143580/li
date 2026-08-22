@@ -218,6 +218,11 @@ export function applySettings() {
     inputRenderer.markDirty();
 }
 
+/** 模型变更通知：设置页「思考强度」分段需随模型预设刷新（树.js 不 import settings.js，走 DOM 事件解耦避免循环依赖） */
+function notifyModelChange() {
+    DOM.setModelOptions.dispatchEvent(new CustomEvent('modelchange', { bubbles: false }));
+}
+
 /** 检查当前 URL 匹配哪个服务商标签（读取 tempSettings.apiUrl 活绑定；已移除「自定义」标签，无匹配时不高亮） */
 export function checkProviderMatch() {
     const currentUrl = tempSettings.apiUrl;
@@ -250,6 +255,7 @@ export function populateModelSelect(models, selectedValue) {
             e.stopPropagation();
             tempSettings.model = m;
             DOM.setModelText.textContent = m;
+            notifyModelChange(); // 思考强度分段（设置页）随模型预设刷新
             hideModelOptions();
         };
         DOM.setModelOptions.appendChild(opt);
@@ -272,6 +278,7 @@ export function populateModelSelect(models, selectedValue) {
             DOM.setModelText.textContent = inputModel;
             tempSettings.availableModels.push(inputModel);
             populateModelSelect(tempSettings.availableModels, inputModel);
+            notifyModelChange(); // 思考强度分段（设置页）随模型预设刷新
         }
         hideModelOptions();
     };

@@ -60,6 +60,7 @@ export const DEFAULT_SETTINGS = {
     ttsAutoRead: false,       // 自动朗读：AI 回复流式生成时逐句自动播放（独立于 ttsEnabled；纯文字模式无语音条，不读）
     showReasoning: true,      // 显示思维链：AI 回复若有 reasoning_content 则在正文上方渲染可折叠「思维链」块；默认开
     reasoningAutoExpand: true, // 思维链自动展开：AI 回复后思维链默认展开（关闭则默认折叠、可手动展开）；默认开
+    reasoningEffort: '',      // 思考强度档位（用户 2026-08-22 要求）：''=未选回落预设默认；取值按 current model 的预设（DeepSeek V4: low/high/max；GLM-4.5 Air: enabled/disabled；GLM-4.6V: low/high/max），见 core/thinking.js
     ttsCloud: {
         apiKey: '',            // 云端 Key：唯一敏感项，明文存本机（personal 自用）；baseUrl/model 见 config.js 的 TTS_CLOUD（硬编码，不序列化）
         voice: 'mimo_default'  // 用户自选音色（MiMo 预置清单），随设置持久化

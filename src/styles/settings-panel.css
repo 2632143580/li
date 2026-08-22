@@ -266,3 +266,35 @@
     .dim-visual { height: 180px; }
     .dim-val-big { font-size: 48px; }
 }
+
+/* ===== 思考与思维链（用户 2026-08-22：两开关自语音设置移入 + 思考强度分段） ===== */
+/* 思考强度行：标签在上、分段满宽在下（两行布局，窄屏选项文案「开启动态思考（默认）」不挤压） */
+.set-thinking-row {
+    display: block;
+    padding: 11px 0;
+    border-bottom: 1px solid var(--white-a06);
+}
+.set-thinking-row .lab {
+    display: block;
+    font-size: 13px;
+    color: var(--white-a80);
+    margin-bottom: 8px;
+}
+.set-thinking-row .lab small {
+    display: block;
+    font-size: 11px;
+    color: var(--white-a40);
+    margin-top: 2px;
+}
+.set-thinking-row .voice-seg {
+    display: flex;
+    width: 100%;
+}
+.set-thinking-row .voice-seg-btn {
+    flex: 1 1 0;
+    padding: 13px 4px; /* 垂直 13px×2 + 文字行高 18px ≈ 44px 触控底线 */
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+/* 思维链两开关行：复用语音设置行样式（.voice-row 全局类，见 tts.css），无新增 */

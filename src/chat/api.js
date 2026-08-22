@@ -18,6 +18,7 @@ import { Logger } from '../core/logger.js';
 import { state } from '../core/store.js';
 import { API_TIMEOUT_MS } from '../core/constants.js';
 import { getProviderByUrl } from '../core/utils.js';
+import { buildThinkingBody } from '../core/thinking.js';
 import { saveToLocal, saveSession } from '../core/storage.js';
 import { BgEngine } from '../engines/bg-engine.js';
 import { ThemeEngine } from '../engines/theme-engine.js';
@@ -90,10 +91,12 @@ export async function streamChat(messages, onChunk, onDone, onError, sessionId, 
         // enable_cache 为 DeepSeek 专属缓存开关；智谱 GLM 等无此字段，发送会被拒绝，故仅 DeepSeek 附加（按生效中的 apiUrl 判定）
         if (provider === 'deepseek') {
             reqBody.enable_cache = true;
-            // DeepSeek 思考模型（v4-flash / reasoner / r1 等）显式开启 thinking，确保返回 reasoning_content（思维链）。
-            // V4-Flash 思考默认开，但显式声明更稳；非思考模型（如旧 deepseek-chat，已废弃）不匹配则不附加，避免被拒。
-            if (/v4|reasoner|r1|thinking/i.test(model)) reqBody.thinking = { type: 'enabled' };
         }
+        // 思考参数（用户 2026-08-22 要求设置页可选思考强度）：按生效模型匹配预设注入
+        // thinking.type / reasoning_effort；DeepSeek V4-Pro/Flash: low|high|max（默认 high）、
+        // GLM-4.5 Air: enabled(动态,默认)|disabled、GLM-4.6V: low|high|max；其余模型保留原有
+        // 兜底（v4/reasoner/r1/thinking 系显式开思考）。预设与参数口径见 core/thinking.js 文档。
+        Object.assign(reqBody, buildThinkingBody(model, state.settings.reasoningEffort));
 
         const resp = await fetch(apiUrl, {
             method: "POST",

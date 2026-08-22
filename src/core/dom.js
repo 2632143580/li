@@ -38,6 +38,7 @@ export const DOM = {};
         // 语音设置模态框（云端唯一语音源：系统语音/语速/概率预设已移除）
         'voice-modal', 'voice-modal-close', 'voice-modal-cancel',
         'set-voiceEnabled', 'set-autoRead', 'set-showReasoning', 'set-reasoningAutoExpand',
+        'set-thinking-row', 'set-thinking-hint', 'set-thinking-seg',
         'set-voiceProb', 'set-voiceProb-val',
         'voice-cloud-panel',
         'set-cloudKey', 'cloud-key-toggle', 'cloud-voice-trigger', 'cloud-voice-text', 'cloud-voice-options',

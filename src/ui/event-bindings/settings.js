@@ -20,6 +20,8 @@ import {
     applySettings, checkProviderMatch, populateModelSelect,
     showModelOptions, hideModelOptions
 } from '../../chat/tree.js';
+import { renderChat } from '../render/tree-render.js';
+import { matchThinkingPreset } from '../../core/thinking.js';
 import { armClickConfirm } from './click-confirm.js';
 
 /**
@@ -31,6 +33,31 @@ let pendingSysPrompt = '';
 
 /** 沉浸预览前的已提交遮罩值 —— 取消时用于回退实时预览的改动 @type {number} */
 let bgDimPreviewBackup = 0.4;
+
+/** 打开设置面板时思维链两开关的已提交快照 —— 保存时对比，变更才 renderChat（避免无谓重渲染） @type {{show:boolean, auto:boolean}} */
+let reasoningSnapshot = { show: true, auto: true };
+
+/**
+ * 渲染「思考强度」分段（用户 2026-08-22 要求）：按 tempSettings.model 匹配预设（core/thinking.js）。
+ * 无预设模型隐藏整行；有效值不在选项内时回落预设默认（换模型后旧档位自动归位）。
+ * @returns {void}
+ */
+function renderThinkingUI() {
+    if (!DOM.setThinkingRow || !DOM.setThinkingSeg || !DOM.setThinkingHint) return;
+    const preset = matchThinkingPreset(tempSettings.model || '');
+    if (!preset) {
+        DOM.setThinkingRow.style.display = 'none';
+        return;
+    }
+    DOM.setThinkingRow.style.display = '';
+    DOM.setThinkingHint.textContent = preset.title;
+    if (!preset.options.some((o) => o.value === tempSettings.reasoningEffort)) {
+        tempSettings.reasoningEffort = preset.default;
+    }
+    DOM.setThinkingSeg.innerHTML = preset.options.map((o) =>
+        `<button type="button" class="voice-seg-btn${o.value === tempSettings.reasoningEffort ? ' active' : ''}" data-v="${o.value}">${o.label}</button>`
+    ).join('');
+}
 
 /** 仿真框专用元素（仅供视觉预览，非项目数据） */
 const dimSimOverlay = DOM.bgDimSim;
@@ -67,6 +94,14 @@ export function bindSettingsEvents() {
         DOM.setBgDim.value = tempSettings.bgDimOpacity * 100; // 0-1 转为 0-100
         DOM.setBgDimVal.textContent = Math.round(tempSettings.bgDimOpacity * 100) + '%';
         DOM.setAiName.value = tempSettings.aiName;
+        // 思维链两开关（用户 2026-08-22 自语音设置移入）：暂存进 tempSettings，点「保存」才生效（与遮罩浓度同口径）
+        if (DOM.setShowReasoning) DOM.setShowReasoning.checked = !!tempSettings.showReasoning;
+        if (DOM.setReasoningAutoExpand) DOM.setReasoningAutoExpand.checked = !!tempSettings.reasoningAutoExpand;
+        reasoningSnapshot = {
+            show: !!state.settings.showReasoning,
+            auto: !!state.settings.reasoningAutoExpand
+        };
+        renderThinkingUI(); // 思考强度分段按当前模型预设渲染
         // 系统提示词输入框显示「当前会话有效值」：有会话级覆盖则显示覆盖，否则显示全局默认
         pendingSysPrompt = (state.sessionSysPrompt != null) ? state.sessionSysPrompt : state.settings.sysPrompt;
         DOM.setSysPrompt.value = pendingSysPrompt;
@@ -87,6 +122,10 @@ export function bindSettingsEvents() {
         state.sessionSysPrompt = pendingSysPrompt;
         applySettings(); // 内部把根 content 同步为有效系统提示词（覆盖优先）
         updateInputLayout();
+        // 思维链两开关（自语音设置移入）：保存才生效；与打开时快照对比，变更才重渲染聊天区
+        const reasoningChanged = reasoningSnapshot.show !== !!state.settings.showReasoning
+            || reasoningSnapshot.auto !== !!state.settings.reasoningAutoExpand;
+        if (reasoningChanged) renderChat();
         if (DOM.bgDimLayer) DOM.bgDimLayer.style.opacity = state.settings.bgDimOpacity; // 保存后才应用到真实遮罩层（滑块拖动仅预览仿真框，用户要求"保存后才生效"）
         saveSession(state.activeSessionId); // 会话级覆盖随会话键落盘
         saveToLocal('设置已保存');
@@ -188,9 +227,38 @@ export function bindSettingsEvents() {
         tempSettings.availableModels = state.availableModels;
         populateModelSelect(state.availableModels, tempSettings.model);
         if (DOM.setModelText) DOM.setModelText.textContent = tempSettings.model || '未选择';
+        renderThinkingUI(); // 切服务商换模型后，思考强度分段按新模型预设刷新
 
         syncTagStates(); // 切标签后 URL/KEY 都变了，刷新虚线框/实心框
     });
+
+    // ===== 思考与思维链（用户 2026-08-22：自语音设置移入 + 新增思考强度） =====
+    // 显示思维链 / 自动展开：仅改暂存，点「保存」随 tempSettings 一并提交
+    if (DOM.setShowReasoning) {
+        DOM.setShowReasoning.addEventListener('change', () => {
+            tempSettings.showReasoning = DOM.setShowReasoning.checked;
+        });
+    }
+    if (DOM.setReasoningAutoExpand) {
+        DOM.setReasoningAutoExpand.addEventListener('change', () => {
+            tempSettings.reasoningAutoExpand = DOM.setReasoningAutoExpand.checked;
+        });
+    }
+    // 思考强度分段点击：更新暂存档位 + 高亮
+    if (DOM.setThinkingSeg) {
+        DOM.setThinkingSeg.addEventListener('click', (e) => {
+            const btn = e.target.closest('.voice-seg-btn');
+            if (!btn) return;
+            tempSettings.reasoningEffort = btn.dataset.v;
+            DOM.setThinkingSeg.querySelectorAll('.voice-seg-btn').forEach((b) => {
+                b.classList.toggle('active', b === btn);
+            });
+        });
+    }
+    // 模型下拉选中（含手动输入）→ tree.js 派发 modelchange 事件 → 分段按新预设刷新
+    if (DOM.setModelOptions) {
+        DOM.setModelOptions.addEventListener('modelchange', renderThinkingUI);
+    }
 
     // 模型列表刷新（图标按钮：用 .spinning 旋转代替文案，避免覆盖 SVG）
     DOM.btnFetchModels.addEventListener('click', async (e) => {
@@ -219,6 +287,7 @@ export function bindSettingsEvents() {
             if (!tempSettings.model || !modelIds.includes(tempSettings.model)) tempSettings.model = modelIds[0];
             populateModelSelect(modelIds, tempSettings.model);
             if (DOM.setModelText) DOM.setModelText.textContent = tempSettings.model;
+            renderThinkingUI(); // 拉取后自动配套的模型可能变化，分段按新模型刷新
             saveToLocal(null, true);                     // 持久化 modelCache 随全局键落 localStorage（不进导出备份）
             showModelOptions();
         } catch (err) {
