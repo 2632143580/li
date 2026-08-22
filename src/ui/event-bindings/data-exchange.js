@@ -8,9 +8,10 @@ import { armClickConfirm } from './click-confirm.js';
 import { state } from '../../core/store.js';
 import { DEFAULT_SETTINGS } from '../../core/constants.js';
 import { closeAllModals } from '../../core/modal.js';
-import { ensureKeysObject } from '../../core/utils.js';
+import { ensureKeysObject, KEY_PROVIDERS } from '../../core/utils.js';
 import { saveToLocal, saveSession } from '../../core/storage.js';
 import { renumberTreeIds } from '../../core/sessions.js';
+import { serializeTree } from '../../core/tree-core.js';
 import { updateInputLayout } from '../input-renderer.js';
 import {
     applySettings, migrateErrorFlags,
@@ -32,15 +33,24 @@ export function bindDataExchangeEvents() {
         for (const key in state.settings) {
             if (allowedKeys.has(key)) cleanSettings[key] = state.settings[key];
         }
-        // 脱敏：导出备份不得含明文密钥（修 P0-2：原实现把 apiKey / keys / 云端 TTS Key 连同聊天记录写入 .json，随文件泄露）。
-        // 深拷贝纯 JSON 后清空敏感字段；导入方缺失密钥时回退到用户重新填写，避免密钥随备份文件落地。
+        // keys 槽位白名单浅拷（剔除运行时可能被写入的 custom 槽位，与 cleanSettingsForSave 同口径）
+        if (cleanSettings.keys) {
+            const keyObj = {};
+            for (const p of KEY_PROVIDERS) keyObj[p] = cleanSettings.keys[p] || '';
+            cleanSettings.keys = keyObj;
+        }
+        // 脱敏 + 不序列化：导出备份不得含 LLM / 云端 TTS 的端点 / 密钥 / 模型。
+        // url 是死的、key 存本地、模型现拉存本地——三者只活在本机 localStorage，绝不随备份文件泄露。
         const masked = JSON.parse(JSON.stringify(cleanSettings));
-        masked.apiKey = '';
-        if (masked.keys) for (const k in masked.keys) masked.keys[k] = '';
-        if (masked.ttsCloud) masked.ttsCloud.apiKey = '';
+        delete masked.apiUrl;     // LLM 端点
+        delete masked.apiKey;     // LLM 密钥
+        delete masked.keys;       // 按服务商密钥
+        delete masked.model;      // LLM 模型（现拉，非硬编码）
+        delete masked.ttsCloud;   // 云端 TTS 整体（baseUrl / model / apiKey / voice）
         const dataStr = JSON.stringify({
             settings: masked,
-            chatTree: state.chatTree
+            // 白名单序列化（P4-10）：与 persistSession 落盘同口径，剔除节点运行时标记
+            chatTree: serializeTree(state.chatTree)
         }, null, 2);
         const blob = new Blob([dataStr], { type: "application/json" });
         const url = URL.createObjectURL(blob);
@@ -67,7 +77,9 @@ export function bindDataExchangeEvents() {
                     // 密钥字段（apiKey/keys/ttsCloud）不随导入覆盖——导出已脱敏为 ''，若回灌会清空用户当前真实 Key；
                     // 用户导入后自行重填即可（你已确认「key 无所谓」）。
                     const allowedKeys = new Set(Object.keys(DEFAULT_SETTINGS));
-                    const SECRET_KEYS = new Set(['apiKey', 'keys', 'ttsCloud']);
+                    // 密钥与端点 / 模型均不随导入覆盖（导出已剔除，回灌会清空用户当前真实配置）；
+                    // 用户导入后自行重填 / 重新拉取即可。涵盖 llm 的 apiUrl/model/apiKey/keys 与 tts 整体。
+                    const SECRET_KEYS = new Set(['apiUrl', 'model', 'apiKey', 'keys', 'ttsCloud']);
                     for (const key in importedData.settings) {
                         if (!allowedKeys.has(key) || SECRET_KEYS.has(key)) continue;
                         state.settings[key] = importedData.settings[key];

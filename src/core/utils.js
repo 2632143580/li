@@ -63,18 +63,21 @@ export function getProviderByUrl(url) {
     return 'custom';
 }
 
+/** keys 允许持久化的服务商槽位（custom 不记忆：自定义服务商的 Key 只活在本次运行，不落档） */
+export const KEY_PROVIDERS = ['zhipu', 'deepseek'];
+
 /**
- * 就地补全设置对象的 keys 字段，保证 zhipu/deepseek/custom 三个槽位都存在。
- * 用于兼容缺少该字段的旧存档与导入文件。
- * @param {{keys?:{zhipu?:string, deepseek?:string, custom?:string}}} obj - 设置对象（会被直接修改）
+ * 就地补全设置对象的 keys 字段，保证已知服务商槽位存在（zhipu/deepseek）。
+ * 用于兼容缺少该字段的旧存档与导入文件；历史存档中的 custom 槽位会被剔除（不再序列化）。
+ * @param {{keys?:{zhipu?:string, deepseek?:string}}} obj - 设置对象（会被直接修改）
  * @returns {void}
  */
 export function ensureKeysObject(obj) {
     if (!obj.keys) {
-        obj.keys = { zhipu: '', deepseek: '', custom: '' };
+        obj.keys = { zhipu: '', deepseek: '' };
     } else {
-        if (obj.keys.zhipu === undefined) obj.keys.zhipu = '';
-        if (obj.keys.deepseek === undefined) obj.keys.deepseek = '';
-        if (obj.keys.custom === undefined) obj.keys.custom = '';
+        for (const p of KEY_PROVIDERS) {
+            if (obj.keys[p] === undefined) obj.keys[p] = '';
+        }
     }
 }

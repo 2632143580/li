@@ -39,6 +39,8 @@ import { getProviderByUrl } from '../../core/utils.js';
 import { loadSession, persistSession, saveSession, setSessionPinned } from '../../core/storage.js';
 import { showToast } from '../../core/toast.js';
 import { getEffectiveSysPrompt } from '../../core/sessions.js';
+import { armClickConfirm } from './click-confirm.js';
+import { LLM_PROVIDERS } from '../../core/config.js';
 
 registerUI('msg-nav', setupMsgNav);
 
@@ -53,16 +55,7 @@ const LONG_PRESS_MS = 600;
 /** 角色色点：与词云分色一致（user 暖橙 / ai 冷蓝） @type {Object<string,string>} */
 const ROLE_DOT = { user: '#ff9f43', assistant: '#4dabf7' };
 
-/**
- * 快速切换可用的服务商常量：端点与默认模型。
- * url 与 index.html 的 provider-tab data-url 保持一致（避免两端漂移）；
- * model 为各自官方默认模型（切换后若不换 model，服务商会因模型名不匹配拒绝请求）。
- * @type {Object<string,{name:string,url:string,model:string}>}
- */
-const LLM_PROVIDERS = {
-    zhipu: { name: '智谱', url: 'https://open.bigmodel.cn/api/paas/v4/chat/completions', model: 'glm-4-air' },
-    deepseek: { name: 'DeepSeek', url: 'https://api.deepseek.com/v1/chat/completions', model: 'deepseek-chat' }
-};
+// 快速切换可用的服务商常量：端点与默认模型已集中到 core/config.js 的 LLM_PROVIDERS（死常量，不序列化）。
 
 /** 读上次 tab（默认 'sessions'） @returns {'sessions'|'messages'} */
 function readTab() {
@@ -104,6 +97,15 @@ function effectiveProvider(s) {
 /** 全局默认模型 → 服务商（glm-* / zhipu* → 智谱；含 deepseek → DeepSeek）。 @returns {'zhipu'|'deepseek'} */
 function globalProvider() {
     return (state.settings.model || '').toLowerCase().includes('deepseek') ? 'deepseek' : 'zhipu';
+}
+
+/**
+ * 会话生效模型名：会话级 llmConfig.model 优先，否则全局默认 model（state.settings.model）。
+ * 用于芯片显示「真实模型标识」而非服务商中文名。 @param {object} s 列表条目 @returns {string}
+ */
+function effectiveModel(s) {
+    if (s.llmConfig && s.llmConfig.model) return s.llmConfig.model;
+    return state.settings.model || '';
 }
 
 function setupMsgNav() {
@@ -200,13 +202,23 @@ function setupMsgNav() {
         const left = Math.min(Math.max(8, r.left), window.innerWidth - mw - 8);
         ctxMenu.style.top = top + 'px';
         ctxMenu.style.left = left + 'px';
+        // 删除：二次点击确认（复用 click-confirm，避免误删会话）。首点按钮翻「确认删除?」且菜单保持；再点才执行
+        const delBtn = ctxMenu.querySelector('[data-act="delete"]');
+        if (delBtn) {
+            armClickConfirm(delBtn, () => {
+                closeCtxMenu();
+                removeSession(id);
+                renderSessions(); // 非当前会话删除后索引已更新，需手动重渲染列表
+            }, { armedText: '确认删除?', resetMs: 3000 });
+        }
+        // 其余菜单项（重命名 / 置顶）走统一 handler；删除已由上方接管故跳过
         ctxMenu.querySelectorAll('button').forEach((b) => {
+            if (b.dataset.act === 'delete') return;
             b.addEventListener('click', (e) => {
                 e.stopPropagation();
                 const act = b.dataset.act;
                 closeCtxMenu();
                 if (act === 'rename') startRename(row, id);
-                else if (act === 'delete') { removeSession(id); renderSessions(); } // 非当前会话删除后索引已更新，需手动重渲染列表
                 else if (act === 'pin') togglePin(id);
             });
         });
@@ -355,7 +367,7 @@ function setupMsgNav() {
             // LLM 芯片：只有两个模型，显示当前生效模型（会话级覆盖优先，否则继承全局默认），无「全局」第三态。
             // data-provider 与渲染同源（'zhipu'|'deepseek'），切换时直接读，杜绝「索引旧值 vs 显示值」双源漂移
             const providerKey = effectiveProvider(s);
-            const providerName = providerKey === 'zhipu' ? '智谱' : 'DeepSeek';
+            const modelName = effectiveModel(s);
             const providerClass = ' provider-' + providerKey;
             // SP 预览：会话级覆盖去空白截 16 字；无覆盖 = 「默认」（继承全局）。accent = 有会话级覆盖
             const hasSp = s.sysPrompt != null && s.sysPrompt !== '';
@@ -367,7 +379,7 @@ function setupMsgNav() {
                     ${pin}
                     <span class="mn-session-title">${escapeHtml(s.title)}</span>
                     ${dots}
-                    <button type="button" class="mn-llm-chip${providerClass}" data-id="${escapeHtml(s.id)}" data-provider="${providerKey}">${providerName}</button>
+                    <button type="button" class="mn-llm-chip${providerClass}" data-id="${escapeHtml(s.id)}" data-provider="${providerKey}">${escapeHtml(modelName)}</button>
                 </div>
                 <div class="mn-row-meta">
                     <span class="mn-time">${relTime(s.updatedAt)}</span>
@@ -393,30 +405,48 @@ function setupMsgNav() {
         //   旧版在 pointercancel 上 clearTimeout 把计时器杀掉 → 菜单永远开不了。现改为——
         //   ① 主触发用原生 contextmenu 事件（移动端长按 / 桌面右键都会派发，最可靠），preventDefault 掐掉系统菜单；
         //   ② pointer 计时器仅作兜底（contextmenu 未触发时 600ms 打开）；
-        //   ③ pointercancel 不再取消计时器（它是长按被浏览器接管的预期信号，不是用户松手）；仅真滚动(>10px)与松手(<600ms)取消。
-        //   ④ 两种通道都把 longFired 置位，随后派发的 click 被吞掉，避免「长按后误触发进入」。
+        //   ③ pointercancel 按位移分流：已滑 >10px = 滚动场景 → 取消计时器；未动 = 长按被浏览器接管 → 保留；
+        //   ④ 慢滑误触修复（用户 2026-08-21 反馈）：长按的语义是「按住不动」——任何 pointermove 都重置 600ms 计时，
+        //      慢速滑动时计时器被持续重置，滑多久都不会弹菜单；停止移动 600ms 才触发。位移 >10px 则直接取消（真滚动）。
+        //   ⑤ 两种触发通道都把 longFired 置位，随后派发的 click 被吞掉，避免「长按后误触发进入」。
         sessionsList.querySelectorAll('.mn-session').forEach((row) => {
             const id = row.dataset.id;
             const titleEl = row.querySelector('.mn-session-title');
-            let pressTimer = 0, longFired = false, startX = 0, startY = 0;
+            let pressTimer = 0, longFired = false, startX = 0, startY = 0, lastX = 0, lastY = 0;
             row.addEventListener('pointerdown', (e) => {
                 if (e.button && e.button !== 0) return; // 右键交给原生 contextmenu
                 if (ctxMenuOpen) return;
-                startX = e.clientX; startY = e.clientY;
+                // SP 编辑区 / 输入框内按下：不触发整行长按菜单（修复「编辑区长按误弹气泡」）
+                if (e.target.closest('input, textarea, [contenteditable], .mn-sp-editor')) return;
+                startX = lastX = e.clientX; startY = lastY = e.clientY;
                 longFired = false; // 每次按下重置：即便上次长按后 click 未派发也不会卡在 true
                 clearTimeout(pressTimer);
                 pressTimer = setTimeout(() => { longFired = true; openCtxMenu(id, row); }, LONG_PRESS_MS);
             });
             const onMove = (e) => {
-                if (pressTimer && (Math.abs(e.clientX - startX) > 10 || Math.abs(e.clientY - startY) > 10)) {
+                lastX = e.clientX; lastY = e.clientY; // 记录最新触点，pointercancel 分流用
+                if (!pressTimer) return;
+                if (Math.abs(e.clientX - startX) > 10 || Math.abs(e.clientY - startY) > 10) {
                     clearTimeout(pressTimer); pressTimer = 0; // 真滚动/拖拽 → 不是长按，取消
+                } else {
+                    // 微小移动：重置计时（长按=按住不动；慢滑时持续重置，杜绝 600ms 慢滑误触菜单）
+                    clearTimeout(pressTimer);
+                    pressTimer = setTimeout(() => { longFired = true; openCtxMenu(id, row); }, LONG_PRESS_MS);
                 }
             };
+            // 浏览器接管手势（滚动或长按都会派发 pointercancel）：按累计位移分流——滑动中=取消，静止长按=保留
+            row.addEventListener('pointercancel', () => {
+                if (pressTimer && (Math.abs(lastX - startX) > 10 || Math.abs(lastY - startY) > 10)) {
+                    clearTimeout(pressTimer); pressTimer = 0;
+                }
+            });
             const endPress = () => { clearTimeout(pressTimer); pressTimer = 0; }; // 松手早于 600ms = 轻点，不触发菜单
             row.addEventListener('pointermove', onMove);
             row.addEventListener('pointerup', endPress);
             // 原生长按/右键：直接开菜单（移动端最可靠的触发通道）。preventDefault 掐掉系统选择/复制菜单
             row.addEventListener('contextmenu', (e) => {
+                // 编辑区 / 输入框内：放行系统菜单（不拦、不弹自定义菜单）
+                if (e.target.closest('input, textarea, [contenteditable], .mn-sp-editor')) return;
                 e.preventDefault();
                 if (ctxMenuOpen) return;
                 longFired = true;
@@ -468,7 +498,9 @@ function setupMsgNav() {
         // 两态互切：当前是智谱→切 DeepSeek，反之→智谱；点一下即设显式会话级覆盖，无「继承全局」中间态
         const cur = providerKey === 'deepseek' ? 'deepseek' : 'zhipu';
         const next = cur === 'zhipu' ? 'deepseek' : 'zhipu';
-        const nextCfg = { apiUrl: LLM_PROVIDERS[next].url, model: LLM_PROVIDERS[next].model };
+        // 模型不硬编码：用该服务商「已拉取模型清单」的首个（无缓存则空串，由用户拉取 / 手填）
+        const pulled = state.modelCache[next] || [];
+        const nextCfg = { apiUrl: LLM_PROVIDERS[next].url, model: pulled[0] || '' };
 
         if (id === state.activeSessionId) {
             // 当前会话：写运行时（请求层立即生效）+ saveSession 落盘（内部 updateIndexFromRaw 同步索引 → chip 立即更新、刷新不丢）

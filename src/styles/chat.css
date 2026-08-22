@@ -179,3 +179,102 @@
 .msg-retry:hover {
     background: color-mix(in srgb, var(--color-error) 10%, transparent);
 }
+
+/* ====================== 思维链折叠块（自定义按钮，非原生 details；无左竖线） ====================== */
+.reasoning {
+    margin: 2px 0 8px;                     /* 无卡片 / 无背景 / 无边框：纯排版分隔，不抢正文 */
+}
+.reasoning-toggle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    min-height: 34px;                      /* 移动端触控达标 */
+    padding: 3px 2px;
+    border: none;
+    background: transparent;
+    color: var(--white-a75);
+    font: inherit;
+    cursor: pointer;
+    user-select: none;
+    transition: opacity var(--transition-fast);
+}
+.reasoning-toggle:hover,
+.reasoning-toggle:active { opacity: 0.78; }
+/* ===== 思维链图标：love.svg（左）+ 心电图 canvas（右）并排 ===== */
+/* 左：love.svg 主题化——底块/爱心/心电折线均走令牌（rk-love-*），随深浅主题自适应；
+   原黑底白心黑折线改为「底块同色折线镂空刻进主题色爱心」，几何与 viewBox 不变 */
+.rk-love-ico {
+    display: block;
+    flex: none;
+    width: 20px;
+    height: 20px;
+}
+.rk-love-ico .rk-love-bg { fill: var(--rk-love-surface); }
+.rk-love-ico .rk-love-heart { fill: var(--rk-love-heart); }
+.rk-love-ico .rk-love-ecg { stroke: var(--rk-love-line); }
+/* 右：心电图监护仪容器（对应原文件 main：网格层 + canvas + 扫描线三层叠放） */
+.rk-ecg-mon {
+    position: relative;
+    display: block;
+    flex: 1 1 auto;
+    min-width: 96px;
+    height: 20px;
+    overflow: hidden;
+    background: #050a10;                    /* 原文件 --bg-color */
+}
+/* 网格背景层（原文件 .grid-background 原样：大格 50px + 小格 10px 双色四层） */
+.rk-ecg-grid {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-image:
+        linear-gradient(rgba(40, 60, 80, 0.4) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(40, 60, 80, 0.4) 1px, transparent 1px),
+        linear-gradient(rgba(40, 60, 80, 0.15) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(40, 60, 80, 0.15) 1px, transparent 1px);
+    background-size: 50px 50px, 50px 50px, 10px 10px, 10px 10px;
+    pointer-events: none;
+    z-index: 0;
+}
+/* 波形层（原文件 canvas 规则原样） */
+.rk-ecg-cv {
+    position: relative;
+    z-index: 1;
+    display: block;
+    width: 100%;
+    height: 100%;
+}
+/* 扫描线光效（原文件 .scan-line：40px 黑色渐隐条 + JS 同步 translateX。宽度按 600px 参照等比
+   （40/600≈6.7%），与 JS 的 scanBarWidth 换算一致，扫描节奏/可见时长与原版完全相同） */
+.rk-ecg-scan {
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 6.7%;
+    height: 100%;
+    background: linear-gradient(to left, rgba(0, 0, 0, 0.8), transparent);
+    z-index: 2;
+    pointer-events: none;
+}
+.rk-chev {
+    width: 7px; height: 7px;
+    border-right: 1.5px solid var(--white-a40);
+    border-bottom: 1.5px solid var(--white-a40);
+    transform: rotate(-135deg);            /* 展开：指上 */
+    transition: transform var(--transition-fast);
+}
+.reasoning.collapsed .rk-chev { transform: rotate(45deg); }   /* 收起：指下 */
+.reasoning-body {
+    padding: 4px 2px 2px 28px;             /* 缩进对齐到心电图 canvas 起点（love 20 + gap 8），纯排版 */
+    font-size: 0.82rem;
+    line-height: 1.62;
+    color: var(--white-a55);               /* 三级淡色：思考≠正文 */
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+.reasoning.collapsed .reasoning-body { display: none; }
+
+

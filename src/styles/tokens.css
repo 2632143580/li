@@ -53,6 +53,12 @@
     --color-accent-dim: rgba(150, 220, 130, 0.3);
     --color-user-bright: rgba(240, 208, 160, 0.9);
 
+    /* ECG 爱心图标（ecg-heart 插件）主题令牌：委托现有双套令牌，自动随深浅主题翻转；
+       组件只引用此处，不改即随主题变。heart=主题色、line=底块同色镂空刻进爱心（深浅皆可见） */
+    --rk-love-surface: var(--color-bg);
+    --rk-love-heart: var(--color-accent-solid);
+    --rk-love-line: var(--color-bg);
+
     /* 输入框 Canvas 绘制专用变量 — 供 ThemeEngine 覆盖 */
     --input-ring-normal: rgba(200,220,180,.15);
     --input-ring-waiting: rgba(240, 180, 100, .25);

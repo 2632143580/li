@@ -18,6 +18,7 @@ import { Logger } from '../core/logger.js';
 import { state } from '../core/store.js';
 import { API_TIMEOUT_MS } from '../core/constants.js';
 import { getProviderByUrl } from '../core/utils.js';
+import { buildThinkingBody } from '../core/thinking.js';
 import { saveToLocal, saveSession } from '../core/storage.js';
 import { BgEngine } from '../engines/bg-engine.js';
 import { ThemeEngine } from '../engines/theme-engine.js';
@@ -29,6 +30,7 @@ import { inputManager } from '../ui/input-manager.js';
 import {
     updateMonitorUI, updateMsgContent, ingestUsage, setNodeError
 } from './tree.js';
+import { updateMsgReasoning } from '../ui/render/tree-render.js'; // 思维链实时落盘 + 增量渲染（运行时字段，不序列化）
 
 // 应用级事件总线（零依赖）：订阅来自 tree.js 的 STREAM_REQUEST，解耦 tree→api 的循环依赖
 import { bus, EVENTS } from '../core/bus.js';
@@ -48,7 +50,7 @@ import { bus, EVENTS } from '../core/bus.js';
  * @param {string} [sessionId] - 所属会话 id（缺省取当前激活会话）。用于把请求挂到 state.pending，
  *        供切换/删除时按会话 abort，并在完成时落到「正确的会话键」而非被切到的当前会话。
  */
-export async function streamChat(messages, onChunk, onDone, onError, sessionId) {
+export async function streamChat(messages, onChunk, onDone, onError, sessionId, onReasoning) {
     sessionId = sessionId || state.activeSessionId;
     if (!messages.some(m => m.role === 'user')) {
         clearPending(sessionId);
@@ -90,6 +92,11 @@ export async function streamChat(messages, onChunk, onDone, onError, sessionId) 
         if (provider === 'deepseek') {
             reqBody.enable_cache = true;
         }
+        // 思考参数（用户 2026-08-22 要求设置页可选思考强度）：按生效模型匹配预设注入
+        // thinking.type / reasoning_effort；DeepSeek V4-Pro/Flash: low|high|max（默认 high）、
+        // GLM-4.5 Air: enabled(动态,默认)|disabled、GLM-4.6V: low|high|max；其余模型保留原有
+        // 兜底（v4/reasoner/r1/thinking 系显式开思考）。预设与参数口径见 core/thinking.js 文档。
+        Object.assign(reqBody, buildThinkingBody(model, state.settings.reasoningEffort));
 
         const resp = await fetch(apiUrl, {
             method: "POST",
@@ -123,6 +130,7 @@ export async function streamChat(messages, onChunk, onDone, onError, sessionId) 
         const dec = new TextDecoder();
         let buf = "";
         let full = "";
+        let reasoning = ""; // 思维链累积（智谱 GLM / DeepSeek 返 reasoning_content）；随对话缓存持久化（与正文一致，刷新/重开仍在）
         let lastUsage = null; // 累积最近一次 usage（含 prompt/completion/total/cache 命中）
 
         while (true) {
@@ -152,6 +160,8 @@ export async function streamChat(messages, onChunk, onDone, onError, sessionId) 
                 try {
                     const j = JSON.parse(d);
                     const delta = j.choices?.[0]?.delta;
+                    const rc = delta?.reasoning_content || delta?.reasoning; // 思维链（智谱 GLM / DeepSeek 返 reasoning_content）
+                    if (rc) { reasoning += rc; onReasoning?.(reasoning); }
                     if (delta?.content) {
                         full += delta.content;
                         onChunk(full);
@@ -241,7 +251,8 @@ export function executeStreamRequest(apiMessages, aiNode, sessionId) {
                 saveToLocal(null, true);
             }
         },
-        sessionId
+        sessionId,
+        (r) => updateMsgReasoning(aiNode, r) // 思维链实时落盘 + 增量渲染（运行时字段，不序列化）
     );
 
     // streamChat 的同步段已执行（pending 条目已创建），此刻取引用并回填 aiNode

@@ -61,7 +61,7 @@ export function splitSentences(text) {
  * 语义（与产品决策对齐，2026-08-21）：
  *   - action = 被 () 或 （） 包裹的内容（角色扮演里的动作/神态，如"(轻笑)"）。
  *     AI 纯文字消息中，action 段不再进入气泡，改以 .waifu-action 轻提示展示在气泡之间；
- *     语音条/都显示模式在更上游用 stripActions() 整段剔除（语音不读动作）。
+ *     语音条/都显示模式同样渲染 action 轻提示（不朗读、不生成语音条，见 voice-tiles.js buildVoiceItems）。
  *   - 嵌套括号只取最外层一对（"(a(b)c)" → action "a(b)c"）；同类括号配对计数
  *     （半角配半角、全角配全角），异类括号 "(a（b）c)" 同样取到最外层。
  *   - 未闭合括号（流式生成中括号还没出现，或模型输出笔误）：从开括号到结尾整体视为普通 text，
@@ -112,18 +112,4 @@ export function splitWaifuSegments(text) {
     if (buf) segs.push({ type: 'text', text: buf });
     if (!segs.length) return [{ type: 'text', text: '' }];
     return segs;
-}
-
-/**
- * 剔除文本中的 action 段（括号+内容整体移除），供语音条 / 都显示模式过滤：
- * 动作描写不进语音朗读队列、不生成语音条（cleanForSpeech 只删括号符号、保留内容，拦不住——
- * 必须在断句之前整段剔除，这也是 action 过滤选在 voice-tiles 层而非 tts-engine 层的原因）。
- * @param {string} text 原始文本 @returns {string} 移除 action 段后的文本
- */
-export function stripActions(text) {
-    if (!text) return '';
-    return splitWaifuSegments(text)
-        .filter(s => s.type === 'text')
-        .map(s => s.text)
-        .join('');
 }
