@@ -28,8 +28,8 @@ body.modal-open #chat { overflow: hidden !important; }
 
 /* 底部输入层穿透根治：#ui-canvas（z-index:3）画着呼吸圆环+输入线，#hiddenInput（z-index:10）
    可被 tap 聚焦弹键盘。模态遮罩 z-index:100 虽在它们之上，但背景是 60% 半透明黑（--black-a60），
-   输入画布的亮色图形透过 40% 透明度仍可见。其他面板 sheet-body 高、恰好盖住底部输入区没暴露此问题；
-   msg-nav / log-panel 内容少时 sheet-body 矮，底部输入图形从遮罩下方透出。
+  输入画布的亮色图形透过 40% 透明度仍可见。其他面板 sheet-body 高、恰好盖住底部输入区没暴露此问题；
+  消息导航或组件切换内容少时 sheet-body 矮，底部输入图形从遮罩下方透出。
    根治：模态打开时直接隐藏 Canvas 输入层和隐藏输入框，关闭后随 class 移除自动恢复。 */
 body.modal-open #ui-canvas,
 body.modal-open #hiddenInput { visibility: hidden; }
@@ -376,7 +376,7 @@ body.modal-open *:not(.modal-overlay):not(.modal-overlay *):not(#fs-editor):not(
 }
 
 /* 通用表面：JS 动态创建的 消息导航 / 日志 用 .sheet-body 包裹（内部列表各自滚动，表面自身不滚）。
- * 命名注意：原用 .sheet 同时作 overlay 修饰类和内部表面类，歧义严重——overlay 的 .sheet 表示「贴底」，
+ * 命名注意：原用 .sheet 同时作 overlay 修饰类和内部表面类，歧义严重——overlay 的 .sheet 表示「贴���」，
  *   内部的 .sheet 表示「表面体」。现内部类改名为 .sheet-body 消除歧义。 */
 .modal-overlay.sheet > .sheet-body {
     display: flex;
@@ -561,6 +561,7 @@ body.modal-open *:not(.modal-overlay):not(.modal-overlay *):not(#fs-editor):not(
 #msg-nav .mn-llm-chip:active { transform: scale(0.94); }
 #msg-nav .mn-llm-chip.provider-zhipu { background: rgba(89,102,242,.16); color: #9aa3ff; border-color: rgba(89,102,242,.35); }
 #msg-nav .mn-llm-chip.provider-deepseek { background: rgba(68,193,150,.16); color: #7fd9b8; border-color: rgba(68,193,150,.35); }
+#msg-nav .mn-llm-chip.provider-custom { background: var(--white-a10); color: var(--white-a60); border-color: var(--white-a20); }
 /* —— 行内 SP 编辑器：点 SP 预览在该行下方展开（无气泡/盒子包裹，仅一条细分割线 + textarea + 操作行）——
    行内展开在文档流内永远可见、无定位计算、宽度自适应，移动端天然适配。
    展开用 max-height（overflow:hidden 夹住）：全浏览器/老 Android WebView 都支持，
@@ -639,43 +640,3 @@ body.modal-open *:not(.modal-overlay):not(.modal-overlay *):not(#fs-editor):not(
     background: var(--white-a08); color: var(--white-a95); font: inherit; font-size: 13.5px; outline: none;
 }
 
-/* ====================== 更新日志面板（#log-panel） ======================
- * 从 log-panel.js 全行内 style 提取，统一走 token，浅色主题自动适配。 */
-#log-panel .log-header {
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 14px 16px 10px; border-bottom: 1px solid var(--white-a08);
-}
-#log-panel .log-title { font-size: 15px; font-weight: 600; color: var(--white-a95); }
-#log-panel .log-close {
-    background: var(--white-a08); border: none;
-    border-radius: 6px; padding: 4px 10px;
-    color: var(--white-a75); cursor: pointer; font: inherit;
-}
-#log-panel .log-close:hover { color: var(--white-a95); }
-#log-panel .log-body {
-    overflow-y: auto; flex: 1; padding: 8px 0;
-    overscroll-behavior: contain;
-}
-#log-panel .log-card {
-    margin: 0 16px 12px; padding: 12px 14px;
-    background: var(--white-a05); border-radius: var(--radius-md);
-}
-#log-panel .log-card-header {
-    display: flex; align-items: baseline; justify-content: space-between;
-    margin-bottom: 6px;
-}
-#log-panel .log-card-tag {
-    font-size: 11px; font-weight: 600; color: var(--color-accent);
-}
-#log-panel .log-card-date {
-    font-size: 11px; color: var(--white-a45);
-}
-#log-panel .log-card-title {
-    font-size: 14px; font-weight: 600; color: var(--white-a90);
-    margin-bottom: 8px;
-}
-#log-panel .log-card-items {
-    list-style: none; padding: 0; margin: 0;
-    font-size: 12.5px; line-height: 1.6; color: var(--white-a75);
-}
-#log-panel .log-card-items li { padding: 2px 0; }

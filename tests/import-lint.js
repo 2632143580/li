@@ -84,7 +84,7 @@ const GLOBALS = new Set([
     'HTMLElement', 'HTMLInputElement', 'HTMLDivElement', 'HTMLButtonElement', 'HTMLSpanElement',
     'HTMLAnchorElement', 'HTMLImageElement', 'HTMLCanvasElement', 'HTMLVideoElement', 'HTMLAudioElement',
     'HTMLSelectElement', 'HTMLOptionElement', 'HTMLTextAreaElement', 'HTMLFormElement', 'HTMLPreElement',
-    'CanvasRenderingContext2D', // 诊断模块 diagnose.js 补 clearRect 计数用（浏览器全局）
+    'CanvasRenderingContext2D',
     'Node', 'NodeList', 'Element', 'SVGElement', 'Text', 'Comment', 'DocumentFragment',
     'CSSStyleSheet', 'CSS', 'MediaQueryList', 'DOMParser', 'XMLSerializer',
     'customElements', 'shadowRoot', 'speechSynthesis', 'SpeechSynthesisUtterance',

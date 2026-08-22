@@ -73,14 +73,16 @@ export async function streamChat(messages, onChunk, onDone, onError, sessionId, 
     let timeoutId = setTimeout(() => controller.abort(), API_TIMEOUT_MS);
 
     try {
-        // 会话级 LLM 覆盖：apiUrl/model 取会话配置，缺省回退全局；key 不存会话，按服务商从 keys 槽取（custom 兜底全局 apiKey）。
+        // 会话级 LLM 覆盖：apiUrl/model 取会话配置，缺省（undefined）回退全局；key 不存会话，按服务商从 keys 槽取（custom 兜底全局 apiKey）。
         // 只在本请求生效、不改全局 settings——切回全局会话零残留，存档不被污染。
+        // 用 ?? 而非 ||：空字符串''是"用户主动清空"，不应回退全局（否则跨服务商拿错 key/model→401/模型不存在，见审查 Bug2/3）；
+        // 仅 undefined（未配置）才回退全局。
         const cfg = state.sessionLlmConfig || {};
-        const apiUrl = cfg.apiUrl || state.settings.apiUrl;
-        const model = cfg.model || state.settings.model;
+        const apiUrl = cfg.apiUrl ?? state.settings.apiUrl;
+        const model = cfg.model ?? state.settings.model;
         const provider = getProviderByUrl(apiUrl);
         const apiKey = cfg.apiUrl
-            ? (state.settings.keys[provider] || state.settings.apiKey)
+            ? (state.settings.keys[provider] ?? state.settings.apiKey)
             : state.settings.apiKey;
         const reqBody = {
             model: model,

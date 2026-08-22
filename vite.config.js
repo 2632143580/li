@@ -1,7 +1,6 @@
 import { defineConfig } from 'vite';
 import { viteSingleFile } from 'vite-plugin-singlefile';
-import depsPlugin from './vite-plugin-deps.js';
-import { copyFileSync, existsSync } from 'fs';
+import { copyFileSync } from 'fs';
 import path from 'path';
 import { execSync } from 'child_process';
 import { fileURLToPath } from 'url';
@@ -43,8 +42,6 @@ const BUILD_LABEL = process.env.BUILD_LABEL || (() => {
  * 构建收尾插件：
  * 1. dist/index.html 复制一份为 dist/li-<label>.html。保留 index.html 原副本
  *    （兼容静态服务器/预览默认页），带名副本供用户直接取用区分版本。
- * 2. changelog.json 拷入 dist（用户 2026-08-22 要求：日志数据外置 JSON，运行时 fetch
- *    './changelog.json' 加载——改 JSON 无需重编译。fetch 不走打包管线，必须手动随产物带上）。
  */
 const labeledOutput = () => ({
     name: 'li-labeled-output',
@@ -54,14 +51,6 @@ const labeledOutput = () => ({
         const dst = path.join(__dirname, 'dist', `li-${BUILD_LABEL}.html`);
         copyFileSync(src, dst);
         console.log(`[li-labeled-output] 产物副本: ${dst}`);
-        const clSrc = path.join(__dirname, 'changelog.json');
-        const clDst = path.join(__dirname, 'dist', 'changelog.json');
-        if (existsSync(clSrc)) {
-            copyFileSync(clSrc, clDst);
-            console.log(`[li-labeled-output] 日志数据: ${clDst}`);
-        } else {
-            console.warn('[li-labeled-output] 警告: 缺少 changelog.json，更新日志面板将显示加载失败提示');
-        }
     }
 });
 
@@ -82,41 +71,7 @@ export default defineConfig({
   define: {
     'import.meta.env.VITE_BUILD_ENV': JSON.stringify(BUILD_ENV),
   },
-  // depsPlugin 仅在 dev 服务器生效（configureServer），build 时不执行，对单文件产物零侵入。
-  plugins: [viteSingleFile(), labeledOutput(), depsPlugin({
-    coreFiles: [
-      // 1. 防幻觉基石（原 core js + hooks 契约）
-      'src/core/state.js',
-      'src/core/constants.js',
-      'src/core/dom.js',
-      'src/core/bus.js',
-      'src/core/utils.js',
-      'hooks.json',
-      // 2. CSS 全量规则（19 个 styles 子表 + 聚合入口 style.css）
-      'src/style.css',
-      'src/styles/tokens.css',
-      'src/styles/base.css',
-      'src/styles/background.css',
-      'src/styles/chat.css',
-      'src/styles/waifu.css',
-      'src/styles/tts.css',
-      'src/styles/topbar.css',
-      'src/styles/monitor.css',
-      'src/styles/msg-footer.css',
-      'src/styles/responsive.css',
-      'src/styles/modal.css',
-      'src/styles/settings-panel.css',
-      'src/styles/sandbox.css',
-      'src/styles/form-controls.css',
-      'src/styles/dropdown.css',
-      'src/styles/fs-editor.css',
-      'src/styles/context-menu.css',
-      'src/styles/plugin-manager.css',
-      'src/styles/quick-theme.css',
-      // 3. HTML 骨架
-      'index.html',
-    ],
-  })],
+  plugins: [viteSingleFile(), labeledOutput()],
   build: {
     target: 'esnext',
     cssCodeSplit: false,

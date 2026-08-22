@@ -36,12 +36,7 @@ import { initBgTriggers } from './ui/bg-trigger.js';
 import './ui/moderator-ui.js';
 import { moderator } from './engines/moderator-engine.js'; // 禁止词引擎单例（加载后由 main hydrate）
 import { initCompanionSay } from './companion-say.js'; // 外部"主动说话"入口（App 注入用）
-
-// 性能诊断模式：URL 带 ?perf=1 时加载诊断 overlay（手机访问 http://<本机IP>:5173/?perf=1）
-// 仅观测不改业务；生产构建不带该参数时不加载。
-if (new URLSearchParams(location.search).has('perf')) {
-    import('./diagnose.js').catch(e => console.error('[Perf] 诊断模块加载失败', e));
-}
+import { setEcgActive } from './plugins/ecg-heart.js'; // 心电图动画：持续循环（用户 2026-08-23 拍板，不再按思考状态停帧）；此处仅兜底拉起循环
 
 /** rAF 节流句柄（resize 的视觉视口/窗口监听防抖） @type {number|null} */
 let resizeRafId = null;
@@ -149,6 +144,9 @@ export function init() {
     // 绑定所有事件
     bindEvents();
     initBgTriggers(); // 初始化 AI 触发背景切换引擎（订阅 ASSISTANT_DONE）
+
+    // 心电图=持续循环动画（用户 2026-08-23 拍板）：发消息(STREAM_REQUEST)时兜底拉起循环（通常首渲染已启动，本调用幂等）。
+    bus.on(EVENTS.STREAM_REQUEST, () => setEcgActive(true));
 
     // 恢复上次选择的快速配色（若已选）：挂载 token 主题
     if (state.settings.quickTheme) applyQuickTheme(state.settings.quickTheme);

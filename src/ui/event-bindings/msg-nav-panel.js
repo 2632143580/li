@@ -83,20 +83,17 @@ function relTime(ts) {
 }
 
 /**
- * 会话芯片应显示的模型（只有两个：智谱 / DeepSeek）。
- * 优先用会话级覆盖的 apiUrl 推断；无覆盖则继承全局默认模型（glm-4-air→智谱，若全局切到 deepseek 则显示 deepseek）。 @param {object} s 列表条目 @returns {'zhipu'|'deepseek'}
+ * 会话芯片应显示的服务商：单一事实源 = apiUrl（与 chat/api.js 的请求路径完全同源）。
+ * 会话级覆盖的 apiUrl 优先；无覆盖则继承全局默认 apiUrl（state.settings.apiUrl）。
+ * 不再用「模型名是否含 deepseek」这种脆弱的字符串匹配——那会与 api.js 用 getProviderByUrl(apiUrl)
+ * 判定服务商产生双源漂移（模型名带 deepseek 但 apiUrl 是智谱、或反之，都会让芯片显示错服务商 → 「模型不对」）。
+ * 返回 'zhipu' | 'deepseek' | 'custom'：custom 仅当 apiUrl 既非智谱也非 DeepSeek（理论上不该发生，防御兜底）。
+ * @param {object} s 列表条目 @returns {'zhipu'|'deepseek'|'custom'}
  */
 function effectiveProvider(s) {
     const cfg = s.llmConfig || null;
-    if (cfg && cfg.apiUrl) {
-        const p = getProviderByUrl(cfg.apiUrl);
-        if (p === 'zhipu' || p === 'deepseek') return p;
-    }
-    return globalProvider(); // 继承全局：仅两模型，按全局默认模型名推断
-}
-/** 全局默认模型 → 服务商（glm-* / zhipu* → 智谱；含 deepseek → DeepSeek）。 @returns {'zhipu'|'deepseek'} */
-function globalProvider() {
-    return (state.settings.model || '').toLowerCase().includes('deepseek') ? 'deepseek' : 'zhipu';
+    const url = (cfg && cfg.apiUrl) ? cfg.apiUrl : state.settings.apiUrl;
+    return getProviderByUrl(url); // 与 api.js 同函数、同源：服务商判定只有这一处定义
 }
 
 /**

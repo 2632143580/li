@@ -35,7 +35,9 @@ import { getCurrentPath, getLastNodeInPath } from '../../core/tree-core.js';
 import { bus, EVENTS } from '../../core/bus.js';
 import { showContextMenu } from '../context-menu.js';
 import { renderVoiceTiles, renderBoth } from '../voice-tiles.js'; // 语音回复（句句发语音）；renderWaifuContent 为本模块本地定义
-import { buildLoveSvg, buildEcgMonitorSvg, initEcgHeartCanvases } from '../../plugins/ecg-heart.js'; // 思维链头部图标由两部分组成：① love.svg（爱心，含内部爱心折线，与爱心是一体的恒显）② 心电图 canvas 监护仪波形（用户说的「心电图」，受 showEcgWave 开关控制）；innerHTML 后须 init 启动 rAF
+import { buildLoveSvg, buildEcgMonitorSvg, initEcgHeartCanvases } from '../../plugins/ecg-heart.js';
+import { buildMinimalThinkSvg } from '../../plugins/think-minimal.js';
+import { buildGlmThinkSvg } from '../../plugins/think-glm.js';
 
 /**
  * 生成气泡外层容器的 className（buildMsgDom 与 renderMessage 共用，消除重复书写）
@@ -130,18 +132,18 @@ export function renderContent(contentEl, node) {
 
     // 统一清理点：开头显式清除残留打字指示器（P4）。
     // 原因：流式增量渲染用 appendChild 追加子节点、不覆盖 contentEl 已有内容，
-    // 而打字指示器是通过 innerHTML 写入的独立节点，不清除就会与后续内容并存并残留到对话结束。
+    // 而打字指示器是通过 innerHTML 写入的独立节点，不清除就���与后续内容并存并残留到对话结束。
     const staleDots = contentEl.querySelector('.typing-dots');
     if (staleDots) staleDots.remove();
 
-    // 流式且无内容时显示打字指示器（出错节点不显示，避免与错误文案并存）
+    // 流式且无内���时显示打字指示器（出错节点不显示，避免与错误文案并存）
     if (isStreaming && !node.content && !node.isError) {
         contentEl.innerHTML = '<span class="typing-dots"><span></span><span></span><span></span></span>';
         return;
     }
 
     // 裁剪前导换行后再渲染：部分 API 首块会带前导 \n，配合 .msg 的 white-space:pre-wrap
-    // 会渲染出"空行 + 消息"的伪空白行；前导换行对聊天无意义，直接剔除(内部换行保留)。
+    // 会渲染出"空行 + 消息"的伪空白行；前导换行对��天无意义，直接剔除(内部换行保留)。
     contentEl.textContent = node.content.replace(/^[\r\n]+/, '');
     // 错误气泡内联重试按钮（根治：失败恢复从"手动编辑重发"降为一次点击）
     if (node.isError) {
@@ -295,7 +297,7 @@ export function renderMessage(node, parentNode) {
     }
 
     // 每次渲染重新生成 className（用 getBubbleClass，与 buildMsgDom 共用）。
-    // 消除旧补丁：domCache 复用的旧节点可能残留另一模式的 className，强制覆盖确保一致。
+    // 消除旧补丁：domCache 复用的旧节点可能残留��一模式的 className，强制覆盖确保一致。
     const bubble = div.firstChild;
     bubble.className = getBubbleClass(node.role, node.isError);
 
@@ -306,7 +308,7 @@ export function renderMessage(node, parentNode) {
 }
 
 /**
- * 渲染对话列表 — 基于当前路径增量更新 DOM
+ * 渲染对话列表 — ��于当前路���增量更新 DOM
  * 1. 遍历当前路径，获取/创建 DOM
  * 2. 按顺序插入到 #chat
  * 3. 移除不在路径中的旧 DOM
@@ -439,26 +441,37 @@ function renderReasoningBlock(node, wrapper) {
     //   它在「首建且开关本就关」时 wantWave===hasWave 为 true，会跳过 innerHTML 赋值，
     //   导致 toggle 永为空按钮。改为就地核对每个子元素：缺则补、多则删，任何状态都自愈。
     const toggle = block.querySelector('.reasoning-toggle');
-    const wantWave = !!state.settings.showEcgWave;          // 仅波形受此开关控制
-    // ③ 折叠箭头恒显：先确保存在（波形要插到它前面），缺则补
-    if (!toggle.querySelector('.rk-chev')) {
-        toggle.insertAdjacentHTML('beforeend', '<span class="rk-chev"></span>');
-    }
-    // ① 爱心恒显（含内部折线，与爱心一体）：缺则补，杜绝空白占位
-    if (!toggle.querySelector('.rk-love-ico')) {
+    // provider 是组件唯一开关：ecg=医疗监护仪(canvas+爱心)、glm=双线流光(track+flow)、kimi=单线流光(单path脉冲)。
+    // thinkIconProvider 优先；旧存档 thinkIconStyle 兼容：'minimal'→kimi、'ecg'→ecg；仅 thinkIconProvider 未设(undefined)时才看旧字段。
+    const p = state.settings.thinkIconProvider;
+    const provider = p === 'ecg' || p === 'glm' || p === 'kimi' ? p
+        : (state.settings.thinkIconStyle === 'minimal' ? 'kimi' : 'ecg');
+    const emotion = ['calm', 'excited', 'sad', 'thinking'].includes(node._emotion)
+        ? node._emotion
+        : (['calm', 'excited', 'sad', 'thinking'].includes(state.settings.ecgEmotion) ? state.settings.ecgEmotion : 'calm');
+    toggle.dataset.componentProvider = provider;
+    toggle.querySelector('.rk-think-minimal')?.remove();
+    toggle.querySelector('.rk-think-glm')?.remove();
+    toggle.querySelector('.rk-love-ico')?.remove();
+    toggle.querySelector('.rk-ecg-mon')?.remove();
+    toggle.querySelector('.rk-chev')?.remove();
+    if (provider === 'kimi') {
+        // Kimi 单线流光：纯 SVG 单 path 脉冲
+        toggle.insertAdjacentHTML('afterbegin', buildMinimalThinkSvg(emotion, state.settings.ecgSize));
+    } else if (provider === 'glm') {
+        // GLM 双线流光：track 暗底轨迹 + flow 高亮脉冲（组件glm.html）
+        toggle.insertAdjacentHTML('afterbegin', buildGlmThinkSvg(emotion, state.settings.ecgSize));
+    } else {
+        // ECG 医疗监护仪：love.svg 爱心(恒显) + 心电 canvas 波形(受 showEcgWave 控制)
         toggle.insertAdjacentHTML('afterbegin', buildLoveSvg());
+        if (state.settings.showEcgWave) {
+            toggle.insertAdjacentHTML('beforeend', buildEcgMonitorSvg(emotion, state.settings.ecgSize));
+            initEcgHeartCanvases(toggle);
+        }
     }
-    // ② 波形受开关控制：存在与否严格跟随开关；就地增删，不重建爱心/画布（避免动画闪烁、不丢 rAF 循环）
-    const chev = toggle.querySelector('.rk-chev');
-    const waveEl = toggle.querySelector('.rk-ecg-mon');
-    if (wantWave && !waveEl) {
-        chev.insertAdjacentHTML('beforebegin', buildEcgMonitorSvg(node._emotion)); // 波形插到箭头前
-        initEcgHeartCanvases(toggle);                  // 启动本块 canvas 的 rAF（幂等；DOM 移除后旧循环自动退）
-    } else if (!wantWave && waveEl) {
-        waveEl.remove();                               // 关开关 → 仅移除波形，爱心与箭头保留
-    }
+    toggle.insertAdjacentHTML('beforeend', '<span class="rk-chev"></span>');
     block.querySelector('.reasoning-body').textContent = node.reasoning;
-    // 折叠态：流式生成中强制展开；否则用用户手动选择，新消息默认跟随「自动展开」开关
+    // 折叠态：流式生成中强制展开；否则用用户手动选择，��消息默认跟随「自动展开」开关
     const collapsed = isThinking ? false
         : (typeof node._reasoningCollapsed === 'boolean' ? node._reasoningCollapsed : !state.settings.reasoningAutoExpand);
     block.classList.toggle('collapsed', collapsed);

@@ -61,6 +61,10 @@ export const DEFAULT_SETTINGS = {
     showReasoning: true,      // 显示思维链：AI 回复若有 reasoning_content 则在正文上方渲染可折叠「思维链」块；默认开
     reasoningAutoExpand: true, // 思维链自动展开：AI 回复后思维链默认展开（关闭则默认折叠、可手动展开）；默认开
     showEcgWave: true,        // 思维链头部「波形监护仪」显示开关。用户定义：『心电图』=波形(右侧 canvas 监护仪)，不含左侧 love.svg 爱心。
+    thinkIconStyle: 'ecg',    // 【已废弃】旧图标风格 ecg/minimal，现统一由 thinkIconProvider 决定；保留仅为兼容旧存档（minimal→kimi）
+    thinkIconProvider: 'ecg', // 组件来源：ecg（医疗监护仪：爱心+心电canvas）/ glm（双线流光：track+flow）/ kimi（单线流光：单path脉冲）
+    ecgEmotion: 'calm',       // 默认情绪：calm / excited / sad / thinking
+    ecgSize: 'md',             // 心电图尺寸：xs / sm / md / lg / xl；由组件切换 Sheet 控制
                                //   默认开；关闭只去掉右侧波形，左侧爱心(与折叠头一体)恒显示。
     reasoningEffort: '',      // 思考强度档位（用户 2026-08-22 要求）：''=未选回落预设默认；取值按 current model 的预设（DeepSeek V4: low/high/max；GLM-4.5 Air: enabled/disabled；GLM-4.6V: low/high/max），见 core/thinking.js
     ttsCloud: {

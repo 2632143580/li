@@ -23,12 +23,40 @@
  * 情绪挂钩：emotion → 原文件的模式调制（getVoltage 的 mode 分支 + 非正常模式变琥珀色 #ffbb33）：
  *   calm→normal / excited→tachycardia / sad→bradycardia / thinking→arrhythmia。
  *
- * 依赖：无（Canvas 2D）
+ * 依赖：core/bus（经 main.js 订阅 STREAM_REQUEST 调 setEcgActive 拉起循环，本文件不直接 import bus）
  */
 
 /** love-svg.txt 原始两元素（100% 还原，顺序与属性不变）：爱心 path + 其内部爱心折线 path。 */
 const LOVE_HEART_PATH = 'M 50 30 C 50 25, 40 10, 25 20 C 10 30, 10 50, 30 65 C 40 75, 50 85, 50 85 C 50 85, 60 75, 70 65 C 90 50, 90 30, 75 20 C 60 10, 50 25, 50 30 Z';
 const LOVE_ECG_PATH = 'M 22 45 L 32 45 L 38 25 L 45 65 L 50 45 L 78 45';
+
+/**
+ * 心电图动画（用户 2026-08-23 拍板：持续循环播放，不再按思考状态停帧）：
+ *   - draw 循环只保留切后台（document.hidden）跳过本帧；回前台由 visibilitychange 重启。
+ *   - 不再读 state.waiting 定格/停帧——思考完、空闲、历史消息也持续循环（用户要求）。
+ *   - setEcgActive(true) 仅负责在循环尚未启动时拉起（历史消息首渲染后 canvas 已启动，通常无需调用）。
+ * 注意：这是性能与动画的取舍点，用户明确选择「一直循环」，放弃空闲停帧的 GPU 节省。
+ */
+/** 已启动循环的 canvas 集合（用于活跃态翻转时重启循环，避免漏启）。 @type {Set<HTMLCanvasElement>} */
+const ecgCanvases = new Set();
+
+/** 防重入调度：draw 与 visibilitychange 都可能拉起下一帧。用每 canvas 的 _rkRafPending 防叠加多份并行循环（模块级 shared 会误拒其他 canvas）。 */
+function scheduleDraw(canvas, drawFn) {
+    if (canvas._rkRafPending) return;
+    canvas._rkRafPending = true;
+    requestAnimationFrame((t) => { canvas._rkRafPending = false; drawFn(t); });
+}
+
+/** 外部（main.js）在思考开始时调用，确保循环在跑（持续循环设计下仅兜底拉起；循环本身不依赖本调用）。
+ *  @param {boolean} v 仅 v=true 时拉起（false 无操作） */
+export function setEcgActive(v) {
+    if (v) {
+        // 思考开始：把已定格的循环重新拉起（visible 且 connected 才拉）
+        ecgCanvases.forEach((c) => {
+            if (!document.hidden && c.isConnected) scheduleDraw(c, c._rkEcgDraw);
+        });
+    }
+}
 
 /** emotion → 心电图 canvas 模式（对应原文件 getVoltage 的 mode 参数）。 */
 const EMOTION_TO_MODE = {
@@ -60,8 +88,11 @@ export function buildLoveSvg() {
  * @param {string} [emotion='calm'] 情绪键（映射到原文件的 normal/tachycardia/bradycardia/arrhythmia）
  * @returns {string} HTML 字符串
  */
-export function buildEcgMonitorSvg(emotion = 'calm') {
-    return '<span class="rk-ecg-mon" data-emotion="' + emotion + '">'
+export function buildEcgMonitorSvg(emotion = 'calm', size = 'md') {
+    // 关键注释：只允许白名单尺寸进入 class，避免设置存档中的任意字符串污染 DOM class。
+    const safeSize = ['xs', 'sm', 'md', 'lg', 'xl'].includes(size) ? size : 'md';
+    const safeEmotion = EMOTION_TO_MODE[emotion] ? emotion : 'calm';
+    return '<span class="rk-ecg-mon ' + safeSize + '" data-emotion="' + safeEmotion + '">'
         + '<span class="rk-ecg-grid"></span>'
         + '<canvas class="rk-ecg-cv"></canvas>'
         + '<span class="rk-ecg-scan"></span>'
@@ -131,6 +162,17 @@ function startEcgLoop(canvas) {
     // 不每帧取，只在主题变动时触发；canvas 断开即停观察，无泄漏。
     const themeObserver = new MutationObserver(() => { refreshEcgColor(); setupContext(); });
     themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['class', 'style'] });
+
+    // 登记本 canvas，供 setEcgActive(true) 重启循环；切后台暂停、回前台重启（持续循环，用户 2026-08-23 拍板）。
+    ecgCanvases.add(canvas);
+    canvas._rkEcgDraw = draw; // 供 scheduleDraw 反查本闭包的 draw
+    const onVisible = () => {
+        if (!document.hidden && canvas.isConnected) scheduleDraw(canvas, draw);
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    // DOM 断开时（draw 内 isConnected 退出）顺手解绑，无泄漏
+    const _origDisconnect = themeObserver.disconnect.bind(themeObserver);
+    themeObserver.disconnect = () => { document.removeEventListener('visibilitychange', onVisible); _origDisconnect(); };
 
     // ========== Canvas 尺寸适配（原文件 resizeCanvas） ==========
     function resizeCanvas() {
@@ -206,9 +248,33 @@ function startEcgLoop(canvas) {
     }
 
     // ========== 核心绘制循环（原文件 draw，含回扫清残留修复，逐行照搬） ==========
+
+    /** 定格为一幅完整静态波形（思考完/空闲时调用）：视觉上是一张完整心电图，零损失；且不续帧，释放 GPU。 */
+    function drawStaticFullWave() {
+        const dpr = window.devicePixelRatio || 1;
+        const width = canvas.width / dpr;
+        const height = canvas.height / dpr;
+        const centerY = height / 2;
+        const scaleY = height * 0.25;
+        let px = 0, pp = 0;
+        ctx.beginPath();
+        ctx.moveTo(0, centerY);
+        while (px < width) {
+            pp += 0.4;
+            if (pp > 100) pp = 0;
+            px += baseSpeed;
+            ctx.lineTo(px, centerY - getVoltage(pp) * scaleY);
+        }
+        ctx.stroke();
+    }
+
     function draw(timestamp) {
         // DOM 已被重建/移除 → 自动退出循环，并停主题观察，无泄漏
         if (!canvas.isConnected) { themeObserver.disconnect(); return; }
+
+        // 切后台/锁屏：页面不可见本就无视觉，直接跳过本帧；回前台由 visibilitychange 事件重启循环
+        // （用户 2026-08-23 拍板：不再按 state.waiting 停帧，动画持续循环播放）
+        if (document.hidden) return;
 
         const delta = timestamp - lastTime;
         lastTime = timestamp;
@@ -272,7 +338,7 @@ function startEcgLoop(canvas) {
             // 同步扫描线位置
             scanLineEl.style.transform = 'translateX(' + x + 'px)';
 
-            requestAnimationFrame(draw);
+            scheduleDraw(canvas, draw);
             return;
         }
 
@@ -296,7 +362,7 @@ function startEcgLoop(canvas) {
         // 同步扫描线
         scanLineEl.style.transform = 'translateX(' + x + 'px)';
 
-        requestAnimationFrame(draw);
+        scheduleDraw(canvas, draw);
     }
 
     // ========== 初始化（原文件 init 的组件化版本） ==========
@@ -306,7 +372,7 @@ function startEcgLoop(canvas) {
             if (resizeCanvas()) {
                 ro.disconnect();
                 scanLineEl.style.transform = 'translateX(0px)';
-                requestAnimationFrame(draw);
+                scheduleDraw(canvas, draw);
             }
         });
         ro.observe(container);
@@ -315,26 +381,12 @@ function startEcgLoop(canvas) {
 
     scanLineEl.style.transform = 'translateX(0px)';
 
-    // prefers-reduced-motion：不跑循环，静态铺满一整幅波形
+    // prefers-reduced-motion：不跑循环，静态铺满一整幅波形（复用 drawStaticFullWave，单一实现）
     if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-        const dpr = window.devicePixelRatio || 1;
-        const width = canvas.width / dpr;
-        const height = canvas.height / dpr;
-        const centerY = height / 2;
-        const scaleY = height * 0.25;
-        let px = 0, py = centerY, pp = 0;
-        ctx.beginPath();
-        ctx.moveTo(0, centerY);
-        while (px < width) {
-            pp += 0.4;
-            if (pp > 100) pp = 0;
-            px += baseSpeed;
-            ctx.lineTo(px, centerY - getVoltage(pp) * scaleY);
-        }
-        ctx.stroke();
+        drawStaticFullWave();
         themeObserver.disconnect();             // 静态路径不跑循环，此处显式停观察
         return;
     }
 
-    requestAnimationFrame(draw);
+    scheduleDraw(canvas, draw);
 }

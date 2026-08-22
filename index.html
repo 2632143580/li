@@ -173,7 +173,7 @@
 
         <!-- 右侧顶栏 -->
         <div class="top-bar">
-            <svg id="btn-log-toggle" class="icon-btn log-toggle-btn" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-label="更新日志"><path d="M5 7h14M5 12h14M5 17h9"/></svg>
+            <svg id="btn-comp-switch" class="icon-btn comp-switch-btn" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-label="组件切换"><path d="M4 7h10M18 7h2M4 12h3M11 12h9M4 17h10M18 17h2"/><circle cx="16" cy="7" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="16" cy="17" r="2"/></svg>
             <!-- 语音设置入口：点击打开「语音设置模态框」（句句发语音：开/关 + 发语音概率 + 音色 + 语速）；图标点亮=语音回复已开启 -->
             <svg id="btn-tts-toggle" class="icon-btn tts-toggle-btn tts-on"><use href="#i-vol-on"/></svg>
             <!-- 消息导航入口：双气泡 = 会话/消息集合，尾端小气泡呼应「切换分支」；与顶栏其他图标（列表/云/音量/圆环）零语义冲突 -->
@@ -202,7 +202,7 @@
         </div>
     </div>
 
-    <!-- 自定义配色模态框：色块条「+」圆点触发，粘贴颜色代码并持久化 -->
+    <!-- 自定义配色模态框：色块条「+」圆点���发，粘贴颜色代码并持久化 -->
     <div id="custom-scheme-modal" class="modal-overlay" style="display:none;">
         <div class="modal-content">
             <div class="setting-group">
@@ -433,7 +433,7 @@
 
             <hr class="section-divider">
 
-            <!-- 2.5 思考与思维链（用户 2026-08-22：显示/自动展开两开关自语音设置移入 + 新增按模型的思考强度） -->
+            <!-- 2.5 思考与��维链（用户 2026-08-22：显示/自动展开两开关自语音设置移入 + 新增按模型的思考强度） -->
             <div class="section">
                 <div class="section-title">思考与思维链</div>
                 <!-- 思考强度：分段按钮由 settings.js 按 tempSettings.model 匹配预设动态渲染；
