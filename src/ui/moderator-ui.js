@@ -17,39 +17,40 @@ import { inputRenderer } from './input-renderer.js';
 // ============ 样式（就近内联，不拆 style 文件——单文件构建下 style.css 会被整体内联，此处也遵循同样做法） ============
 const style = document.createElement('style');
 style.textContent = `
-    /* 右下角入口图标（紧贴输入框右侧，bottom 与输入框基线对齐附近；与全屏编辑器入口 fs-trigger-btn 水平错开不重叠） */
+    /* 右下角入口图标（紧贴输入框右侧，bottom 与输入框基线对齐附近；与全屏编辑器入口 fs-trigger-btn 水平错开不重叠）
+       主题阶：--white-aXX 深色=白 alpha / 浅色=黑 alpha，跟随主题自动翻转（禁硬编码字面量） */
     #mod-trigger-btn {
         position: fixed; bottom: 15px; right: 50px;
-        width: 24px; height: 24px; color: rgba(255,255,255,0.6);
+        width: 24px; height: 24px; color: var(--white-a60);
         cursor: pointer; z-index: 10; display: flex; align-items: center; justify-content: center;
     }
-    #mod-trigger-btn:hover { color: rgba(255,255,255,0.9); }
-    /* 轻量气泡配置面板：固定定位浮于输入框上方，非模态不遮全屏 */
+    #mod-trigger-btn:hover { color: var(--white-a90); }
+    /* 轻量气泡配置面板：固定定位浮于输入框上方，非模态不遮全屏（背景/文字全部走主题变量，深浅自动适配） */
     #mod-pop {
         position: fixed; bottom: 45px; right: 10px;
-        width: 280px; background: var(--color-bg-panel, #1e1e2e); color: var(--color-text-main, #cdd6f4);
-        border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 12px;
+        width: 280px; background: var(--bg-select); color: var(--white-a90);
+        border: 1px solid var(--white-a10); border-radius: 8px; padding: 12px;
         z-index: 20; box-shadow: 0 8px 24px rgba(0,0,0,0.4);
         display: none; flex-direction: column; gap: 10px;
     }
     #mod-pop.show { display: flex; }
     #mod-pop textarea {
-        width: 100%; background: rgba(0,0,0,0.2); color: inherit;
-        border: 1px solid rgba(255,255,255,0.1); border-radius: 4px; padding: 6px;
+        width: 100%; background: var(--white-a03); color: inherit;
+        border: 1px solid var(--white-a10); border-radius: 4px; padding: 6px;
         box-sizing: border-box; font-size: 13px; resize: none; font-family: inherit;
     }
-    #mod-pop .mod-label { font-size: 12px; color: rgba(255,255,255,0.5); margin-bottom: 2px; display:block; }
+    #mod-pop .mod-label { font-size: 12px; color: var(--white-a50); margin-bottom: 2px; display:block; }
     #mod-pop .mod-actions { display: flex; justify-content: space-between; align-items: center; }
-    #mod-pop .mod-save { background: var(--color-accent, #89b4fa); color: #11111b; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 12px; }
+    #mod-pop .mod-save { background: var(--color-accent); color: var(--color-bg); border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 12px; }
     /* 触发提示条：命中时浮在气泡上方，含「应用前缀」与「关闭」两个动作 */
     #mod-hint {
         position: fixed; bottom: 65px; right: 10px;
-        background: var(--color-user-bright, #f9e2af); color: #11111b; border-radius: 8px; padding: 6px 10px;
+        background: var(--color-user-bright); color: var(--color-bg); border-radius: 8px; padding: 6px 10px;
         font-size: 12px; display: none; align-items: center; gap: 8px;
         z-index: 15; box-shadow: 0 4px 12px rgba(0,0,0,0.3);
     }
     #mod-hint.show { display: flex; }
-    #mod-hint .mh-apply { background: #f38ba8; color: #11111b; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-weight: bold; }
+    #mod-hint .mh-apply { background: var(--status-error); color: var(--white-a95); border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-weight: bold; }
     #mod-hint .mh-close { background: transparent; border: none; color: inherit; cursor: pointer; font-size: 14px; padding: 0; line-height: 1; }
 `;
 document.head.appendChild(style);
@@ -106,7 +107,7 @@ btn.onclick = () => {
 document.getElementById('mod-save-btn').onclick = () => {
     const wordsText = document.getElementById('mod-words-input').value;
     moderator.syncWordsByText(wordsText);
-    moderator.prefixTemplate = document.getElementById('mod-prefix-input').value || '（警告：触发禁止词）';
+    moderator.prefixTemplate = document.getElementById('mod-prefix-input').value || '（警告：已触发禁止词「{words}」，请更换表达方式）';
     moderator.save();
     document.getElementById('mod-count').textContent = moderator.words.length;
     pop.classList.remove('show');

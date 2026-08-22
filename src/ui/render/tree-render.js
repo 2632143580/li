@@ -35,6 +35,8 @@ import { getCurrentPath, getLastNodeInPath } from '../../core/tree-core.js';
 import { bus, EVENTS } from '../../core/bus.js';
 import { showContextMenu } from '../context-menu.js';
 import { renderVoiceTiles, renderBoth } from '../voice-tiles.js'; // 语音回复（句句发语音）；renderWaifuContent 为本模块本地定义
+import { buildLoveSvg, buildEcgMonitorSvg, initEcgHeartCanvases } from '../../plugins/ecg-heart.js';
+import { buildMinimalThinkSvg } from '../../plugins/think-minimal.js';
 
 /**
  * 生成气泡外层容器的 className（buildMsgDom 与 renderMessage 共用，消除重复书写）
@@ -68,11 +70,10 @@ export function getBubbleClass(role, isError = false) {
  * 该 AI 消息的渲染形态（受「文字消息显示模式」总控 +「发语音概率」按消息一次性掷骰）。
  * 显示模式（ttsDisplayMode）优先级最高：
  *   - 'text'  只显示文字：恒为纯文本，忽略语音回复开关与概率。
- *   - 'voice' 只显示语音：恒为语音条（原默认观感）；按「发语音概率」决定每条消息是否变语音条，其余纯文字。
+ *   - 'voice' 只显示语音：恒为语音条（含括号动作作轻提示，不朗读）；不再按概率降级为文字，
+ *            保证「只显示语音」名副其实（修复反馈：含（）消息被概率降级成文字气泡）。
  *   - 'both'  都显示（默认）：每条消息「语音条 + 文字」同时呈现（忽略发语音概率，永远都给）。
  * 硬条件：ttsEnabled 总开关关 → 退化纯文字；仅 assistant + 非错误。
- * 概率（仅 voice 模式生效）：每条消息首次渲染时掷一次 Math.random() < ttsProb，结果存 node._voiceChosen，
- * 保证流式多帧重渲染不反复翻转（同一消息稳定不变）。
  * @param {object} node @returns {'text'|'voice'|'both'}
  */
 function getRenderKind(node) {
@@ -80,11 +81,7 @@ function getRenderKind(node) {
     if (!state.settings.ttsEnabled) return 'text';          // 语音回复总开关关 → 纯文字
     const mode = state.settings.ttsDisplayMode || 'both';
     if (mode === 'text') return 'text';                     // 只显示文字
-    if (mode === 'voice') {                                  // 只显示语音：按概率决定本条是否变语音条
-        const p = (typeof state.settings.ttsProb === 'number') ? state.settings.ttsProb : 1;
-        if (node._voiceChosen === undefined) node._voiceChosen = Math.random() < p;
-        return node._voiceChosen ? 'voice' : 'text';
-    }
+    if (mode === 'voice') return 'voice';                   // 只显示语音：恒语音条（括号动作轻提示）
     return 'both';                                           // 都显示：语音条 + 文字（每条都给）
 }
 
@@ -105,6 +102,11 @@ export function renderContent(contentEl, node) {
     const cur = contentEl.dataset.rk;
     if (cur && cur !== rk) contentEl.innerHTML = ''; // 模式切换强制清空重建（修复「切换显示模式不立即生效」）
     contentEl.dataset.rk = rk;
+
+    // 思维链折叠块（自定义按钮，非原生 details）：assistant 非错误节点才渲染，插在气泡上方（避免被正文 innerHTML='' 清空）
+    if (node.role === 'assistant' && !node.isError) {
+        renderReasoningBlock(node, contentEl.closest('.msg') || contentEl.parentElement);
+    }
 
     if (rk === 'waifu') { renderWaifuContent(contentEl, node, isStreaming); return; }
     if (rk === 'voice') {
@@ -129,18 +131,18 @@ export function renderContent(contentEl, node) {
 
     // 统一清理点：开头显式清除残留打字指示器（P4）。
     // 原因：流式增量渲染用 appendChild 追加子节点、不覆盖 contentEl 已有内容，
-    // 而打字指示器是通过 innerHTML 写入的独立节点，不清除就会与后续内容并存并残留到对话结束。
+    // 而打字指示器是通过 innerHTML 写入的独立节点，不清除就���与后续内容并存并残留到对话结束。
     const staleDots = contentEl.querySelector('.typing-dots');
     if (staleDots) staleDots.remove();
 
-    // 流式且无内容时显示打字指示器（出错节点不显示，避免与错误文案并存）
+    // 流式且无内���时显示打字指示器（出错节点不显示，避免与错误文案并存）
     if (isStreaming && !node.content && !node.isError) {
         contentEl.innerHTML = '<span class="typing-dots"><span></span><span></span><span></span></span>';
         return;
     }
 
     // 裁剪前导换行后再渲染：部分 API 首块会带前导 \n，配合 .msg 的 white-space:pre-wrap
-    // 会渲染出"空行 + 消息"的伪空白行；前导换行对聊天无意义，直接剔除(内部换行保留)。
+    // 会渲染出"空行 + 消息"的伪空白行；前导换行对��天无意义，直接剔除(内部换行保留)。
     contentEl.textContent = node.content.replace(/^[\r\n]+/, '');
     // 错误气泡内联重试按钮（根治：失败恢复从"手动编辑重发"降为一次点击）
     if (node.isError) {
@@ -294,7 +296,7 @@ export function renderMessage(node, parentNode) {
     }
 
     // 每次渲染重新生成 className（用 getBubbleClass，与 buildMsgDom 共用）。
-    // 消除旧补丁：domCache 复用的旧节点可能残留另一模式的 className，强制覆盖确保一致。
+    // 消除旧补丁：domCache 复用的旧节点可能残留��一模式的 className，强制覆盖确保一致。
     const bubble = div.firstChild;
     bubble.className = getBubbleClass(node.role, node.isError);
 
@@ -305,7 +307,7 @@ export function renderMessage(node, parentNode) {
 }
 
 /**
- * 渲染对话列表 — 基于当前路径增量更新 DOM
+ * 渲染对话列表 — ��于当前路���增量更新 DOM
  * 1. 遍历当前路径，获取/创建 DOM
  * 2. 按顺序插入到 #chat
  * 3. 移除不在路径中的旧 DOM
@@ -369,6 +371,103 @@ export function updateMsgContent(node, content) {
         renderContent(p.contentEl, p.node);
         DOM.chat.scrollTop = DOM.chat.scrollHeight;
     });
+}
+
+/**
+ * 实时落思维链（reasoning）并增量渲染：复用 updateMsgContent 的 rAF 合并机制，
+ * 写 node.reasoning 后由 renderContent 内的 renderReasoningBlock 增量更新折叠块文本（不重建、不闪）。
+ * reasoning 为运行时字段、不序列化（刷新即失，符合「无需导出」）。 @param {object} node @param {string} reasoning
+ */
+export function updateMsgReasoning(node, reasoning) {
+    node.reasoning = reasoning; // 先落数据：即使 rAF 合并多次 chunk，渲染读的也是最新
+    const div = state.domCache.get(node.id);
+    if (!div) return;
+    const contentEl = div.querySelector('.bubble-content');
+    if (!contentEl) return;
+    _pendingStream = { contentEl, node };
+    if (_streamFrame) return;
+    _streamFrame = requestAnimationFrame(() => {
+        _streamFrame = null;
+        const p = _pendingStream;
+        _pendingStream = null;
+        if (!p) return;
+        renderContent(p.contentEl, p.node);
+        DOM.chat.scrollTop = DOM.chat.scrollHeight;
+    });
+}
+
+
+
+/**
+ * 渲染/更新思维链块（无气泡 / 无卡片 / 无边框，纯排版）。挂在气泡 wrapper 内、正文块之前，
+ * 避免被各显示模式（waifu/voice/both）的 contentEl.innerHTML='' 重建清空。
+ * 头部 = 爱心 + 横向心电图条纹（监护仪式），无文字；折叠态由用户 toggle 记忆（node._reasoningCollapsed），
+ * 新消息默认跟随「自动展开」设置；流式生成中强制展开（思考流动可见）。
+ * @param {object} node @param {HTMLElement} wrapper 消息 wrapper（.msg）
+ */
+function renderReasoningBlock(node, wrapper) {
+    const bubble = wrapper.querySelector(':scope > .bubble') || wrapper.firstChild;
+    const existing = wrapper.querySelector(':scope > .reasoning');
+    // 关开关 / 无思维链 → 不渲染（数据仍在内存，开关再开即显）
+    if (!(state.settings.showReasoning && node.reasoning)) {
+        if (existing) existing.remove();
+        return;
+    }
+    const isThinking = (node === state.currentEndNode && state.waiting);
+    let block = existing;
+    if (!block) {
+        block = document.createElement('div');
+        block.className = 'reasoning';
+        const toggle = document.createElement('button');
+        toggle.type = 'button';
+        toggle.className = 'reasoning-toggle';
+        toggle.setAttribute('aria-expanded', 'true');
+        const body = document.createElement('div');
+        body.className = 'reasoning-body';
+        block.append(toggle, body);
+        // 折叠：切 .collapsed 类，并记忆到 node._reasoningCollapsed（运行时 UI 态，不序列化）
+        toggle.addEventListener('click', () => {
+            const collapsed = block.classList.toggle('collapsed');
+            node._reasoningCollapsed = collapsed;
+            block.querySelector('.reasoning-toggle').setAttribute('aria-expanded', String(!collapsed));
+        });
+        wrapper.insertBefore(block, bubble);
+    }
+    // 头部图标 = 两部分，关系写死（用户强调）：
+    //   ① love.svg（爱心 + 其内部爱心折线）：与爱心是一体的，恒显，不受任何开关控制；
+    //   ② 心电图 canvas 波形（用户说的「心电图」）：受 showEcgWave 控制（关 → 只留爱心）。
+    // 健壮性（修「空白占位」bug）：绝不依赖「wantWave!==hasWave 才重建」这类脆弱判断——
+    //   它在「首建且开关本就关」时 wantWave===hasWave 为 true，会跳过 innerHTML 赋值，
+    //   导致 toggle 永为空按钮。改为就地核对每个子元素：缺则补、多则删，任何状态都自愈。
+    const toggle = block.querySelector('.reasoning-toggle');
+    const style = state.settings.thinkIconStyle === 'minimal' ? 'minimal' : 'ecg';
+    const emotion = ['calm', 'excited', 'sad', 'thinking'].includes(node._emotion)
+        ? node._emotion
+        : (['calm', 'excited', 'sad', 'thinking'].includes(state.settings.ecgEmotion) ? state.settings.ecgEmotion : 'calm');
+    const provider = state.settings.thinkIconProvider === 'kimi' ? 'kimi' : 'glm';
+    toggle.dataset.componentProvider = provider;
+    toggle.querySelector('.rk-think-minimal')?.remove();
+    toggle.querySelector('.rk-love-ico')?.remove();
+    toggle.querySelector('.rk-ecg-mon')?.remove();
+    toggle.querySelector('.rk-chev')?.remove();
+    if (style === 'minimal') {
+        toggle.insertAdjacentHTML('afterbegin', buildMinimalThinkSvg(emotion));
+    } else {
+        toggle.insertAdjacentHTML('afterbegin', buildLoveSvg());
+        if (state.settings.showEcgWave) {
+            // 心电图组件的宽高由统一设置驱动；情绪由节点状态驱动，保持四种状态的动画语义。
+            toggle.insertAdjacentHTML('beforeend', buildEcgMonitorSvg(emotion, state.settings.ecgSize));
+            initEcgHeartCanvases(toggle);
+        }
+    }
+    toggle.insertAdjacentHTML('beforeend', '<span class="rk-chev"></span>');
+    block.querySelector('.reasoning-body').textContent = node.reasoning;
+    // 折叠态：流式生成中强制展开；否则用用户手动选择，��消息默认跟随「自动展开」开关
+    const collapsed = isThinking ? false
+        : (typeof node._reasoningCollapsed === 'boolean' ? node._reasoningCollapsed : !state.settings.reasoningAutoExpand);
+    block.classList.toggle('collapsed', collapsed);
+    block.classList.toggle('thinking', isThinking);
+    block.querySelector('.reasoning-toggle').setAttribute('aria-expanded', String(!collapsed));
 }
 
 /** 更新缓存命中 UI @param {number} tokens */

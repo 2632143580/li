@@ -13,6 +13,7 @@ import './style.css';
 import { DOM, setViewport, W, H, uiCtx } from './core/dom.js';
 import { Logger } from './core/logger.js';
 import { state } from './core/store.js';
+import { getProviderByUrl } from './core/utils.js';
 import { loadFromLocal, createFirstSession, saveSession } from './core/storage.js';
 import { BgEngine } from './engines/bg-engine.js';
 import { ThemeEngine } from './engines/theme-engine.js';
@@ -33,6 +34,7 @@ import { bus, EVENTS } from './core/bus.js';
 import { initBgTriggers } from './ui/bg-trigger.js';
 // 禁止词引擎 UI：副作用导入即完成引擎加载 + 事件订阅 + DOM 创建（AI 回复命中词库时弹提示条）
 import './ui/moderator-ui.js';
+import { moderator } from './engines/moderator-engine.js'; // 禁止词引擎单例（加载后由 main hydrate）
 import { initCompanionSay } from './companion-say.js'; // 外部"主动说话"入口（App 注入用）
 
 // 性能诊断模式：URL 带 ?perf=1 时加载诊断 overlay（手机访问 http://<本机IP>:5173/?perf=1）
@@ -123,9 +125,9 @@ export function init() {
     resize();
     applySettings();
 
-    if (state.settings.availableModels.length === 0) {
-        state.settings.availableModels.push(state.settings.model);
-    }
+    // 模型清单：从 localStorage 的 modelCache 恢复「当前服务商」的已拉取列表（不硬编码、刷新不丢）
+    const initProvider = getProviderByUrl(state.settings.apiUrl);
+    state.availableModels = (state.modelCache[initProvider] || []).slice();
 
     // 背景引擎就绪。默认背景底色由 :root --color-bg 兜底（CSS 已设置），不挂任何 Canvas 动画插件——
     // 星空插件已移除：满屏动画画布是移动端常态 GPU 的持续帧驱动源之一（实测约贡献 70%→60% 的 10%）。
@@ -142,6 +144,7 @@ export function init() {
         updateInputLayout();
         renderChat();
     }
+    moderator.load(); // 从存档 settings.moderator 恢复词库与模板（构造时 settings 尚未加载）
 
     // 绑定所有事件
     bindEvents();

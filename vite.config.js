@@ -40,8 +40,9 @@ const BUILD_LABEL = process.env.BUILD_LABEL || (() => {
 })();
 
 /**
- * 构建收尾插件：构建结束后把 dist/index.html 复制一份为 dist/li-<label>.html。
- * 保留 index.html 原副本（兼容静态服务器/预览默认页），带名副本供用户直接取用区分版本。
+ * 构建收尾插件：
+ * 1. dist/index.html 复制一份为 dist/li-<label>.html。保留 index.html 原副本
+ *    （兼容静态服务器/预览默认页），带名副本供用户直接取用区分版本。
  */
 const labeledOutput = () => ({
     name: 'li-labeled-output',

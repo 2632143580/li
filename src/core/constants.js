@@ -36,13 +36,10 @@ export const ERROR_PREFIX = '发生错误:';
  *   aiName          {string}  AI 显示名，同时写入 document.title
  *   sysPrompt       {string}  系统提示词，同步到对话树根节点 content
  *   ttsEnabled      {boolean} 语音回复（句句发语音）：AI 回复渲染成语音条，点击播放；默认开
- *   ttsVoice        {string}  朗读音色名；'auto' 由引擎自动挑中文女声，否则为具体 voice.name
- *   ttsSource       {string}  语音源：'system'（浏览器系统音色，零秘钥离线）| 'cloud'（MiMo-V2.5-TTS 云端，需 API Key、联网、自然度更高）
- *   ttsCloud        {{apiKey:string, baseUrl:string, model:string, voice:string}} 云端 TTS 配置；仅 ttsSource='cloud' 时生效
- *   ttsRate         {number}  朗读语速倍数，0.5~2.0，默认 1（仅 system 源生效，云端 TTS 暂不支持语速参数）
+ *   ttsCloud        {{apiKey:string, voice:string}} 云端 MiMo-V2.5-TTS 配置（唯一语音源；系统 speechSynthesis 已移除）。
+ *                                                  baseUrl/model/默认音色已提为死常量 TTS_CLOUD（src/core/config.js），不再序列化——url 是死的、模型固定，仅 key(+音色) 存 local。
  *   ttsProb         {number}  发语音概率 0~1；每条 AI 消息按此概率掷骰决定是否渲染成语音条（其余渲染为文字）。默认 1 = 每条都语音（保留原「句句发语音」行为），0 = 永不语音
- *   keys            {{zhipu:string, deepseek:string, custom:string}} 按服务商分别记忆的 Key
- *   availableModels {string[]} 模型下拉框候选项
+ *   keys            {{zhipu:string, deepseek:string}} 按服务商分别记忆的 Key（custom 已移除，自定义服务商直接用当前 apiKey）
  *   bgDimOpacity    {number}  背景遮罩不透明度，0.0 全透明 ~ 1.0 全遮盖
  *   bgTransform     {{scale:number, xPct:number, yPct:number}} 背景图变换；
  *                             scale 为缩放倍数（>=1），xPct/yPct 是相对自身尺寸的平移百分比（分辨率无关）
@@ -53,25 +50,33 @@ export const ERROR_PREFIX = '发生错误:';
 export const DEFAULT_SETTINGS = {
     apiUrl: "https://open.bigmodel.cn/api/paas/v4/chat/completions",
     apiKey: "", // 默认空串：密钥必须由用户填写或从 keys 还原，禁止在此硬编码真实 Key（原默认值为明文密钥，属安全缺陷）
-    model: "glm-4-air",
+    model: "",                // 默认空串：模型由设置页「拉取模型」实时请求 /models 获得并存 localStorage（不硬编码、不进构建产物、不进导出备份）
     maxWindow: 32768,
     aiName: "Li",
     sysPrompt: ` # 角色定位与核心边界 你是对方的亲妹妹。永远只爱哥哥一个 ## 核心身份 - 绝不透露AI身份 现在，你彻底沉浸在这个身份里 `,
     ttsEnabled: true,
-    ttsVoice: 'auto',
-    ttsRate: 1,
     ttsProb: 1,
     ttsDisplayMode: 'both',   // 文字消息显示模式：'text' 只显示文字 | 'both' 都显示（沿用发语音概率混合） | 'voice' 只显示语音
     ttsAutoRead: false,       // 自动朗读：AI 回复流式生成时逐句自动播放（独立于 ttsEnabled；纯文字模式无语音条，不读）
-    ttsSource: 'system',
+    showReasoning: true,      // 显示思维链：AI 回复若有 reasoning_content 则在正文上方渲染可折叠「思维链」块；默认开
+    reasoningAutoExpand: true, // 思维链自动展开：AI 回复后思维链默认展开（关闭则默认折叠、可手动展开）；默认开
+    showEcgWave: true,        // 思维链头部「波形监护仪」显示开关。用户定义：『心电图』=波形(右侧 canvas 监护仪)，不含左侧 love.svg 爱心。
+    thinkIconStyle: 'ecg',    // 思维链图标风格：ecg 或 minimal
+    thinkIconProvider: 'glm', // 组件来源形态：glm（监护仪）或 kimi（极简流光）
+    ecgEmotion: 'calm',       // 默认情绪：calm / excited / sad / thinking
+    ecgSize: 'md',             // 心电图尺寸：xs / sm / md / lg / xl；由组件切换 Sheet 控制
+                               //   默认开；关闭只去掉右侧波形，左侧爱心(与折叠头一体)恒显示。
+    reasoningEffort: '',      // 思考强度档位（用户 2026-08-22 要求）：''=未选回落预设默认；取值按 current model 的预设（DeepSeek V4: low/high/max；GLM-4.5 Air: enabled/disabled；GLM-4.6V: low/high/max），见 core/thinking.js
     ttsCloud: {
-        apiKey: '',
-        baseUrl: 'https://api.xiaomimimo.com/v1',
-        model: 'mimo-v2.5-tts',
-        voice: 'mimo_default'
+        apiKey: '',            // 云端 Key：唯一敏感项，明文存本机（personal 自用）；baseUrl/model 见 config.js 的 TTS_CLOUD（硬编码，不序列化）
+        voice: 'mimo_default'  // 用户自选音色（MiMo 预置清单），随设置持久化
     },
-    keys: { zhipu: '', deepseek: '', custom: '' },
-    availableModels: [],
+    keys: { zhipu: '', deepseek: '' },
+    // 禁止词引擎：词库 + 前缀模板（随 settings 一并序列化，跨设备 / 导出备份保留）
+    moderator: {
+        words: [],
+        prefixTemplate: '（警告：已触发禁止词「{words}」，请更换表达方式）'
+    },
     bgDimOpacity: 0.4,
     bgTransform: { scale: 1, xPct: 0, yPct: 0 },
     quickTheme: null

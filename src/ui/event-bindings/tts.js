@@ -1,49 +1,31 @@
 /**
  * 语音设置（句句发语音）事件绑定
  *
- * 职责（用户 2026-08-14 纠正后的最终形态）：
+ * 职责（云端唯一语音源）：
  *   1. 顶栏扬声器图标 #btn-tts-toggle：点击打开「语音设置模态框」（不再是自动朗读的开/关切换）
- *   2. 模态框内：语音回复开关（ttsEnabled）、发语音概率（ttsProb，滑块+0%/100%快捷）、音色下拉（ttsVoice，自绘规避原生 select）、语速滑杆（ttsRate）
+ *   2. 模态框内：语音回复开关（ttsEnabled）、发语音概率（ttsProb 滑块）、云端音色下拉、云端 Key/接口/模型
  *   3. 图标点亮态跟随 ttsEnabled（状态指示，非切换）
  *   4. 关闭语音回复时停止正在播放的语音条，并重新渲染对话（语音条 ↔ 纯文本）
  *
  * 依赖：core/dom、core/state、core/storage、core/modal（互斥开关）、chat/tree（renderChat）、
- *       engines/tts-engine（getVoices / stopCurrent）、core/registry
+ *       engines/tts-engine（getCloudVoices / stopCurrent / testCloudTTS / clearAutoQueue / getCloudCacheStats）、core/registry
  */
 import { DOM } from '../../core/dom.js';
-import { Logger } from '../../core/logger.js';
 import { state } from '../../core/store.js';
 import { saveToLocal } from '../../core/storage.js';
 import { renderChat } from '../../chat/tree.js';
 import { openModal, closeAllModals } from '../../core/modal.js';
-import { getVoices, getCloudVoices, stopCurrent, testCloudTTS, clearAutoQueue, getCloudCacheStats, clearCloudCache, setCloudCacheChangeListener } from '../../engines/tts-engine.js';
+import { getCloudVoices, stopCurrent, testCloudTTS, clearAutoQueue, getCloudCacheStats, clearCloudCache, setCloudCacheChangeListener } from '../../engines/tts-engine.js';
 import { VOICE_CACHE_MAX_BYTES } from '../../core/voice-cache.js';
 import { registerUI } from '../../core/registry.js';
 
 registerUI('tts', bindVoiceSettings);
 
-/** 当前选中的音色展示文案 @returns {string} */
-function voiceLabel() {
-    const v = state.settings.ttsVoice;
-    if (!v || v === 'auto') return '自动（系统推荐中文女声）';
-    const hit = getVoices().find(x => x.name === v);
-    return hit ? `${hit.name}（${hit.lang || '?'}）` : '自动（系统推荐中文女声）';
-}
-
-/** 同步发语音概率 UI（滑块值 + 百分比文案 + 0%/100% 快捷高亮） @returns {void} */
+/** 同步发语音概率 UI（滑块值 + 百分比文案） @returns {void} */
 function syncProbUI() {
     const p = Math.round((typeof state.settings.ttsProb === 'number' ? state.settings.ttsProb : 1) * 100);
     if (DOM.setVoiceProb) DOM.setVoiceProb.value = String(p);
     if (DOM.setVoiceProbVal) DOM.setVoiceProbVal.textContent = p + '%';
-    if (DOM.setVoiceProb0) DOM.setVoiceProb0.classList.toggle('active', p === 0);
-    if (DOM.setVoiceProb100) DOM.setVoiceProb100.classList.toggle('active', p === 100);
-}
-
-/** 设置发语音概率（0~100 整数 → ttsProb 0~1）并刷新 UI @param {number} p @returns {void} */
-function setVoiceProb(p) {
-    state.settings.ttsProb = p / 100;
-    syncProbUI();
-    saveToLocal(null, true);
 }
 
 /** 同步文字消息显示模式 UI（三分段高亮） @returns {void} */
@@ -82,40 +64,22 @@ function openVoiceModal() {
     try {
         if (DOM.setVoiceEnabled) DOM.setVoiceEnabled.checked = !!state.settings.ttsEnabled;
         if (DOM.setAutoRead) DOM.setAutoRead.checked = !!state.settings.ttsAutoRead;
-        const rate = state.settings.ttsRate ?? 1;
-        if (DOM.setVoiceRate) DOM.setVoiceRate.value = rate;
-        if (DOM.setVoiceRateVal) DOM.setVoiceRateVal.textContent = Number(rate).toFixed(1) + 'x';
-        syncSourceUI();
-        // populateVoices 依赖系统语音（speechSynthesis）；Via 等环境无此 API 时曾抛错，
-        // 拖垮后续 populateCloudVoices（云端音色）与 setCloudKey 回填（2026-08-16 实测踩坑）。
-        // 独立容错：系统音色填充失败绝不影响云端面板与 Key 回填。
-        try { populateVoices(); } catch (err) { Logger.warn('[TTS] 系统音色填充失败（环境无系统语音），不影响云端面板', err?.message || String(err)); }
+        // 显示思维链/自动展开两开关已移设置页（用户 2026-08-22），此处不再同步
         populateCloudVoices();
         if (DOM.setCloudKey) DOM.setCloudKey.value = state.settings.ttsCloud?.apiKey || '';
-        if (DOM.setCloudBase) DOM.setCloudBase.value = state.settings.ttsCloud?.baseUrl || 'https://api.xiaomimimo.com/v1';
-        if (DOM.setCloudModel) DOM.setCloudModel.value = state.settings.ttsCloud?.model || 'mimo-v2.5-tts';
         syncProbUI();
         syncDisplayModeUI();
         refreshCloudCacheStat(); // 打开即显示当前缓存条数 / 大小（内部已判空）
     } catch (err) {
-        Logger.warn('[TTS] 语音设置面板初始化部分失败（某控件缺失，不影响打开）', err?.message || String(err));
+        console.warn('[TTS] 语音设置面板初始化部分失败（某控件缺失，不影响打开）', err?.message || String(err));
     }
     openModal('voice-modal');
-}
-
-/** 语音源分段（系统 / 云端）UI 同步：高亮当前源 + 显隐对应子面板 @returns {void} */
-function syncSourceUI() {
-    const cloud = state.settings.ttsSource === 'cloud';
-    DOM.setVoiceSourceSystem.classList.toggle('active', !cloud);
-    DOM.setVoiceSourceCloud.classList.toggle('active', cloud);
-    if (DOM.voiceSystemPanel) DOM.voiceSystemPanel.style.display = cloud ? 'none' : '';
-    if (DOM.voiceCloudPanel) DOM.voiceCloudPanel.style.display = cloud ? '' : 'none';
 }
 
 /** 关闭语音设置模态框 @returns {void} */
 function closeVoiceModal() {
     closeAllModals();
-    DOM.voiceNameOptions.classList.remove('show');
+    if (DOM.cloudVoiceOptions) DOM.cloudVoiceOptions.classList.remove('show');
 }
 
 /** 顶栏图标点亮态跟随语音回复开关：切换 .tts-on 并置换图标符号（开=声波 / 关=静音斜杠） @returns {void} */
@@ -124,28 +88,6 @@ function updateTtsIcon() {
     DOM.btnTtsToggle.classList.toggle('tts-on', on);
     const use = DOM.btnTtsToggle.querySelector('use');
     if (use) use.setAttribute('href', on ? '#i-vol-on' : '#i-vol-off');
-}
-
-/** 填充音色下拉（'auto' + 系统可用音色） @returns {void} */
-function populateVoices() {
-    const voices = getVoices();
-    DOM.voiceNameOptions.innerHTML = '';
-    DOM.voiceNameText.textContent = voiceLabel();
-
-    const mk = (name, label) => {
-        const b = document.createElement('button');
-        b.className = 'vt-voice-opt';
-        b.dataset.voice = name;
-        b.textContent = label;
-        if ((state.settings.ttsVoice || 'auto') === name) b.classList.add('active');
-        DOM.voiceNameOptions.appendChild(b);
-    };
-    mk('auto', '自动（系统推荐中文女声）');
-    voices.forEach(v => {
-        const lang = v.lang || '?';
-        const local = v.localService ? ' · 本地' : '';
-        mk(v.name, `${v.name}（${lang}${local}）`);
-    });
 }
 
 /** 填充云端音色下拉（MiMo 预置清单；选中态读 ttsCloud.voice） @returns {void} */
@@ -218,56 +160,14 @@ export function bindVoiceSettings() {
         });
     }
 
-    // 语速滑杆（0.5~2，步长 0.1）
-    DOM.setVoiceRate.addEventListener('input', () => {
-        const r = parseFloat(DOM.setVoiceRate.value);
-        state.settings.ttsRate = isNaN(r) ? 1 : r;
-        DOM.setVoiceRateVal.textContent = state.settings.ttsRate.toFixed(1) + 'x';
-        saveToLocal(null, true);
-    });
-
     // 发语音概率（滑块 0~100% → ttsProb 0~1；按消息掷骰，逻辑见 tree-render.getRenderKind）
     DOM.setVoiceProb.addEventListener('input', () => {
         const p = parseInt(DOM.setVoiceProb.value, 10);
         state.settings.ttsProb = p / 100;
         DOM.setVoiceProbVal.textContent = p + '%';
-        DOM.setVoiceProb0.classList.toggle('active', p === 0);
-        DOM.setVoiceProb100.classList.toggle('active', p === 100);
         saveToLocal(null, true);
-        // 已渲染消息的掷骰结果已冻结在 node._voiceChosen，改概率只影响之后的新消息
+        // 注：voice 模式已恒渲染语音条（getRenderKind 不再按概率掷骰），node._voiceChosen 为历史残留字段，不影响显示
     });
-    DOM.setVoiceProb0.addEventListener('click', () => setVoiceProb(0));
-    DOM.setVoiceProb100.addEventListener('click', () => setVoiceProb(100));
-
-    // 音色下拉（自绘，规避原生 select 的默认 UI/UX）
-    DOM.voiceNameTrigger.addEventListener('click', (e) => {
-        e.stopPropagation();
-        DOM.voiceNameOptions.classList.toggle('show');
-    });
-    document.addEventListener('click', (e) => {
-        if (!DOM.voiceNameOptions.contains(e.target) && !DOM.voiceNameTrigger.contains(e.target)) {
-            DOM.voiceNameOptions.classList.remove('show');
-        }
-    });
-    DOM.voiceNameOptions.addEventListener('click', (e) => {
-        const opt = e.target.closest('.vt-voice-opt');
-        if (!opt) return;
-        state.settings.ttsVoice = opt.dataset.voice;
-        DOM.voiceNameText.textContent = opt.textContent;
-        DOM.voiceNameOptions.classList.remove('show');
-        saveToLocal(null, true);
-    });
-
-    // 语音源分段（系统 / 云端）：切换 ttsSource + 显隐子面板 + 刷新音色下拉
-    const onSource = (cloud) => {
-        state.settings.ttsSource = cloud ? 'cloud' : 'system';
-        syncSourceUI();
-        try { populateVoices(); } catch (err) { Logger.warn('[TTS] 切换源时系统音色填充失败（环境无系统语音），不影响云端面板', err?.message || String(err)); }
-        populateCloudVoices();
-        saveToLocal(null, true);
-    };
-    DOM.setVoiceSourceSystem.addEventListener('click', () => onSource(false));
-    DOM.setVoiceSourceCloud.addEventListener('click', () => onSource(true));
 
     // 文字消息显示模式（只显示文字 / 都显示 / 只显示语音）：覆盖 getRenderKind 的语音/文字决策
     const onDisp = (mode) => {
@@ -289,18 +189,6 @@ export function bindVoiceSettings() {
             saveToLocal(null, true);
         });
     }
-
-    // 云端接口地址 / 模型（高级，一般不动；写入存档便于排查）
-    const bindCloudText = (el, key) => {
-        if (!el) return;
-        el.addEventListener('input', () => {
-            if (!state.settings.ttsCloud) state.settings.ttsCloud = {};
-            state.settings.ttsCloud[key] = el.value.trim();
-            saveToLocal(null, true);
-        });
-    };
-    bindCloudText(DOM.setCloudBase, 'baseUrl');
-    bindCloudText(DOM.setCloudModel, 'model');
 
     // 云端连接测试：一句话验证配置可用，结果直接显示在模态框内（红/绿），不再静默失败
     if (DOM.cloudTest) {
@@ -345,15 +233,7 @@ export function bindVoiceSettings() {
         });
     }
 
-    // 音色异步加载（Chrome voiceschanged）：模态框打开期间若音色到位则刷新下拉
-    if (typeof window !== 'undefined' && window.speechSynthesis) {
-        window.speechSynthesis.addEventListener?.('voiceschanged', () => {
-            if (DOM.voiceModal && DOM.voiceModal.style.display !== 'none') populateVoices();
-        });
-    }
-
-    // 修⑥：标签页隐藏时停止自动朗读/播放。后台标签页浏览器会 pause speechSynthesis，
-    // 但自动朗读队列 / <audio> 不会自动停，留后台静默播放。隐藏即清，切回需用户重新触发。
+    // 标签页隐藏时停止自动朗读/播放（后台标签页自动播放无意义，切回需用户重新触发）
     document.addEventListener('visibilitychange', () => {
         if (document.hidden) clearAutoQueue();
     });

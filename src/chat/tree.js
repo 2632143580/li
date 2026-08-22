@@ -81,10 +81,15 @@ export function setNodeError(node, message) {
 
 // migrateErrorFlags 已移至 core/tree-core.js（本文件 re-export，对外 API 不变）
 
-/** 初始化对话树 — 创建系统节点（content = 当前有效系统提示词：会话级覆盖优先，否则全局默认）和欢迎消息 */
+/**
+ * 初始化对话树 — 创建系统节点与欢迎消息。
+ * 关键约定：欢迎消息同时带一段本地模拟思维链，用来展示思维链 UI；它不参与 API 请求，
+ * 因为 buildApiMessages 会按节点的 role/content 组装上下文，而 reasoning 只是渲染层运行时字段。
+ */
 export function initChatTree() {
     state.chatTree = createNode("system", getEffectiveSysPrompt());
     const welcome = createNode("assistant", WELCOME);
+    welcome.reasoning = '好开心！'; // 仅用于首屏演示思维链，不伪造模型返回，也不写入请求上下文。
     state.chatTree.children.push(welcome);
     state.currentEndNode = welcome;
     renderChat();
@@ -155,9 +160,19 @@ export function regenerate(node, parentNode) {
     state.waiting = true;
     inputRenderer.markDirty();
 
-    const aiNode = createNode("assistant", "");
-    parentNode.children.push(aiNode);
-    parentNode.selectedChildIndex = parentNode.children.length - 1;
+    let aiNode;
+    if (node.isError) {
+        // 错误重试：原地复用该节点（清空错误内容重发），不 push 新子节点——
+        // 否则每次重试都在 parent 下多一个分支，分支导航被连续错误/重试淹没（用户 2026-08-21 反馈）
+        node.isError = false;
+        node.content = '';
+        aiNode = node;
+    } else {
+        // 正常重新生成：新节点 = 新分支（保留旧回复可切换对比）
+        aiNode = createNode("assistant", "");
+        parentNode.children.push(aiNode);
+    }
+    parentNode.selectedChildIndex = parentNode.children.indexOf(aiNode);
     state.currentEndNode = aiNode;
 
     touchIndex(state.activeSessionId); // 发消息即触索引 updatedAt（同 sendMessage）
@@ -208,6 +223,11 @@ export function applySettings() {
     inputRenderer.markDirty();
 }
 
+/** 模型变更通知：设置页「思考强度」分段需随模型预设刷新（树.js 不 import settings.js，走 DOM 事件解耦避免循环依赖） */
+function notifyModelChange() {
+    DOM.setModelOptions.dispatchEvent(new CustomEvent('modelchange', { bubbles: false }));
+}
+
 /** 检查当前 URL 匹配哪个服务商标签（读取 tempSettings.apiUrl 活绑定；已移除「自定义」标签，无匹配时不高亮） */
 export function checkProviderMatch() {
     const currentUrl = tempSettings.apiUrl;
@@ -240,6 +260,7 @@ export function populateModelSelect(models, selectedValue) {
             e.stopPropagation();
             tempSettings.model = m;
             DOM.setModelText.textContent = m;
+            notifyModelChange(); // 思考强度分段（设置页）随模型预设刷新
             hideModelOptions();
         };
         DOM.setModelOptions.appendChild(opt);
@@ -262,6 +283,7 @@ export function populateModelSelect(models, selectedValue) {
             DOM.setModelText.textContent = inputModel;
             tempSettings.availableModels.push(inputModel);
             populateModelSelect(tempSettings.availableModels, inputModel);
+            notifyModelChange(); // 思考强度分段（设置页）随模型预设刷新
         }
         hideModelOptions();
     };
