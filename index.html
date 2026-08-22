@@ -350,6 +350,15 @@
     <!-- 设置模态框 -->
     <div id="modal" class="modal-overlay sheet">
         <div class="modal-content">
+            <!-- 顶部操作：保存(✓)/取消(✗) 对号叉号，悬浮在右上角（不做横栏、不带「设置」标题）；sticky 常驻，长面板滚动时亦可达 -->
+            <div class="modal-fab">
+                <button id="modal-cancel" class="icon-btn" type="button" aria-label="取消">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                </button>
+                <button id="modal-close" class="icon-btn icon-btn--primary" type="button" aria-label="保存">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                </button>
+            </div>
 
             <!-- 1. 名字 + 提示词 -->
             <div class="section">
@@ -447,7 +456,13 @@
                         <span class="toggle-slider"></span>
                     </label>
                 </div>
-                <p class="voice-tip">开启后，支持「思维链」的模型（如 DeepSeek-R1、智谱 GLM）会在回答上方显示一段可折叠的思考过程；不支持的模型不返回，故不显示——这是模型能力差异，并非功能失效。已显示的内容随对话缓存，刷新 / 重开仍在。</p>
+                <div class="voice-row">
+                    <span class="lab">心电图波形<small>思维链头部的波形监护仪（爱心不受影响）</small></span>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="set-showEcgWave">
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
             </div>
 
             <hr class="section-divider">
@@ -466,10 +481,6 @@
                 <input type="range" class="dim-slider" id="set-bgDim" min="0" max="100" step="1" value="40">
             </div>
 
-            <div class="modal-actions">
-                <button id="modal-cancel" class="fs-btn">取消</button>
-                <button id="modal-close" class="fs-btn primary">保存</button>
-            </div>
         </div>
     </div>
 

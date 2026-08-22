@@ -97,9 +97,11 @@ export function bindSettingsEvents() {
         // 思维链两开关（用户 2026-08-22 自语音设置移入）：暂存进 tempSettings，点「保存」才生效（与遮罩浓度同口径）
         if (DOM.setShowReasoning) DOM.setShowReasoning.checked = !!tempSettings.showReasoning;
         if (DOM.setReasoningAutoExpand) DOM.setReasoningAutoExpand.checked = !!tempSettings.reasoningAutoExpand;
+        if (DOM.setShowEcgWave) DOM.setShowEcgWave.checked = !!tempSettings.showEcgWave; // 波形监护仪开关：仅控右侧波形 canvas（爱心恒显），暂存进 tempSettings，点「保存」才生效
         reasoningSnapshot = {
             show: !!state.settings.showReasoning,
-            auto: !!state.settings.reasoningAutoExpand
+            auto: !!state.settings.reasoningAutoExpand,
+            ecg: !!state.settings.showEcgWave
         };
         renderThinkingUI(); // 思考强度分段按当前模型预设渲染
         // 系统提示词输入框显示「当前会话有效值」：有会话级覆盖则显示覆盖，否则显示全局默认
@@ -122,9 +124,10 @@ export function bindSettingsEvents() {
         state.sessionSysPrompt = pendingSysPrompt;
         applySettings(); // 内部把根 content 同步为有效系统提示词（覆盖优先）
         updateInputLayout();
-        // 思维链两开关（自语音设置移入）：保存才生效；与打开时快照对比，变更才重渲染聊天区
+        // 思维链两开关（自语音设置移入）+ 心电图显示开关：保存才生效；与打开时快照对比，任一变更都重渲染聊天区
         const reasoningChanged = reasoningSnapshot.show !== !!state.settings.showReasoning
-            || reasoningSnapshot.auto !== !!state.settings.reasoningAutoExpand;
+            || reasoningSnapshot.auto !== !!state.settings.reasoningAutoExpand
+            || reasoningSnapshot.ecg !== !!state.settings.showEcgWave;
         if (reasoningChanged) renderChat();
         if (DOM.bgDimLayer) DOM.bgDimLayer.style.opacity = state.settings.bgDimOpacity; // 保存后才应用到真实遮罩层（滑块拖动仅预览仿真框，用户要求"保存后才生效"）
         saveSession(state.activeSessionId); // 会话级覆盖随会话键落盘
@@ -215,17 +218,15 @@ export function bindSettingsEvents() {
         DOM.setApiKey.value = tempSettings.apiKey;
         DOM.providerHint.textContent = '';
 
-        // 切服务商 → 模型配套：加载该服务商「已拉取模型清单」，自动选首个；无缓存则清空待拉取
-        state.availableModels = (state.modelCache[provider] || []).slice();
-        if (state.availableModels.length && state.availableModels.includes(tempSettings.model)) {
-            // 当前模型仍属该服务商清单：保持不变
-        } else if (state.availableModels.length) {
-            tempSettings.model = state.availableModels[0];
-        } else {
-            tempSettings.model = '';
-        }
-        tempSettings.availableModels = state.availableModels;
-        populateModelSelect(state.availableModels, tempSettings.model);
+        // 切服务商 → 模型与服务商一一匹配：只显示「目标服务商自己的缓存清单」，
+        //   不串号（绝不把别家模型混进本家下拉）、不清空（别家缓存不动）、不滞留（切到 B 就只显 B 的）。
+        //   目标有缓存 → 切到它的清单（当前模型仍在清单内则保留，否则选首个）；
+        //   目标无缓存（还没拉取过）→ 显示空清单，这是它"自己"合法状态，不是被清空。
+        const targetModels = (state.modelCache[provider] || []).slice();
+        state.availableModels = targetModels;
+        tempSettings.availableModels = targetModels;
+        if (!targetModels.includes(tempSettings.model)) tempSettings.model = targetModels[0] || '';
+        populateModelSelect(tempSettings.availableModels, tempSettings.model);
         if (DOM.setModelText) DOM.setModelText.textContent = tempSettings.model || '未选择';
         renderThinkingUI(); // 切服务商换模型后，思考强度分段按新模型预设刷新
 
@@ -242,6 +243,13 @@ export function bindSettingsEvents() {
     if (DOM.setReasoningAutoExpand) {
         DOM.setReasoningAutoExpand.addEventListener('change', () => {
             tempSettings.reasoningAutoExpand = DOM.setReasoningAutoExpand.checked;
+        });
+    }
+    // 波形监护仪开关：仅改暂存，点「保存」随 tempSettings 一并提交（renderChat 在保存时按快照比对重渲染）。
+    // 注意：本开关只控右侧波形 canvas；左侧 love.svg 爱心与折叠头一体，不受此开关影响。
+    if (DOM.setShowEcgWave) {
+        DOM.setShowEcgWave.addEventListener('change', () => {
+            tempSettings.showEcgWave = DOM.setShowEcgWave.checked;
         });
     }
     // 思考强度分段点击：更新暂存档位 + 高亮

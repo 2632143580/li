@@ -1,7 +1,7 @@
 /* ====================== 设置面板（方法1：新视觉 + 项目 token 化） ======================
  * 颜色全部走 tokens.css 的 var()；星空场景装饰色提为 --scene-* token（在 :root 定义，lint 跳过）。
- * 仅对「会被其他弹窗共用的通用类」(#modal .modal-content / .modal-actions) 加 #modal 作用域，
- *   避免覆盖词云/语音/插件管理等弹窗的 .modal-content / .modal-actions。
+ * 仅对「会被其他弹窗共用的通用类」(#modal .modal-content / .modal-fab) 加 #modal 作用域，
+ *   避免覆盖词云/语音/插件管理等弹窗的 .modal-content / .modal-fab。
  * 其余新设计专属类（.section / .llm-* / .dim-* / .size-* 等）全局唯一，无需作用域。
  * 缓动曲线 --ease / --ease-out 已提升至 tokens.css 全局默认（满足 modal-theme-lint 允许集），本文件不再私有定义。 */
 
@@ -10,7 +10,7 @@
     background: var(--bg-modal);
     /* 简约化（用户拍板）：去掉描边与投影 */
     border-radius: 20px;
-    padding: 28px 32px 24px;
+    padding: 0 32px 24px;   /* 去除顶部内边距：名字「Li」直接顶到顶部（顶部抓手中缝自带 8px 上边距，无需额外空带） */
     width: 92%;
     max-width: 560px;
     overflow-y: auto;
@@ -20,14 +20,44 @@
 }
 #modal .modal-content::-webkit-scrollbar { display: none; }
 
-#modal .modal-actions {
+/* 顶部操作：保存(✓)/取消(✗) 悬浮在右上角——不做横栏、不带「设置」标题（用户要求）。
+   实现：零高 sticky 容器（不占竖向流 → 名字「Li」直接顶到顶部，消除空带）；
+   内部按钮 absolute 浮在右上角（真正贴角、非占位）；sticky 使其在滚动容器内常驻，长面板滚动时始终可达。
+   容器 pointer-events:none → 透明区不拦截内容点击，仅按钮可点。 */
+#modal .modal-fab {
+    position: sticky;
+    top: 0;
+    z-index: 6;
+    height: 0;                       /* 零高：不顶出空带，名字到顶 */
+    margin: 0;
     display: flex;
-    gap: 10px;
-    margin-top: 24px;
-    padding-top: 16px;
-    border-top: 1px solid var(--white-a06);
+    justify-content: flex-end;
+    pointer-events: none;            /* 透明容器不拦截；下方按钮各自恢复点击 */
 }
-#modal .modal-actions .fs-btn { flex: 1; }
+#modal .modal-fab .icon-btn {
+    position: absolute;              /* 脱离零高容器，真正浮在右上角（非占位空带） */
+    top: 4px;                        /* 略低于抓手中缝，避免与顶部抓手视觉打架 */
+    pointer-events: auto;
+}
+/* 两个按钮均绝对定位到右上角，按 right 偏移分列：取消在左、保存在最右（间距=按钮宽40+8），
+   绝对定位脱离 flex 流，必须显式分位才能避免两按钮重叠在同一坐标 */
+#modal .modal-fab .icon-btn:not(.icon-btn--primary) { right: 48px; } /* 取消 ✗ */
+#modal .modal-fab .icon-btn--primary { right: 0; }                   /* 保存 ✓ */
+#modal .icon-btn {
+    width: 40px; height: 40px;        /* ≥40px 触控底线，移动端友好 */
+    display: flex; align-items: center; justify-content: center;
+    border: 1px solid var(--white-a08);
+    background: var(--white-a03);
+    color: var(--white-a50);
+    border-radius: 12px;
+    cursor: pointer; padding: 0;
+    transition: all 0.2s var(--ease);
+}
+#modal .icon-btn svg { width: 20px; height: 20px; display: block; }
+#modal .icon-btn:hover { background: var(--white-a08); color: var(--white-a80); }
+#modal .icon-btn:active { transform: scale(0.94); }
+#modal .icon-btn--primary { background: var(--color-accent-soft); border-color: var(--color-accent-dim); color: var(--color-accent-bright); }
+#modal .icon-btn--primary:hover { background: var(--color-accent); color: #fff; }
 
 /* ---------- 1. 名字 + 提示词 ---------- */
 .section { margin-bottom: 24px; }
@@ -262,7 +292,7 @@
     *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
 }
 @media (max-width: 520px) {
-    #modal .modal-content { padding: 18px 16px 16px; max-width: 100%; border-radius: 16px; }
+    #modal .modal-content { padding: 0 16px 16px; max-width: 100%; border-radius: 16px; }
     .dim-visual { height: 180px; }
     .dim-val-big { font-size: 48px; }
 }

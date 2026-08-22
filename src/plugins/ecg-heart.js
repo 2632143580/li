@@ -2,14 +2,19 @@
  * 思维链图标插件：love.svg（左）+ 心电图 Canvas（右）并排，纯图标无文字。
  *
  * 100% 还原用户上传的两个文件（2026-08-22）：
- *   1) love-svg.txt —— 黑底 rect + 白色爱心 + 黑色心电图折线，三元素原样保留（含 stroke-width 4 / round 端点）。
+ *   1) love-svg.txt —— 几何原样保留（100×100 viewBox、爱心/心电折线 path、stroke-width 4 / round 端点）；
+ *      颜色改为委托 rk-love-* 主题令牌（heart=主题色、line=底块同色镂空、surface=主题背景），随深浅主题自适应，不再写死黑/白。
  *   2) 心电图canvas-html.txt —— 监护仪核心视觉：网格背景（大格 50px / 小格 10px 双色层）+
  *      发光扫描波形（lineWidth 2.2 / shadowBlur 10 / #00ffaa）+ 扫描线遮罩（40px 黑色渐隐条）。
  *      绘制算法（getVoltage 的 P-QRS-T 波形函数、相位推进、回扫清残留的清除策略）逐行照搬原文件。
  *
- * 布局：buildEcgHeartSvg() 返回 [love-svg] + [ecg-monitor] 两个独立组件并排（外层 .reasoning-toggle 为 flex）。
- *   - 左：buildLoveSvg() —— love-svg.txt 原样（100×100 viewBox，黑底白心黑折线）。
- *   - 右：buildEcgMonitorSvg() 的容器部分 —— 网格 div + canvas + 扫描线 div（结构与 class 对应原文件）。
+ * 两个组件，关系必须分清（用户强调）：
+ *   ① love.svg（buildLoveSvg）—— 几何原样（100×100 viewBox、爱心 path + 其内部爱心折线 path）。
+ *      爱心 + 它里面的折线是「一体」的，恒显，不受任何开关控制。
+ *   ② 心电图 canvas 监护仪波形（buildEcgMonitorSvg）—— 纯波形动画。
+ *      这才是用户口头说的「心电图」；它受 showEcgWave 开关控制（关 → 只留爱心）。
+ *   两者都在 .reasoning-toggle（flex）内并排；tree-render 直接 buildLoveSvg() + (开关?)buildEcgMonitorSvg() 组合，
+ *      不再经任何「组合/兼容」导出（已删，避免把爱心与波形再绑死）。
  *
  * 动画：Canvas 不能只靠 innerHTML 字符串，渲染层设置 innerHTML 后须调用 initEcgHeartCanvases(scope)
  *   启动 rAF 循环（tree-render 已接入）。循环内部每帧自检 canvas.isConnected，DOM 重建后旧循环自动停，
@@ -21,20 +26,9 @@
  * 依赖：无（Canvas 2D）
  */
 
-/** love-svg.txt 原始三元素（100% 还原，顺序与属性不变）。 */
+/** love-svg.txt 原始两元素（100% 还原，顺序与属性不变）：爱心 path + 其内部爱心折线 path。 */
 const LOVE_HEART_PATH = 'M 50 30 C 50 25, 40 10, 25 20 C 10 30, 10 50, 30 65 C 40 75, 50 85, 50 85 C 50 85, 60 75, 70 65 C 90 50, 90 30, 75 20 C 60 10, 50 25, 50 30 Z';
 const LOVE_ECG_PATH = 'M 22 45 L 32 45 L 38 25 L 45 65 L 50 45 L 78 45';
-
-/** 向后兼容：旧导出名（路径内容与 love-svg.txt 一致）。 @type {string} */
-export const HEART_PATH = LOVE_HEART_PATH;
-
-/** 向后兼容：旧波形表（love.svg 原始折线 = calm 档）。 @type {Object<string,string>} */
-export const ECG_WAVEFORMS = {
-    calm: LOVE_ECG_PATH,
-    excited: 'M 18 45 L 26 45 L 30 18 L 36 72 L 42 45 L 58 45 L 62 18 L 68 72 L 74 45 L 82 45',
-    thinking: 'M 20 45 L 30 45 L 34 30 L 40 60 L 46 45 L 54 45 L 60 28 L 66 62 L 72 45 L 80 45',
-    sad: 'M 22 48 L 40 48 L 50 52 L 60 48 L 78 48'
-};
 
 /** emotion → 心电图 canvas 模式（对应原文件 getVoltage 的 mode 参数）。 */
 const EMOTION_TO_MODE = {
@@ -45,23 +39,24 @@ const EMOTION_TO_MODE = {
 };
 
 /**
- * love.svg 组件（左侧）：love-svg.txt 100% 还原——黑底 rect + 白色爱心 + 黑色心电图折线。
+ * love.svg 组件（恒显）：love-svg.txt 几何原样（100×100 viewBox、爱心/心电折线 path、round 端点）。
+ * 颜色不写死，改由 .rk-love-* class 走 rk-love-* 主题令牌（chat.css 定义），随深浅主题自适应：
+ *   surface=主题背景、heart=主题色、line=底块同色镂空刻进爱心（深浅皆可见）。
+ * 这是「爱心 + 它里面的折线」——它俩是一体的，恒显，不受 showEcgWave 开关控制。
  * @returns {string} 内联 SVG 字符串
  */
 export function buildLoveSvg() {
     return '<svg class="rk-love-ico" viewBox="0 0 100 100" aria-hidden="true" focusable="false">'
-        + '<rect width="100" height="100" fill="#000000" />'
-        + '<path d="' + LOVE_HEART_PATH + '" fill="#ffffff" />'
-        + '<path d="' + LOVE_ECG_PATH + '" fill="none" stroke="#000000" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" />'
+        + '<rect class="rk-love-bg" width="100" height="100" />'
+        + '<path class="rk-love-heart" d="' + LOVE_HEART_PATH + '" />'
+        + '<path class="rk-love-ecg" d="' + LOVE_ECG_PATH + '" fill="none" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" />'
         + '</svg>';
 }
 
-/** 向后兼容：旧「爱心」导出 = love.svg 整体（黑底白心黑折线）。 */
-export function buildHeartSvg() { return buildLoveSvg(); }
-
 /**
- * 心电图监护仪组件（右侧）的静态容器：网格背景 + canvas + 扫描线遮罩。
+ * 心电图（用户说的「心电图」= 波形）监护仪组件：网格背景 + canvas + 扫描线遮罩。
  * 结构与 class 与原文件一一对应（grid-background / ecgCanvas / scan-line），动画由 initEcgHeartCanvases 启动。
+ * 这一块受 showEcgWave 开关控制（关 → 不渲染，只留爱心）。
  * @param {string} [emotion='calm'] 情绪键（映射到原文件的 normal/tachycardia/bradycardia/arrhythmia）
  * @returns {string} HTML 字符串
  */
@@ -71,19 +66,6 @@ export function buildEcgMonitorSvg(emotion = 'calm') {
         + '<canvas class="rk-ecg-cv"></canvas>'
         + '<span class="rk-ecg-scan"></span>'
         + '</span>';
-}
-
-/** 向后兼容：旧「心电图」导出 = canvas 监护仪容器。 */
-export function buildEcgSvg(emotion = 'calm') { return buildEcgMonitorSvg(emotion); }
-
-/**
- * 组合（tree-render 使用）：love.svg（左）+ 心电图 canvas（右）并排。
- * 注意：返回值含 <canvas>，innerHTML 赋值后必须调用 initEcgHeartCanvases(scope) 启动动画。
- * @param {string} [emotion='calm'] 情绪键
- * @returns {string} HTML 字符串
- */
-export function buildEcgHeartSvg(emotion = 'calm') {
-    return buildLoveSvg() + buildEcgMonitorSvg(emotion);
 }
 
 /**
@@ -107,8 +89,17 @@ function startEcgLoop(canvas) {
     const scanLineEl = container.querySelector('.rk-ecg-scan');
     const mode = EMOTION_TO_MODE[container.dataset.emotion] || 'normal';
 
-    // 原文件 :root 变量的取值（组件内自包含，非正常模式变琥珀色）
-    const ecgColor = mode === 'normal' ? '#00ffaa' : '#ffbb33';
+    // 波形颜色走主题令牌（随深浅主题自适应）：正常=主题色 --color-accent，异常=警告色 --status-warn（双套翻转）。
+    // 读取最终色值（rgba 字面量），fallback 保留原监护仪绿/琥珀，避免令牌缺失时掉色。
+    let ecgColor = '#00ffaa';
+    function refreshEcgColor() {
+        const cs = getComputedStyle(document.documentElement);
+        const accent = cs.getPropertyValue('--color-accent').trim();
+        const warn = cs.getPropertyValue('--status-warn').trim();
+        ecgColor = mode === 'normal'
+            ? (accent || '#00ffaa')
+            : (warn || '#ffbb33');
+    }
 
     // 状态（照搬原文件）
     let x = 0;
@@ -122,6 +113,7 @@ function startEcgLoop(canvas) {
     let clearMargin = 4;
 
     function setupContext() {
+        refreshEcgColor();                       // 每次重建/换肤都取最新主题色
         ctx.lineCap = 'round';
         ctx.lineJoin = 'round';
         // 尺寸适配（非字面还原，已实测必要）：原文件 lineWidth=2.2 / shadowBlur=10
@@ -134,6 +126,11 @@ function startEcgLoop(canvas) {
         ctx.shadowBlur = Math.min(10, h * 0.06);
         ctx.shadowColor = ecgColor;
     }
+
+    // 主题切换（<html> 的 class/style 变化：theme-light 翻转 / 插件覆盖令牌）时，实时刷新波形颜色。
+    // 不每帧取，只在主题变动时触发；canvas 断开即停观察，无泄漏。
+    const themeObserver = new MutationObserver(() => { refreshEcgColor(); setupContext(); });
+    themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['class', 'style'] });
 
     // ========== Canvas 尺寸适配（原文件 resizeCanvas） ==========
     function resizeCanvas() {
@@ -210,8 +207,8 @@ function startEcgLoop(canvas) {
 
     // ========== 核心绘制循环（原文件 draw，含回扫清残留修复，逐行照搬） ==========
     function draw(timestamp) {
-        // DOM 已被重建/移除 → 自动退出循环
-        if (!canvas.isConnected) return;
+        // DOM 已被重建/移除 → 自动退出循环，并停主题观察，无泄漏
+        if (!canvas.isConnected) { themeObserver.disconnect(); return; }
 
         const delta = timestamp - lastTime;
         lastTime = timestamp;
@@ -335,6 +332,7 @@ function startEcgLoop(canvas) {
             ctx.lineTo(px, centerY - getVoltage(pp) * scaleY);
         }
         ctx.stroke();
+        themeObserver.disconnect();             // 静态路径不跑循环，此处显式停观察
         return;
     }
 

@@ -201,14 +201,18 @@
 }
 .reasoning-toggle:hover,
 .reasoning-toggle:active { opacity: 0.78; }
-/* ===== 思维链图标：love.svg（左）+ 心电图 canvas（右）并排，两文件 100% 还原 ===== */
-/* 左：love-svg.txt 原样（黑底 rect + 白心 + 黑折线），仅按图标尺寸缩放 */
+/* ===== 思维链图标：love.svg（左）+ 心电图 canvas（右）并排 ===== */
+/* 左：love.svg 主题化——底块/爱心/心电折线均走令牌（rk-love-*），随深浅主题自适应；
+   原黑底白心黑折线改为「底块同色折线镂空刻进主题色爱心」，几何与 viewBox 不变 */
 .rk-love-ico {
     display: block;
     flex: none;
     width: 20px;
     height: 20px;
 }
+.rk-love-ico .rk-love-bg { fill: var(--rk-love-surface); }
+.rk-love-ico .rk-love-heart { fill: var(--rk-love-heart); }
+.rk-love-ico .rk-love-ecg { stroke: var(--rk-love-line); }
 /* 右：心电图监护仪容器（对应原文件 main：网格层 + canvas + 扫描线三层叠放） */
 .rk-ecg-mon {
     position: relative;
@@ -273,10 +277,4 @@
 }
 .reasoning.collapsed .reasoning-body { display: none; }
 
-/* 语音设置内「显示思维链」说明提示：让用户知道何时会显、为何不显 */
-.voice-tip {
-    margin: 2px 2px 0;
-    font-size: 0.72rem;
-    line-height: 1.55;
-    color: var(--white-a55);
-}
+

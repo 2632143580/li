@@ -35,7 +35,7 @@ import { getCurrentPath, getLastNodeInPath } from '../../core/tree-core.js';
 import { bus, EVENTS } from '../../core/bus.js';
 import { showContextMenu } from '../context-menu.js';
 import { renderVoiceTiles, renderBoth } from '../voice-tiles.js'; // 语音回复（句句发语音）；renderWaifuContent 为本模块本地定义
-import { buildEcgHeartSvg, initEcgHeartCanvases } from '../../plugins/ecg-heart.js'; // 思维链头部图标：love.svg（左）+ 心电图 canvas（右）并排；innerHTML 后须 init 启动 rAF
+import { buildLoveSvg, buildEcgMonitorSvg, initEcgHeartCanvases } from '../../plugins/ecg-heart.js'; // 思维链头部图标由两部分组成：① love.svg（爱心，含内部爱心折线，与爱心是一体的恒显）② 心电图 canvas 监护仪波形（用户说的「心电图」，受 showEcgWave 开关控制）；innerHTML 后须 init 启动 rAF
 
 /**
  * 生成气泡外层容器的 className（buildMsgDom 与 renderMessage 共用，消除重复书写）
@@ -421,8 +421,6 @@ function renderReasoningBlock(node, wrapper) {
         toggle.type = 'button';
         toggle.className = 'reasoning-toggle';
         toggle.setAttribute('aria-expanded', 'true');
-        toggle.innerHTML = buildEcgHeartSvg(node._emotion) + '<span class="rk-chev"></span>';
-        initEcgHeartCanvases(toggle); // 启动心电图 canvas 的 rAF 循环（幂等；DOM 重建后旧循环自动退出）
         const body = document.createElement('div');
         body.className = 'reasoning-body';
         block.append(toggle, body);
@@ -433,6 +431,31 @@ function renderReasoningBlock(node, wrapper) {
             block.querySelector('.reasoning-toggle').setAttribute('aria-expanded', String(!collapsed));
         });
         wrapper.insertBefore(block, bubble);
+    }
+    // 头部图标 = 两部分，关系写死（用户强调）：
+    //   ① love.svg（爱心 + 其内部爱心折线）：与爱心是一体的，恒显，不受任何开关控制；
+    //   ② 心电图 canvas 波形（用户说的「心电图」）：受 showEcgWave 控制（关 → 只留爱心）。
+    // 健壮性（修「空白占位」bug）：绝不依赖「wantWave!==hasWave 才重建」这类脆弱判断——
+    //   它在「首建且开关本就关」时 wantWave===hasWave 为 true，会跳过 innerHTML 赋值，
+    //   导致 toggle 永为空按钮。改为就地核对每个子元素：缺则补、多则删，任何状态都自愈。
+    const toggle = block.querySelector('.reasoning-toggle');
+    const wantWave = !!state.settings.showEcgWave;          // 仅波形受此开关控制
+    // ③ 折叠箭头恒显：先确保存在（波形要插到它前面），缺则补
+    if (!toggle.querySelector('.rk-chev')) {
+        toggle.insertAdjacentHTML('beforeend', '<span class="rk-chev"></span>');
+    }
+    // ① 爱心恒显（含内部折线，与爱心一体）：缺则补，杜绝空白占位
+    if (!toggle.querySelector('.rk-love-ico')) {
+        toggle.insertAdjacentHTML('afterbegin', buildLoveSvg());
+    }
+    // ② 波形受开关控制：存在与否严格跟随开关；就地增删，不重建爱心/画布（避免动画闪烁、不丢 rAF 循环）
+    const chev = toggle.querySelector('.rk-chev');
+    const waveEl = toggle.querySelector('.rk-ecg-mon');
+    if (wantWave && !waveEl) {
+        chev.insertAdjacentHTML('beforebegin', buildEcgMonitorSvg(node._emotion)); // 波形插到箭头前
+        initEcgHeartCanvases(toggle);                  // 启动本块 canvas 的 rAF（幂等；DOM 移除后旧循环自动退）
+    } else if (!wantWave && waveEl) {
+        waveEl.remove();                               // 关开关 → 仅移除波形，爱心与箭头保留
     }
     block.querySelector('.reasoning-body').textContent = node.reasoning;
     // 折叠态：流式生成中强制展开；否则用用户手动选择，新消息默认跟随「自动展开」开关
