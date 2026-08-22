@@ -1,7 +1,7 @@
 import { defineConfig } from 'vite';
 import { viteSingleFile } from 'vite-plugin-singlefile';
 import depsPlugin from './vite-plugin-deps.js';
-import { copyFileSync } from 'fs';
+import { copyFileSync, existsSync } from 'fs';
 import path from 'path';
 import { execSync } from 'child_process';
 import { fileURLToPath } from 'url';
@@ -40,8 +40,11 @@ const BUILD_LABEL = process.env.BUILD_LABEL || (() => {
 })();
 
 /**
- * 构建收尾插件：构建结束后把 dist/index.html 复制一份为 dist/li-<label>.html。
- * 保留 index.html 原副本（兼容静态服务器/预览默认页），带名副本供用户直接取用区分版本。
+ * 构建收尾插件：
+ * 1. dist/index.html 复制一份为 dist/li-<label>.html。保留 index.html 原副本
+ *    （兼容静态服务器/预览默认页），带名副本供用户直接取用区分版本。
+ * 2. changelog.json 拷入 dist（用户 2026-08-22 要求：日志数据外置 JSON，运行时 fetch
+ *    './changelog.json' 加载——改 JSON 无需重编译。fetch 不走打包管线，必须手动随产物带上）。
  */
 const labeledOutput = () => ({
     name: 'li-labeled-output',
@@ -51,6 +54,14 @@ const labeledOutput = () => ({
         const dst = path.join(__dirname, 'dist', `li-${BUILD_LABEL}.html`);
         copyFileSync(src, dst);
         console.log(`[li-labeled-output] 产物副本: ${dst}`);
+        const clSrc = path.join(__dirname, 'changelog.json');
+        const clDst = path.join(__dirname, 'dist', 'changelog.json');
+        if (existsSync(clSrc)) {
+            copyFileSync(clSrc, clDst);
+            console.log(`[li-labeled-output] 日志数据: ${clDst}`);
+        } else {
+            console.warn('[li-labeled-output] 警告: 缺少 changelog.json，更新日志面板将显示加载失败提示');
+        }
     }
 });
 

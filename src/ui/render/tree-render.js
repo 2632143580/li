@@ -35,7 +35,7 @@ import { getCurrentPath, getLastNodeInPath } from '../../core/tree-core.js';
 import { bus, EVENTS } from '../../core/bus.js';
 import { showContextMenu } from '../context-menu.js';
 import { renderVoiceTiles, renderBoth } from '../voice-tiles.js'; // 语音回复（句句发语音）；renderWaifuContent 为本模块本地定义
-import { buildEcgHeartSvg } from '../../plugins/ecg-heart.js'; // 思维链头部图标：取自用户 love.svg 的爱心 + 心电图折线（插件，按情绪换波形）
+import { buildEcgHeartSvg, initEcgHeartCanvases } from '../../plugins/ecg-heart.js'; // 思维链头部图标：love.svg（左）+ 心电图 canvas（右）并排；innerHTML 后须 init 启动 rAF
 
 /**
  * 生成气泡外层容器的 className（buildMsgDom 与 renderMessage 共用，消除重复书写）
@@ -422,6 +422,7 @@ function renderReasoningBlock(node, wrapper) {
         toggle.className = 'reasoning-toggle';
         toggle.setAttribute('aria-expanded', 'true');
         toggle.innerHTML = buildEcgHeartSvg(node._emotion) + '<span class="rk-chev"></span>';
+        initEcgHeartCanvases(toggle); // 启动心电图 canvas 的 rAF 循环（幂等；DOM 重建后旧循环自动退出）
         const body = document.createElement('div');
         body.className = 'reasoning-body';
         block.append(toggle, body);
