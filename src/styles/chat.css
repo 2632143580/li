@@ -331,8 +331,9 @@
 .component-switcher-size-options { display: flex; gap: 8px; }
 .component-switcher-size-option { min-width: 42px; padding: 7px 8px; border: 1px solid var(--white-a08); border-radius: 6px; background: var(--white-a05); color: var(--white-a80); cursor: pointer; font: inherit; font-size: 12px; }
 .component-switcher-size-option.selected { border-color: var(--color-accent); color: var(--color-accent-bright); }
-.cs-preview { display: grid; place-items: center; width: 72px; height: 34px; flex: none; overflow: hidden; border-radius: 4px; background: var(--white-a08); }
-.cs-ecg-line, .cs-minimal-line, .cs-glm-line { width: 60px; border-top: 2px solid var(--color-accent); }
-.cs-ecg-line { clip-path: polygon(0 50%, 25% 50%, 32% 20%, 38% 80%, 45% 5%, 53% 70%, 60% 50%, 100% 50%); }
-.cs-minimal-line { transform: skewY(-18deg); }
-.cs-glm-line { clip-path: polygon(0 50%, 30% 50%, 36% 20%, 42% 80%, 48% 5%, 54% 70%, 60% 50%, 100% 50%); opacity: 0.55; }
+.cs-preview { display: flex; align-items: center; gap: 6px; width: 112px; height: 24px; flex: none; overflow: hidden; border-radius: 4px; background: var(--white-a08); }
+.cs-preview .rk-love-ico { width: 20px; height: 20px; flex: none; }
+.cs-preview .rk-ecg-mon { min-width: 0; flex: 1; height: 20px; }
+.cs-preview .rk-think-glm, .cs-preview .rk-think-minimal { flex: none; }
+.component-switcher-wave { display: flex; align-items: center; gap: 8px; padding: 0 16px 6px; color: var(--white-a75); font-size: 13px; }
+.component-switcher-wave .cs-wave-text { cursor: default; }

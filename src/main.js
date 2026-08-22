@@ -13,7 +13,7 @@ import './style.css';
 import { DOM, setViewport, W, H, uiCtx } from './core/dom.js';
 import { Logger } from './core/logger.js';
 import { state } from './core/store.js';
-import { getProviderByUrl } from './core/utils.js';
+import { DEFAULT_PROVIDER } from './core/constants.js';
 import { loadFromLocal, createFirstSession, saveSession } from './core/storage.js';
 import { BgEngine } from './engines/bg-engine.js';
 import { ThemeEngine } from './engines/theme-engine.js';
@@ -121,7 +121,7 @@ export function init() {
     applySettings();
 
     // 模型清单：从 localStorage 的 modelCache 恢复「当前服务商」的已拉取列表（不硬编码、刷新不丢）
-    const initProvider = getProviderByUrl(state.settings.apiUrl);
+    const initProvider = DEFAULT_PROVIDER;
     state.availableModels = (state.modelCache[initProvider] || []).slice();
 
     // 背景引擎就绪。默认背景底色由 :root --color-bg 兜底（CSS 已设置），不挂任何 Canvas 动画插件——

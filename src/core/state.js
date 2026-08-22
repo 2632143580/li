@@ -41,9 +41,11 @@ export const state = {
      */
     sessionSysPrompt: null,
     /**
-     * 当前会话的 LLM 覆盖配置（null = 继承全局 settings.apiUrl/model）。
+     * 当前会话的 LLM 覆盖配置（null = 继承默认服务商 DEFAULT_PROVIDER 的 url/model）。
+     * 结构：{ provider:'zhipu'|'deepseek', model?:string }；provider 指定用哪家，
+     *       model 留空则继承该服务商在设置页调好的默认模型。
      * 与 sessionSysPrompt 同一双轨模式：覆盖只存这里，永不污染全局 settings；
-     * key 不存（按服务商从 settings.keys 取），切会话零残留。 @type {{apiUrl:string, model:string}|null}
+     * key 不存（按服务商从 settings.keys 取），切会话零残留。 @type {{provider:string, model?:string}|null}
      */
     sessionLlmConfig: null,
     /**

@@ -12,8 +12,8 @@ import { openModal, closeAllModals } from '../../core/modal.js';
 import { Logger } from '../../core/logger.js';
 import { state } from '../../core/store.js';
 import { saveToLocal, saveSession } from '../../core/storage.js';
-import { getProviderByUrl, safeParseInt, ensureKeysObject } from '../../core/utils.js';
-import { DEFAULT_SETTINGS } from '../../core/constants.js';
+import { safeParseInt, ensureKeysObject } from '../../core/utils.js';
+import { DEFAULT_SETTINGS, DEFAULT_PROVIDER } from '../../core/constants.js';
 import { tempSettings, setTempSettings } from './temp-settings.js';
 import { updateInputLayout } from '../input-renderer.js';
 import {
@@ -31,6 +31,9 @@ import { armClickConfirm } from './click-confirm.js';
  */
 let pendingSysPrompt = '';
 
+/** 设置页当前正在编辑的服务商（分段控件切换即改；URL/Key/模型输入与保存都面向它） @type {string} */
+let curProvider = DEFAULT_PROVIDER;
+
 /** 沉浸预览前的已提交遮罩值 —— 取消时用于回退实时预览的改动 @type {number} */
 let bgDimPreviewBackup = 0.4;
 
@@ -38,24 +41,25 @@ let bgDimPreviewBackup = 0.4;
 let reasoningSnapshot = { show: true, auto: true };
 
 /**
- * 渲染「思考强度」分段（用户 2026-08-22 要求）：按 tempSettings.model 匹配预设（core/thinking.js）。
+ * 渲染「思考强度」分段（用户 2026-08-22 要求）：按 tempSettings.providers[curProvider].model 匹配预设（core/thinking.js）。
  * 无预设模型隐藏整行；有效值不在选项内时回落预设默认（换模型后旧档位自动归位）。
  * @returns {void}
  */
 function renderThinkingUI() {
     if (!DOM.setThinkingRow || !DOM.setThinkingSeg || !DOM.setThinkingHint) return;
-    const preset = matchThinkingPreset(tempSettings.model || '');
+    const preset = matchThinkingPreset(tempSettings.providers[curProvider].model || '');
     if (!preset) {
         DOM.setThinkingRow.style.display = 'none';
         return;
     }
     DOM.setThinkingRow.style.display = '';
     DOM.setThinkingHint.textContent = preset.title;
-    if (!preset.options.some((o) => o.value === tempSettings.reasoningEffort)) {
-        tempSettings.reasoningEffort = preset.default;
+    const re = tempSettings.providers[curProvider].reasoningEffort;
+    if (!preset.options.some((o) => o.value === re)) {
+        tempSettings.providers[curProvider].reasoningEffort = preset.default;
     }
     DOM.setThinkingSeg.innerHTML = preset.options.map((o) =>
-        `<button type="button" class="voice-seg-btn${o.value === tempSettings.reasoningEffort ? ' active' : ''}" data-v="${o.value}">${o.label}</button>`
+        `<button type="button" class="voice-seg-btn${o.value === tempSettings.providers[curProvider].reasoningEffort ? ' active' : ''}" data-v="${o.value}">${o.label}</button>`
     ).join('');
 }
 
@@ -74,8 +78,8 @@ export function bindSettingsEvents() {
     // URL/KEY 标签（tag-url/tag-key）按实际值同步「已填」高亮：
     // 未填时不带 llm-tag--set → CSS 显示虚线框（待填写提示）。与气泡保存逻辑同口径（url 非空 / key 长度>4）。
     function syncTagStates() {
-        if (tagUrl) tagUrl.classList.toggle('llm-tag--set', !!String(tempSettings.apiUrl || '').trim());
-        if (tagKey) tagKey.classList.toggle('llm-tag--set', String(tempSettings.apiKey || '').trim().length > 4);
+        if (tagUrl) tagUrl.classList.toggle('llm-tag--set', !!String(tempSettings.providers[curProvider].url || '').trim());
+        if (tagKey) tagKey.classList.toggle('llm-tag--set', String(tempSettings.keys[curProvider] || '').trim().length > 4);
     }
 
     // 打开
@@ -86,28 +90,27 @@ export function bindSettingsEvents() {
         tempSettings.availableModels = state.availableModels;
         bgDimPreviewBackup = state.settings.bgDimOpacity;
 
-        const currentProvider = getProviderByUrl(tempSettings.apiUrl);
-        tempSettings.keys[currentProvider] = tempSettings.apiKey;
+        curProvider = DEFAULT_PROVIDER;
+        tempSettings.__curProvider = curProvider;
 
-        DOM.setApiUrl.value = tempSettings.apiUrl;
-        DOM.setApiKey.value = tempSettings.apiKey;
+        DOM.setApiUrl.value = tempSettings.providers[curProvider].url || '';
+        DOM.setApiKey.value = tempSettings.keys[curProvider] || '';
         DOM.setBgDim.value = tempSettings.bgDimOpacity * 100; // 0-1 转为 0-100
         DOM.setBgDimVal.textContent = Math.round(tempSettings.bgDimOpacity * 100) + '%';
         DOM.setAiName.value = tempSettings.aiName;
         // 思维链两开关（用户 2026-08-22 自语音设置移入）：暂存进 tempSettings，点「保存」才生效（与遮罩浓度同口径）
         if (DOM.setShowReasoning) DOM.setShowReasoning.checked = !!tempSettings.showReasoning;
         if (DOM.setReasoningAutoExpand) DOM.setReasoningAutoExpand.checked = !!tempSettings.reasoningAutoExpand;
-        if (DOM.setShowEcgWave) DOM.setShowEcgWave.checked = !!tempSettings.showEcgWave; // 波形监护仪开关：仅控右侧波形 canvas（爱心恒显），暂存进 tempSettings，点「保存」才生效
+
         reasoningSnapshot = {
             show: !!state.settings.showReasoning,
             auto: !!state.settings.reasoningAutoExpand,
-            ecg: !!state.settings.showEcgWave
         };
         renderThinkingUI(); // 思考强度分段按当前模型预设渲染
         // 系统提示词输入框显示「当前会话有效值」：有会话级覆盖则显示覆盖，否则显示全局默认
         pendingSysPrompt = (state.sessionSysPrompt != null) ? state.sessionSysPrompt : state.settings.sysPrompt;
         DOM.setSysPrompt.value = pendingSysPrompt;
-        populateModelSelect(tempSettings.availableModels, tempSettings.model);
+        populateModelSelect(tempSettings.availableModels, tempSettings.providers[curProvider].model);
         checkProviderMatch();
         syncSim();
         syncTagStates(); // 打开即按当前值刷标签态（虚线框/实心框），不依赖 HTML 写死的 class
@@ -118,16 +121,17 @@ export function bindSettingsEvents() {
     DOM.modalClose.addEventListener('click', () => {
         // sysPrompt 不走 tempSettings 合并（它由「当前会话级覆盖」管理，见下方单独处理），先剔除避免污染全局默认
         delete tempSettings.sysPrompt;
+        delete tempSettings.__curProvider;
         Object.assign(state.settings, tempSettings);
         state.settings.keys = { ...tempSettings.keys };
+        state.settings.providers = JSON.parse(JSON.stringify(tempSettings.providers));
         // 写入当前会话的系统提示词覆盖值（null 已由上面清理，这里恒写为字符串覆盖；清空覆盖请改用「设为全局默认」）
         state.sessionSysPrompt = pendingSysPrompt;
         applySettings(); // 内部把根 content 同步为有效系统提示词（覆盖优先）
         updateInputLayout();
         // 思维链两开关（自语音设置移入）+ 心电图显示开关：保存才生效；与打开时快照对比，任一变更都重渲染聊天区
         const reasoningChanged = reasoningSnapshot.show !== !!state.settings.showReasoning
-            || reasoningSnapshot.auto !== !!state.settings.reasoningAutoExpand
-            || reasoningSnapshot.ecg !== !!state.settings.showEcgWave;
+            || reasoningSnapshot.auto !== !!state.settings.reasoningAutoExpand;
         if (reasoningChanged) renderChat();
         if (DOM.bgDimLayer) DOM.bgDimLayer.style.opacity = state.settings.bgDimOpacity; // 保存后才应用到真实遮罩层（滑块拖动仅预览仿真框，用户要求"保存后才生效"）
         saveSession(state.activeSessionId); // 会话级覆盖随会话键落盘
@@ -168,17 +172,14 @@ export function bindSettingsEvents() {
 
     // API URL 输入
     DOM.setApiUrl.addEventListener('input', () => {
-        tempSettings.apiUrl = DOM.setApiUrl.value;
+        tempSettings.providers[curProvider].url = DOM.setApiUrl.value;
         checkProviderMatch();
         syncTagStates(); // 实时反映虚线框/实心框
     });
 
     // API Key 输入
     DOM.setApiKey.addEventListener('input', () => {
-        tempSettings.apiKey = DOM.setApiKey.value;
-        const provider = getProviderByUrl(tempSettings.apiUrl);
-        ensureKeysObject(tempSettings);
-        tempSettings.keys[provider] = tempSettings.apiKey;
+        tempSettings.keys[curProvider] = DOM.setApiKey.value;
         syncTagStates(); // 实时反映虚线框/实心框
     });
 
@@ -196,38 +197,29 @@ export function bindSettingsEvents() {
     });
 
     // 服务商标签切换（高亮 class 与新设计 .segmented__item--active 对齐；已移除「自定义」标签）
+    // 分段控件只切「当前正在编辑的服务商」，URL/Key/模型都面向该服务商的分桶，互不覆盖
     DOM.providerTabs.addEventListener('click', (e) => {
         if (!e.target.classList.contains('provider-tab')) return;
         const tab = e.target;
         const provider = tab.dataset.provider;
-        const url = tab.dataset.url;
 
         document.querySelectorAll('.provider-tab').forEach(t => t.classList.remove('segmented__item--active'));
         tab.classList.add('segmented__item--active');
 
-        const oldProvider = getProviderByUrl(tempSettings.apiUrl);
-        ensureKeysObject(tempSettings);
-        tempSettings.keys[oldProvider] = tempSettings.apiKey;
+        // 切到目标服务商：更新当前编辑服务商，输入框绑定该服务商的配置
+        curProvider = provider;
+        tempSettings.__curProvider = provider;
 
-        if (url) {
-            tempSettings.apiUrl = url;
-            DOM.setApiUrl.value = url;
-        }
-
-        tempSettings.apiKey = tempSettings.keys[provider] || '';
-        DOM.setApiKey.value = tempSettings.apiKey;
+        DOM.setApiUrl.value = tempSettings.providers[curProvider].url || '';
+        DOM.setApiKey.value = tempSettings.keys[curProvider] || '';
         DOM.providerHint.textContent = '';
 
-        // 切服务商 → 模型与服务商一一匹配：只显示「目标服务商自己的缓存清单」，
-        //   不串号（绝不把别家模型混进本家下拉）、不清空（别家缓存不动）、不滞留（切到 B 就只显 B 的）。
-        //   目标有缓存 → 切到它的清单（当前模型仍在清单内则保留，否则选首个）；
-        //   目标无缓存（还没拉取过）→ 显示空清单，这是它"自己"合法状态，不是被清空。
+        // 该服务商自己的缓存清单（不串号、不清空、不滞留）
         const targetModels = (state.modelCache[provider] || []).slice();
         state.availableModels = targetModels;
         tempSettings.availableModels = targetModels;
-        if (!targetModels.includes(tempSettings.model)) tempSettings.model = targetModels[0] || '';
-        populateModelSelect(tempSettings.availableModels, tempSettings.model);
-        if (DOM.setModelText) DOM.setModelText.textContent = tempSettings.model || '未选择';
+        populateModelSelect(targetModels, tempSettings.providers[curProvider].model);
+        if (DOM.setModelText) DOM.setModelText.textContent = (tempSettings.providers[curProvider].model && targetModels.includes(tempSettings.providers[curProvider].model)) ? tempSettings.providers[curProvider].model : '未选择';
         renderThinkingUI(); // 切服务商换模型后，思考强度分段按新模型预设刷新
 
         syncTagStates(); // 切标签后 URL/KEY 都变了，刷新虚线框/实心框
@@ -245,19 +237,13 @@ export function bindSettingsEvents() {
             tempSettings.reasoningAutoExpand = DOM.setReasoningAutoExpand.checked;
         });
     }
-    // 波形监护仪开关：仅改暂存，点「保存」随 tempSettings 一并提交（renderChat 在保存时按快照比对重渲染）。
-    // 注意：本开关只控右侧波形 canvas；左侧 love.svg 爱心与折叠头一体，不受此开关影响。
-    if (DOM.setShowEcgWave) {
-        DOM.setShowEcgWave.addEventListener('change', () => {
-            tempSettings.showEcgWave = DOM.setShowEcgWave.checked;
-        });
-    }
+
     // 思考强度分段点击：更新暂存档位 + 高亮
     if (DOM.setThinkingSeg) {
         DOM.setThinkingSeg.addEventListener('click', (e) => {
             const btn = e.target.closest('.voice-seg-btn');
             if (!btn) return;
-            tempSettings.reasoningEffort = btn.dataset.v;
+            tempSettings.providers[curProvider].reasoningEffort = btn.dataset.v;
             DOM.setThinkingSeg.querySelectorAll('.voice-seg-btn').forEach((b) => {
                 b.classList.toggle('active', b === btn);
             });
@@ -274,27 +260,26 @@ export function bindSettingsEvents() {
         if (DOM.btnFetchModels.classList.contains('spinning')) return;
         DOM.btnFetchModels.classList.add('spinning');
         try {
-            let modelsUrl = tempSettings.apiUrl.replace(/\/chat\/completions/, '/models');
+            let modelsUrl = tempSettings.providers[curProvider].url.replace(/\/chat\/completions/, '/models');
             if (!modelsUrl.endsWith('/models')) {
                 modelsUrl = modelsUrl.replace(/\/$/, '') + '/models';
             }
             const resp = await fetch(modelsUrl, {
                 method: "GET",
-                headers: { "Authorization": "Bearer " + tempSettings.apiKey }
+                headers: { "Authorization": "Bearer " + (tempSettings.keys[curProvider] || '') }
             });
             if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
             const data = await resp.json();
             const models = data.data || data.models || [];
             if (models.length === 0) throw new Error("未获取到模型");
             const modelIds = models.map(m => m.id || m.name);
-            const curProvider = getProviderByUrl(tempSettings.apiUrl);
             state.modelCache[curProvider] = modelIds;   // 按服务商缓存已拉取模型清单
             state.availableModels = modelIds;
             tempSettings.availableModels = modelIds;
-            // 自动配套：当前模型为空或不在本批清单内时，选首个
-            if (!tempSettings.model || !modelIds.includes(tempSettings.model)) tempSettings.model = modelIds[0];
-            populateModelSelect(modelIds, tempSettings.model);
-            if (DOM.setModelText) DOM.setModelText.textContent = tempSettings.model;
+            // 拉取仅刷新清单：当前模型为空或不在本批清单内时清空（让用户显选），绝不自动配套清单首
+            if (!tempSettings.providers[curProvider].model || !modelIds.includes(tempSettings.providers[curProvider].model)) tempSettings.providers[curProvider].model = '';
+            populateModelSelect(modelIds, tempSettings.providers[curProvider].model);
+            if (DOM.setModelText) DOM.setModelText.textContent = tempSettings.providers[curProvider].model;
             renderThinkingUI(); // 拉取后自动配套的模型可能变化，分段按新模型刷新
             saveToLocal(null, true);                     // 持久化 modelCache 随全局键落 localStorage（不进导出备份）
             showModelOptions();

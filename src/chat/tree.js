@@ -27,7 +27,7 @@ import { DOM } from '../core/dom.js';
 import { splitSentences } from '../core/text-split.js';
 import { Logger } from '../core/logger.js';
 import { state } from '../core/store.js';
-import { WELCOME, ERROR_PREFIX } from '../core/constants.js';
+import { WELCOME, ERROR_PREFIX, DEFAULT_PROVIDER } from '../core/constants.js';
 import { getEffectiveSysPrompt, touchIndex } from '../core/sessions.js';
 import { BgEngine } from '../engines/bg-engine.js';
 import { inputRenderer } from '../ui/input-renderer.js';
@@ -228,15 +228,11 @@ function notifyModelChange() {
     DOM.setModelOptions.dispatchEvent(new CustomEvent('modelchange', { bubbles: false }));
 }
 
-/** 检查当前 URL 匹配哪个服务商标签（读取 tempSettings.apiUrl 活绑定；已移除「自定义」标签，无匹配时不高亮） */
+/** 检查当前编辑的服务商匹配哪个服务商标签（基于 tempSettings.__curProvider 高亮；已移除「自定义」标签） */
 export function checkProviderMatch() {
-    const currentUrl = tempSettings.apiUrl;
+    const cur = tempSettings.__curProvider || DEFAULT_PROVIDER;
     document.querySelectorAll('.provider-tab').forEach(t => {
-        if (t.dataset.url === currentUrl) {
-            t.classList.add('segmented__item--active');
-        } else {
-            t.classList.remove('segmented__item--active');
-        }
+        t.classList.toggle('segmented__item--active', t.dataset.provider === cur);
     });
     DOM.providerHint.textContent = '';
 }
@@ -258,7 +254,8 @@ export function populateModelSelect(models, selectedValue) {
         if (m === selectedValue) opt.classList.add('selected');
         opt.onclick = (e) => {
             e.stopPropagation();
-            tempSettings.model = m;
+            const cp = tempSettings.__curProvider || DEFAULT_PROVIDER;
+            tempSettings.providers[cp].model = m;
             DOM.setModelText.textContent = m;
             notifyModelChange(); // 思考强度分段（设置页）随模型预设刷新
             hideModelOptions();
@@ -279,7 +276,8 @@ export function populateModelSelect(models, selectedValue) {
         e.stopPropagation();
         const inputModel = prompt('请输入模型名称:');
         if (inputModel) {
-            tempSettings.model = inputModel;
+            const cp = tempSettings.__curProvider || DEFAULT_PROVIDER;
+            tempSettings.providers[cp].model = inputModel;
             DOM.setModelText.textContent = inputModel;
             tempSettings.availableModels.push(inputModel);
             populateModelSelect(tempSettings.availableModels, inputModel);

@@ -36,11 +36,14 @@ import { analyzeWordFreq, getActiveSegmenter } from '../../core/wordcloud-analyz
 import { registerUI } from '../../core/registry.js';
 import { openModal, closeAllModals } from '../../core/modal.js';
 import { getProviderByUrl } from '../../core/utils.js';
+import { Logger } from '../../core/logger.js';
+import { fetchModelsForProvider } from '../../core/models.js';
 import { loadSession, persistSession, saveSession, setSessionPinned } from '../../core/storage.js';
 import { showToast } from '../../core/toast.js';
 import { getEffectiveSysPrompt } from '../../core/sessions.js';
 import { armClickConfirm } from './click-confirm.js';
 import { LLM_PROVIDERS } from '../../core/config.js';
+import { DEFAULT_PROVIDER } from '../../core/constants.js';
 
 registerUI('msg-nav', setupMsgNav);
 
@@ -83,26 +86,28 @@ function relTime(ts) {
 }
 
 /**
- * 会话芯片应显示的服务商：单一事实源 = apiUrl（与 chat/api.js 的请求路径完全同源）。
- * 会话级覆盖的 apiUrl 优先；无覆盖则继承全局默认 apiUrl（state.settings.apiUrl）。
- * 不再用「模型名是否含 deepseek」这种脆弱的字符串匹配——那会与 api.js 用 getProviderByUrl(apiUrl)
- * 判定服务商产生双源漂移（模型名带 deepseek 但 apiUrl 是智谱、或反之，都会让芯片显示错服务商 → 「模型不对」）。
- * 返回 'zhipu' | 'deepseek' | 'custom'：custom 仅当 apiUrl 既非智谱也非 DeepSeek（理论上不该发生，防御兜底）。
+ * 会话芯片应显示的服务商：单一事实源 = llmConfig.provider（会话显式选的服务商）。
+ * 会话级覆盖的 provider 优先；无覆盖则继承默认服务商 DEFAULT_PROVIDER；
+ * 旧存档 llmConfig 仍存 apiUrl 时，用 getProviderByUrl 兼容推导（防御兜底，不双源漂移）。
  * @param {object} s 列表条目 @returns {'zhipu'|'deepseek'|'custom'}
  */
 function effectiveProvider(s) {
     const cfg = s.llmConfig || null;
-    const url = (cfg && cfg.apiUrl) ? cfg.apiUrl : state.settings.apiUrl;
-    return getProviderByUrl(url); // 与 api.js 同函数、同源：服务商判定只有这一处定义
+    if (cfg && cfg.provider) return cfg.provider;
+    if (cfg && cfg.apiUrl) return getProviderByUrl(cfg.apiUrl); // 兼容旧存档
+    return DEFAULT_PROVIDER;
 }
 
 /**
- * 会话生效模型名：会话级 llmConfig.model 优先，否则全局默认 model（state.settings.model）。
- * 用于芯片显示「真实模型标识」而非服务商中文名。 @param {object} s 列表条目 @returns {string}
+ * 会话生效模型名：优先取会话级显式 model（llmConfig.model），
+ * 否则取「该服务商在设置页调好的默认模型」(settings.providers[p].model)，零写死、不读清单首。
+ * 用于芯片显示「真实模型标识」。 @param {object} s 列表条目 @returns {string}
  */
 function effectiveModel(s) {
-    if (s.llmConfig && s.llmConfig.model) return s.llmConfig.model;
-    return state.settings.model || '';
+    const cfg = s.llmConfig || null;
+    const p = effectiveProvider(s);
+    if (cfg && cfg.model) return cfg.model;
+    return state.settings.providers[p].model || '';
 }
 
 function setupMsgNav() {
@@ -491,13 +496,21 @@ function setupMsgNav() {
      * 只写会话级配置（当前会话写 state + 落盘，后台会话写存档），永不触碰全局 settings。
      * @param {string} id 会话 id @param {string} providerKey chip 当前模型标识（'zhipu'|'deepseek'，与渲染同源）
      */
-    function handleQuickLlmSwitch(id, providerKey) {
+    async function handleQuickLlmSwitch(id, providerKey) {
         // 两态互切：当前是智谱→切 DeepSeek，反之→智谱；点一下即设显式会话级覆盖，无「继承全局」中间态
         const cur = providerKey === 'deepseek' ? 'deepseek' : 'zhipu';
         const next = cur === 'zhipu' ? 'deepseek' : 'zhipu';
-        // 模型不硬编码：用该服务商「已拉取模型清单」的首个（无缓存则空串，由用户拉取 / 手填）
-        const pulled = state.modelCache[next] || [];
-        const nextCfg = { apiUrl: LLM_PROVIDERS[next].url, model: pulled[0] || '' };
+
+        // 切换只切服务商（apiUrl），model 零写死、实时跟随设置页；
+        // 顺带拉取该服务商清单（填充缓存 + 验证 key），但拉取结果不影响切换本身（model 不取自清单，故不中止切换）。
+        try {
+            await fetchModelsForProvider(next);
+        } catch (err) {
+            Logger.warn('[MsgNav] 切到 ' + LLM_PROVIDERS[next].name + ' 时拉取模型失败（可稍后在设置页重试）', err);
+        }
+
+        // 写会话级配置：只指定服务商；model 取该服务商在设置页调好的默认模型（零写死、不取清单首）。
+        const nextCfg = { provider: next, model: state.settings.providers[next].model || '' };
 
         if (id === state.activeSessionId) {
             // 当前会话：写运行时（请求层立即生效）+ saveSession 落盘（内部 updateIndexFromRaw 同步索引 → chip 立即更新、刷新不丢）

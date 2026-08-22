@@ -88,7 +88,7 @@ export function resolveEffort(preset, effortSetting) {
 /**
  * 构建请求思考参数片段（api.js 消费）。
  * @param {string} model 生效模型名（会话级覆盖优先后的值）
- * @param {string} effortSetting state.settings.reasoningEffort（用户选择，可能为空/过期）
+ * @param {string} effortSetting 该服务商配置的思考强度档位 state.settings.providers[provider].reasoningEffort（用户选择，可能为空/过期）
  * @returns {{thinking?:{type:string}, reasoning_effort?:string}} 合并进 reqBody 的对象
  */
 export function buildThinkingBody(model, effortSetting) {

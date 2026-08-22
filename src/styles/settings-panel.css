@@ -145,7 +145,7 @@
     box-shadow: 0 0 12px var(--color-accent-dim);
 }
 
-.provider-hint { font-size: 10px; color: var(--white-a30); margin-left: 4px; }
+.provider-hint { position: absolute; left: 0; top: 100%; margin-top: 4px; font-size: 10px; color: var(--white-a30); white-space: nowrap; pointer-events: none; }
 
 .llm-tags { gap: 8px; }
 .llm-tag {
@@ -160,10 +160,16 @@
 .llm-tag:not(.llm-tag--set) { border-style: dashed; border-color: var(--color-accent); }
 .llm-tag:hover { border-color: var(--white-a20); color: var(--white-a40); }
 
-.llm-model { background: var(--white-a03); border: 1px solid var(--white-a05); padding: 0 4px 0 14px; gap: 4px; }
+.llm-actions { flex: 1 1 auto; min-width: 0; display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
+.llm-model { background: var(--white-a03); border: 1px solid var(--white-a05); padding: 0 4px 0 14px; gap: 4px; min-width: 0; }
 .llm-model__name {
     height: 100%; font-size: 13px; font-weight: 500; color: var(--color-user); cursor: pointer;
     padding: 0 8px; border-radius: 30px; white-space: nowrap; display: flex; align-items: center; user-select: none;
+    max-width: 180px; overflow: hidden; text-overflow: ellipsis;
+}
+/* 窄屏：模型操作区独占第二行（不再与分段/标签挤同一行产生跳排）；宽屏占满剩余空间，外框宽度稳定不随模型名长短跳动 */
+@media (max-width: 560px) {
+    .llm-actions { flex-basis: 100%; justify-content: flex-start; }
 }
 .llm-model__name:hover { background: var(--white-a05); }
 .llm-refresh {

@@ -26,9 +26,7 @@
  * 依赖：core/bus（经 main.js 订阅 STREAM_REQUEST 调 setEcgActive 拉起循环，本文件不直接 import bus）
  */
 
-/** love-svg.txt 原始两元素（100% 还原，顺序与属性不变）：爱心 path + 其内部爱心折线 path。 */
-const LOVE_HEART_PATH = 'M 50 30 C 50 25, 40 10, 25 20 C 10 30, 10 50, 30 65 C 40 75, 50 85, 50 85 C 50 85, 60 75, 70 65 C 90 50, 90 30, 75 20 C 60 10, 50 25, 50 30 Z';
-const LOVE_ECG_PATH = 'M 22 45 L 32 45 L 38 25 L 45 65 L 50 45 L 78 45';
+
 
 /**
  * 心电图动画（用户 2026-08-23 拍板：持续循环播放，不再按思考状态停帧）：
@@ -66,20 +64,8 @@ const EMOTION_TO_MODE = {
     thinking: 'arrhythmia'
 };
 
-/**
- * love.svg 组件（恒显）：love-svg.txt 几何原样（100×100 viewBox、爱心/心电折线 path、round 端点）。
- * 颜色不写死，改由 .rk-love-* class 走 rk-love-* 主题令牌（chat.css 定义），随深浅主题自适应：
- *   surface=主题背景、heart=主题色、line=底块同色镂空刻进爱心（深浅皆可见）。
- * 这是「爱心 + 它里面的折线」——它俩是一体的，恒显，不受 showEcgWave 开关控制。
- * @returns {string} 内联 SVG 字符串
- */
-export function buildLoveSvg() {
-    return '<svg class="rk-love-ico" viewBox="0 0 100 100" aria-hidden="true" focusable="false">'
-        + '<rect class="rk-love-bg" width="100" height="100" />'
-        + '<path class="rk-love-heart" d="' + LOVE_HEART_PATH + '" />'
-        + '<path class="rk-love-ecg" d="' + LOVE_ECG_PATH + '" fill="none" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" />'
-        + '</svg>';
-}
+// 爱心已拆至独立模块 love-icon.js（便于后期单独替换）；此处 re-export 保持 tree-render 等既有导入链路不变
+export { buildLoveSvg } from './love-icon.js';
 
 /**
  * 心电图（用户说的「心电图」= 波形）监护仪组件：网格背景 + canvas + 扫描线遮罩。

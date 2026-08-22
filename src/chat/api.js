@@ -16,7 +16,7 @@
  */
 import { Logger } from '../core/logger.js';
 import { state } from '../core/store.js';
-import { API_TIMEOUT_MS } from '../core/constants.js';
+import { API_TIMEOUT_MS, DEFAULT_PROVIDER } from '../core/constants.js';
 import { getProviderByUrl } from '../core/utils.js';
 import { buildThinkingBody } from '../core/thinking.js';
 import { saveToLocal, saveSession } from '../core/storage.js';
@@ -78,12 +78,22 @@ export async function streamChat(messages, onChunk, onDone, onError, sessionId, 
         // 用 ?? 而非 ||：空字符串''是"用户主动清空"，不应回退全局（否则跨服务商拿错 key/model→401/模型不存在，见审查 Bug2/3）；
         // 仅 undefined（未配置）才回退全局。
         const cfg = state.sessionLlmConfig || {};
-        const apiUrl = cfg.apiUrl ?? state.settings.apiUrl;
-        const model = cfg.model ?? state.settings.model;
-        const provider = getProviderByUrl(apiUrl);
-        const apiKey = cfg.apiUrl
-            ? (state.settings.keys[provider] ?? state.settings.apiKey)
-            : state.settings.apiKey;
+        // 服务商：会话显式指定 > 旧存档 apiUrl 兼容推导 > 默认服务商
+        const provider = cfg.provider
+            ? cfg.provider
+            : (cfg.apiUrl ? getProviderByUrl(cfg.apiUrl) : DEFAULT_PROVIDER);
+        const provCfg = state.settings.providers[provider];
+        const apiUrl = provCfg.url;
+        // 模型：会话级显式 model > 该服务商在设置页调好的默认模型（零写死、不取清单首）
+        const model = ((cfg.model != null && cfg.model !== '') ? cfg.model : (provCfg.model || '')).trim();
+        // 前置校验：model 仍为空（未配置 / 手动清空 / 未拉取）→ 友好报错，绝不发空请求
+        if (!model) {
+            clearPending(sessionId);
+            inputRenderer.markDirty();
+            onError(new Error('未配置模型：请先在设置页为该服务商选择模型后再发送。'));
+            return;
+        }
+        const apiKey = state.settings.keys[provider] || '';
         const reqBody = {
             model: model,
             messages: messages,
@@ -98,7 +108,7 @@ export async function streamChat(messages, onChunk, onDone, onError, sessionId, 
         // thinking.type / reasoning_effort；DeepSeek V4-Pro/Flash: low|high|max（默认 high）、
         // GLM-4.5 Air: enabled(动态,默认)|disabled、GLM-4.6V: low|high|max；其余模型保留原有
         // 兜底（v4/reasoner/r1/thinking 系显式开思考）。预设与参数口径见 core/thinking.js 文档。
-        Object.assign(reqBody, buildThinkingBody(model, state.settings.reasoningEffort));
+        Object.assign(reqBody, buildThinkingBody(model, state.settings.providers[provider].reasoningEffort));
 
         const resp = await fetch(apiUrl, {
             method: "POST",

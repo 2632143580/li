@@ -441,7 +441,8 @@ function renderReasoningBlock(node, wrapper) {
     //   它在「首建且开关本就关」时 wantWave===hasWave 为 true，会跳过 innerHTML 赋值，
     //   导致 toggle 永为空按钮。改为就地核对每个子元素：缺则补、多则删，任何状态都自愈。
     const toggle = block.querySelector('.reasoning-toggle');
-    // provider 是组件唯一开关：ecg=医疗监护仪(canvas+爱心)、glm=双线流光(track+flow)、kimi=单线流光(单path脉冲)。
+    // 三组件统一结构（用户 2026-08-23 拍板）：爱心(恒显) + 波形(右, 受 showEcgWave 控) + chevron。
+    // ecg=心电 canvas 监护仪 / glm=双线流光 / kimi=单线流光，三者都是「波形」组件，故统一带爱心。
     // thinkIconProvider 优先；旧存档 thinkIconStyle 兼容：'minimal'→kimi、'ecg'→ecg；仅 thinkIconProvider 未设(undefined)时才看旧字段。
     const p = state.settings.thinkIconProvider;
     const provider = p === 'ecg' || p === 'glm' || p === 'kimi' ? p
@@ -450,24 +451,24 @@ function renderReasoningBlock(node, wrapper) {
         ? node._emotion
         : (['calm', 'excited', 'sad', 'thinking'].includes(state.settings.ecgEmotion) ? state.settings.ecgEmotion : 'calm');
     toggle.dataset.componentProvider = provider;
+    // 先清旧元素，再统一重建（缺则补、多则删，任何状态都自愈）
     toggle.querySelector('.rk-think-minimal')?.remove();
     toggle.querySelector('.rk-think-glm')?.remove();
     toggle.querySelector('.rk-love-ico')?.remove();
     toggle.querySelector('.rk-ecg-mon')?.remove();
     toggle.querySelector('.rk-chev')?.remove();
-    if (provider === 'kimi') {
-        // Kimi 单线流光：纯 SVG 单 path 脉冲
-        toggle.insertAdjacentHTML('afterbegin', buildMinimalThinkSvg(emotion, state.settings.ecgSize));
-    } else if (provider === 'glm') {
-        // GLM 双线流光：track 暗底轨迹 + flow 高亮脉冲（组件glm.html）
-        toggle.insertAdjacentHTML('afterbegin', buildGlmThinkSvg(emotion, state.settings.ecgSize));
-    } else {
-        // ECG 医疗监护仪：love.svg 爱心(恒显) + 心电 canvas 波形(受 showEcgWave 控制)
-        toggle.insertAdjacentHTML('afterbegin', buildLoveSvg());
-        if (state.settings.showEcgWave) {
+    // 爱心恒显（拆自 love-icon.js，不受 showEcgWave 控制）
+    toggle.insertAdjacentHTML('afterbegin', buildLoveSvg());
+    // 波形在爱心右侧，受 showEcgWave 开关控制（关 → 只留爱心）
+    if (state.settings.showEcgWave) {
+        if (provider === 'ecg') {
             toggle.insertAdjacentHTML('beforeend', buildEcgMonitorSvg(emotion, state.settings.ecgSize));
-            initEcgHeartCanvases(toggle);
+        } else if (provider === 'glm') {
+            toggle.insertAdjacentHTML('beforeend', buildGlmThinkSvg(emotion, state.settings.ecgSize));
+        } else {
+            toggle.insertAdjacentHTML('beforeend', buildMinimalThinkSvg(emotion, state.settings.ecgSize));
         }
+        if (provider === 'ecg') initEcgHeartCanvases(toggle); // 仅 ECG 监护仪含 canvas，需启动 rAF 循环
     }
     toggle.insertAdjacentHTML('beforeend', '<span class="rk-chev"></span>');
     block.querySelector('.reasoning-body').textContent = node.reasoning;

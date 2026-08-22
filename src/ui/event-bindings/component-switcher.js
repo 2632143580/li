@@ -4,6 +4,10 @@ import { saveToLocal } from '../../core/storage.js';
 import { openModal, closeAllModals } from '../../core/modal.js';
 import { registerUI } from '../../core/registry.js';
 import { renderChat } from '../render/tree-render.js';
+import { buildLoveSvg } from '../../plugins/love-icon.js';
+import { buildEcgMonitorSvg, initEcgHeartCanvases } from '../../plugins/ecg-heart.js';
+import { buildGlmThinkSvg } from '../../plugins/think-glm.js';
+import { buildMinimalThinkSvg } from '../../plugins/think-minimal.js';
 
 registerUI('component-switcher', setupComponentSwitcher);
 
@@ -19,18 +23,22 @@ function setupComponentSwitcher() {
                 <button class="component-switcher-close" type="button" aria-label="关闭">×</button>
             </div>
             <div class="component-switcher-options" role="radiogroup" aria-label="组件类型">
-                <button class="component-switcher-option" type="button" data-provider="ecg" role="radio">
-                    <span class="cs-preview cs-preview-ecg" aria-hidden="true"><span class="cs-ecg-line"></span></span>
+                <button class="component-switcher-option" type="button" data-provider="ecg" role="radio" aria-checked="false">
+                    <span class="cs-preview" data-preview="ecg" aria-hidden="true"></span>
                     <span><strong>ECG · 医疗监护仪</strong><small>爱心、网格与扫描波形</small></span>
                 </button>
-                <button class="component-switcher-option" type="button" data-provider="glm" role="radio">
-                    <span class="cs-preview cs-preview-glm" aria-hidden="true"><span class="cs-glm-line"></span></span>
+                <button class="component-switcher-option" type="button" data-provider="glm" role="radio" aria-checked="false">
+                    <span class="cs-preview" data-preview="glm" aria-hidden="true"></span>
                     <span><strong>GLM · 双线流光</strong><small>暗底轨迹与流动脉冲</small></span>
                 </button>
-                <button class="component-switcher-option" type="button" data-provider="kimi" role="radio">
-                    <span class="cs-preview cs-preview-minimal" aria-hidden="true"><span class="cs-minimal-line"></span></span>
+                <button class="component-switcher-option" type="button" data-provider="kimi" role="radio" aria-checked="false">
+                    <span class="cs-preview" data-preview="kimi" aria-hidden="true"></span>
                     <span><strong>Kimi · 单线流光</strong><small>单条脉冲流动</small></span>
                 </button>
+            </div>
+            <div class="component-switcher-wave">
+                <label class="toggle-switch"><input type="checkbox" id="cs-showEcgWave"><span class="toggle-slider"></span></label>
+                <span class="cs-wave-text">显示波形（爱心始终显示）</span>
             </div>
             <div class="component-switcher-emotions" role="radiogroup" aria-label="情绪状态">
                 <span class="component-switcher-label">情绪状态</span>
@@ -52,9 +60,25 @@ function setupComponentSwitcher() {
         </div>`;
     document.body.appendChild(panel);
 
+    // 真实「爱心 + 波形」预览：爱心恒显，波形在右、受 showEcgWave 控
+    const renderPreview = (previewEl, provider) => {
+        const emotion = ['calm', 'excited', 'sad', 'thinking'].includes(state.settings.ecgEmotion) ? state.settings.ecgEmotion : 'calm';
+        const size = ['xs', 'sm', 'md', 'lg', 'xl'].includes(state.settings.ecgSize) ? state.settings.ecgSize : 'md';
+        previewEl.innerHTML = buildLoveSvg();
+        if (state.settings.showEcgWave) {
+            if (provider === 'ecg') previewEl.insertAdjacentHTML('beforeend', buildEcgMonitorSvg(emotion, size));
+            else if (provider === 'glm') previewEl.insertAdjacentHTML('beforeend', buildGlmThinkSvg(emotion, size));
+            else previewEl.insertAdjacentHTML('beforeend', buildMinimalThinkSvg(emotion, size));
+        }
+    };
+    const renderAllPreviews = () => {
+        panel.querySelectorAll('[data-preview]').forEach((el) => renderPreview(el, el.dataset.preview));
+        initEcgHeartCanvases(panel); // 启动 ecg 预览 canvas（无 canvas 则无操作）
+    };
+
     const updateSelection = () => {
         const size = ['xs', 'sm', 'md', 'lg', 'xl'].includes(state.settings.ecgSize) ? state.settings.ecgSize : 'md';
-        panel.querySelectorAll('[data-provider]').forEach((option) => {
+        panel.querySelectorAll('.component-switcher-option').forEach((option) => {
             const cur = ['ecg', 'glm', 'kimi'].includes(state.settings.thinkIconProvider) ? state.settings.thinkIconProvider : 'ecg';
             const selected = option.dataset.provider === cur;
             option.classList.toggle('selected', selected);
@@ -70,6 +94,9 @@ function setupComponentSwitcher() {
             option.classList.toggle('selected', selected);
             option.setAttribute('aria-checked', String(selected));
         });
+        const waveToggle = panel.querySelector('#cs-showEcgWave');
+        if (waveToggle) waveToggle.checked = !!state.settings.showEcgWave;
+        renderAllPreviews();
     };
     panel.addEventListener('click', (event) => {
         if (event.target === panel) { closeAllModals(); return; }
@@ -84,6 +111,13 @@ function setupComponentSwitcher() {
         saveToLocal(null, true);
         renderChat();
         updateSelection();
+    });
+    // 波形显示开关（自设置页迁入）：写全局设置 + 保存 + 实时显隐预览 + 同步思维链头部
+    panel.querySelector('#cs-showEcgWave').addEventListener('change', (e) => {
+        state.settings.showEcgWave = e.target.checked;
+        saveToLocal(null, true);
+        renderAllPreviews();
+        renderChat();
     });
     panel.querySelector('.component-switcher-close').addEventListener('click', closeAllModals);
     DOM.btnCompSwitch.addEventListener('click', () => {
