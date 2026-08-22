@@ -18,7 +18,7 @@ const MODAL_IDS = [
     'voice-modal',        // 语音设置（句句发语音）
     'fs-editor',          // 全屏编辑器
     'crop-modal',         // 背景裁剪编辑器——曾漏加导致 closeAllModals 永远跳过它、确认/取消都关不掉（"上传图片背景关不掉"根因）
-    'log-panel',          // 更新日志页
+    'component-switcher', // 组件切换面板
     'msg-nav'             // 消息快速导航面板
 ];
 

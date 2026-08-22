@@ -36,7 +36,7 @@ import './global.js';
 import './quick-theme.js';
 import './wordcloud-panel.js';
 import './topbar.js';
-import './log-panel.js';
+import './component-switcher.js';
 import './msg-nav-panel.js';
 
 // ================================================================

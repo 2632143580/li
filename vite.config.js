@@ -1,7 +1,7 @@
 import { defineConfig } from 'vite';
 import { viteSingleFile } from 'vite-plugin-singlefile';
 import depsPlugin from './vite-plugin-deps.js';
-import { copyFileSync, existsSync } from 'fs';
+import { copyFileSync } from 'fs';
 import path from 'path';
 import { execSync } from 'child_process';
 import { fileURLToPath } from 'url';
@@ -54,14 +54,6 @@ const labeledOutput = () => ({
         const dst = path.join(__dirname, 'dist', `li-${BUILD_LABEL}.html`);
         copyFileSync(src, dst);
         console.log(`[li-labeled-output] 产物副本: ${dst}`);
-        const clSrc = path.join(__dirname, 'changelog.json');
-        const clDst = path.join(__dirname, 'dist', 'changelog.json');
-        if (existsSync(clSrc)) {
-            copyFileSync(clSrc, clDst);
-            console.log(`[li-labeled-output] 日志数据: ${clDst}`);
-        } else {
-            console.warn('[li-labeled-output] 警告: 缺少 changelog.json，更新日志面板将显示加载失败提示');
-        }
     }
 });
 

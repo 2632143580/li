@@ -277,4 +277,22 @@
 }
 .reasoning.collapsed .reasoning-body { display: none; }
 
-
+/* 组件切换面板与极简思维链图标 */
+.rk-think-minimal { width: 24px; height: 20px; flex: none; color: var(--color-accent); stroke-dasharray: 42 80; animation: rk-think-flow 2.2s linear infinite; }
+.rk-think-minimal.fast { animation-duration: 1.2s; }
+.rk-think-minimal.slow { animation-duration: 3.2s; }
+@keyframes rk-think-flow { to { stroke-dashoffset: -122px; } }
+.component-switcher-body { max-width: 420px; }
+.component-switcher-header, .component-switcher-option { display: flex; align-items: center; }
+.component-switcher-header { justify-content: space-between; padding: 14px 16px 10px; border-bottom: 1px solid var(--white-a08); }
+.component-switcher-title { font-size: 15px; font-weight: 600; color: var(--white-a95); }
+.component-switcher-close { border: 0; background: var(--white-a08); color: var(--white-a75); border-radius: 6px; padding: 4px 10px; font: inherit; cursor: pointer; }
+.component-switcher-options { display: flex; flex-direction: column; gap: 10px; padding: 16px; }
+.component-switcher-option { width: 100%; gap: 12px; padding: 12px; border: 1px solid var(--white-a08); border-radius: 8px; background: var(--white-a05); color: var(--white-a90); text-align: left; cursor: pointer; }
+.component-switcher-option.selected { border-color: var(--color-accent); }
+.component-switcher-option strong, .component-switcher-option small { display: block; }
+.component-switcher-option small { margin-top: 3px; color: var(--white-a55); font-size: 12px; }
+.cs-preview { display: grid; place-items: center; width: 72px; height: 34px; flex: none; overflow: hidden; border-radius: 4px; background: var(--white-a08); }
+.cs-ecg-line, .cs-minimal-line { width: 60px; border-top: 2px solid var(--color-accent); }
+.cs-ecg-line { clip-path: polygon(0 50%, 25% 50%, 32% 20%, 38% 80%, 45% 5%, 53% 70%, 60% 50%, 100% 50%); }
+.cs-minimal-line { transform: skewY(-18deg); }
