@@ -81,10 +81,15 @@ export function setNodeError(node, message) {
 
 // migrateErrorFlags 已移至 core/tree-core.js（本文件 re-export，对外 API 不变）
 
-/** 初始化对话树 — 创建系统节点（content = 当前有效系统提示词：会话级覆盖优先，否则全局默认）和欢迎消息 */
+/**
+ * 初始化对话树 — 创建系统节点与欢迎消息。
+ * 关键约定：欢迎消息同时带一段本地模拟思维链，用来展示思维链 UI；它不参与 API 请求，
+ * 因为 buildApiMessages 会按节点的 role/content 组装上下文，而 reasoning 只是渲染层运行时字段。
+ */
 export function initChatTree() {
     state.chatTree = createNode("system", getEffectiveSysPrompt());
     const welcome = createNode("assistant", WELCOME);
+    welcome.reasoning = '好开心！'; // 仅用于首屏演示思维链，不伪造模型返回，也不写入请求上下文。
     state.chatTree.children.push(welcome);
     state.currentEndNode = welcome;
     renderChat();
