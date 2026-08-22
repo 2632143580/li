@@ -142,7 +142,7 @@ export function renderContent(contentEl, node) {
     }
 
     // 裁剪前导换行后再渲染：部分 API 首块会带前导 \n，配合 .msg 的 white-space:pre-wrap
-    // 会渲染出"空行 + 消息"的伪空白行；前导换行对聊天无意义，直接剔除(内部换行保留)。
+    // 会渲染出"空行 + 消息"的伪空白行；前导换行对��天无意义，直接剔除(内部换行保留)。
     contentEl.textContent = node.content.replace(/^[\r\n]+/, '');
     // 错误气泡内联重试按钮（根治：失败恢复从"手动编辑重发"降为一次点击）
     if (node.isError) {
@@ -307,7 +307,7 @@ export function renderMessage(node, parentNode) {
 }
 
 /**
- * 渲染对话列表 — 基于当前路���增量更新 DOM
+ * 渲染对话列表 — ��于当前路���增量更新 DOM
  * 1. 遍历当前路径，获取/创建 DOM
  * 2. 按顺序插入到 #chat
  * 3. 移除不在路径中的旧 DOM
@@ -441,17 +441,22 @@ function renderReasoningBlock(node, wrapper) {
     //   导致 toggle 永为空按钮。改为就地核对每个子元素：缺则补、多则删，任何状态都自愈。
     const toggle = block.querySelector('.reasoning-toggle');
     const style = state.settings.thinkIconStyle === 'minimal' ? 'minimal' : 'ecg';
+    const emotion = ['calm', 'excited', 'sad', 'thinking'].includes(node._emotion)
+        ? node._emotion
+        : (['calm', 'excited', 'sad', 'thinking'].includes(state.settings.ecgEmotion) ? state.settings.ecgEmotion : 'calm');
+    const provider = state.settings.thinkIconProvider === 'kimi' ? 'kimi' : 'glm';
+    toggle.dataset.componentProvider = provider;
     toggle.querySelector('.rk-think-minimal')?.remove();
     toggle.querySelector('.rk-love-ico')?.remove();
     toggle.querySelector('.rk-ecg-mon')?.remove();
     toggle.querySelector('.rk-chev')?.remove();
     if (style === 'minimal') {
-        toggle.insertAdjacentHTML('afterbegin', buildMinimalThinkSvg(node._emotion));
+        toggle.insertAdjacentHTML('afterbegin', buildMinimalThinkSvg(emotion));
     } else {
         toggle.insertAdjacentHTML('afterbegin', buildLoveSvg());
         if (state.settings.showEcgWave) {
             // 心电图组件的宽高由统一设置驱动；情绪由节点状态驱动，保持四种状态的动画语义。
-            toggle.insertAdjacentHTML('beforeend', buildEcgMonitorSvg(node._emotion || 'calm', state.settings.ecgSize));
+            toggle.insertAdjacentHTML('beforeend', buildEcgMonitorSvg(emotion, state.settings.ecgSize));
             initEcgHeartCanvases(toggle);
         }
     }
