@@ -60,8 +60,11 @@ export function buildLoveSvg() {
  * @param {string} [emotion='calm'] 情绪键（映射到原文件的 normal/tachycardia/bradycardia/arrhythmia）
  * @returns {string} HTML 字符串
  */
-export function buildEcgMonitorSvg(emotion = 'calm') {
-    return '<span class="rk-ecg-mon" data-emotion="' + emotion + '">'
+export function buildEcgMonitorSvg(emotion = 'calm', size = 'md') {
+    // 关键注释：只允许白名单尺寸进入 class，避免设置存档中的任意字符串污染 DOM class。
+    const safeSize = ['xs', 'sm', 'md', 'lg', 'xl'].includes(size) ? size : 'md';
+    const safeEmotion = EMOTION_TO_MODE[emotion] ? emotion : 'calm';
+    return '<span class="rk-ecg-mon ' + safeSize + '" data-emotion="' + safeEmotion + '">'
         + '<span class="rk-ecg-grid"></span>'
         + '<canvas class="rk-ecg-cv"></canvas>'
         + '<span class="rk-ecg-scan"></span>'

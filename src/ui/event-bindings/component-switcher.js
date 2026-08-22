@@ -28,13 +28,29 @@ function setupComponentSwitcher() {
                     <span><strong>极简流光</strong><small>轻量 P-QRS-T 波形</small></span>
                 </button>
             </div>
+            <div class="component-switcher-size">
+                <span class="component-switcher-label">波形尺寸</span>
+                <div class="component-switcher-size-options" role="radiogroup" aria-label="心电图尺寸">
+                    <button type="button" class="component-switcher-size-option" data-size="xs" role="radio">14</button>
+                    <button type="button" class="component-switcher-size-option" data-size="sm" role="radio">16</button>
+                    <button type="button" class="component-switcher-size-option" data-size="md" role="radio">20</button>
+                    <button type="button" class="component-switcher-size-option" data-size="lg" role="radio">28</button>
+                    <button type="button" class="component-switcher-size-option" data-size="xl" role="radio">40</button>
+                </div>
+            </div>
         </div>`;
     document.body.appendChild(panel);
 
     const updateSelection = () => {
         const style = state.settings.thinkIconStyle === 'minimal' ? 'minimal' : 'ecg';
+        const size = ['xs', 'sm', 'md', 'lg', 'xl'].includes(state.settings.ecgSize) ? state.settings.ecgSize : 'md';
         panel.querySelectorAll('[data-style]').forEach((option) => {
             const selected = option.dataset.style === style;
+            option.classList.toggle('selected', selected);
+            option.setAttribute('aria-checked', String(selected));
+        });
+        panel.querySelectorAll('[data-size]').forEach((option) => {
+            const selected = option.dataset.size === size;
             option.classList.toggle('selected', selected);
             option.setAttribute('aria-checked', String(selected));
         });
@@ -43,7 +59,8 @@ function setupComponentSwitcher() {
         if (event.target === panel) closeAllModals();
         const option = event.target.closest('[data-style]');
         if (!option) return;
-        state.settings.thinkIconStyle = option.dataset.style;
+        if (option.dataset.style) state.settings.thinkIconStyle = option.dataset.style;
+        if (option.dataset.size) state.settings.ecgSize = option.dataset.size;
         saveToLocal(null, true);
         renderChat();
         updateSelection();

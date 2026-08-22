@@ -135,7 +135,7 @@ export function renderContent(contentEl, node) {
     const staleDots = contentEl.querySelector('.typing-dots');
     if (staleDots) staleDots.remove();
 
-    // 流式且无内容时显示打字指示器（出错节点不显示，避免与错误文案并存）
+    // 流式且无内���时显示打字指示器（出错节点不显示，避免与错误文案并存）
     if (isStreaming && !node.content && !node.isError) {
         contentEl.innerHTML = '<span class="typing-dots"><span></span><span></span><span></span></span>';
         return;
@@ -307,7 +307,7 @@ export function renderMessage(node, parentNode) {
 }
 
 /**
- * 渲染对话列表 — 基于当前路径增量更新 DOM
+ * 渲染对话列表 — 基于当前路���增量更新 DOM
  * 1. 遍历当前路径，获取/创建 DOM
  * 2. 按顺序插入到 #chat
  * 3. 移除不在路径中的旧 DOM
@@ -450,7 +450,8 @@ function renderReasoningBlock(node, wrapper) {
     } else {
         toggle.insertAdjacentHTML('afterbegin', buildLoveSvg());
         if (state.settings.showEcgWave) {
-            toggle.insertAdjacentHTML('beforeend', buildEcgMonitorSvg(node._emotion));
+            // 心电图组件的宽高由统一设置驱动；情绪由节点状态驱动，保持四种状态的动画语义。
+            toggle.insertAdjacentHTML('beforeend', buildEcgMonitorSvg(node._emotion || 'calm', state.settings.ecgSize));
             initEcgHeartCanvases(toggle);
         }
     }
