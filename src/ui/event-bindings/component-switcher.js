@@ -8,6 +8,7 @@ import { buildLoveSvg } from '../../plugins/love-icon.js';
 import { buildEcgMonitorSvg, initEcgHeartCanvases } from '../../plugins/ecg-heart.js';
 import { buildGlmThinkSvg } from '../../plugins/think-glm.js';
 import { buildMinimalThinkSvg } from '../../plugins/think-minimal.js';
+import { BgEngine } from '../../engines/bg-engine.js';
 
 registerUI('component-switcher', setupComponentSwitcher);
 
@@ -57,6 +58,29 @@ function setupComponentSwitcher() {
                     <button type="button" class="component-switcher-size-option" data-size="xl" role="radio">40</button>
                 </div>
             </div>
+            <div class="component-switcher-perf">
+                <span class="component-switcher-label">性能控制</span>
+                <div class="component-switcher-perf-row">
+                    <label class="toggle-switch"><input type="checkbox" id="cs-ecgAnimation"><span class="toggle-slider"></span></label>
+                    <span class="cs-perf-text">心电图动画</span>
+                </div>
+                <div class="component-switcher-perf-row">
+                    <label class="toggle-switch"><input type="checkbox" id="cs-ecgGlow"><span class="toggle-slider"></span></label>
+                    <span class="cs-perf-text">波形辉光</span>
+                </div>
+                <div class="component-switcher-perf-row">
+                    <label class="toggle-switch"><input type="checkbox" id="cs-historyEcg"><span class="toggle-slider"></span></label>
+                    <span class="cs-perf-text">历史消息动画</span>
+                </div>
+                <div class="component-switcher-perf-row">
+                    <label class="toggle-switch"><input type="checkbox" id="cs-bgAnimation"><span class="toggle-slider"></span></label>
+                    <span class="cs-perf-text">背景动画</span>
+                </div>
+                <div class="component-switcher-perf-row">
+                    <label class="toggle-switch"><input type="checkbox" id="cs-bgCanvas"><span class="toggle-slider"></span></label>
+                    <span class="cs-perf-text">背景画布</span>
+                </div>
+            </div>
         </div>`;
     document.body.appendChild(panel);
 
@@ -73,7 +97,7 @@ function setupComponentSwitcher() {
     };
     const renderAllPreviews = () => {
         panel.querySelectorAll('[data-preview]').forEach((el) => renderPreview(el, el.dataset.preview));
-        initEcgHeartCanvases(panel); // 启动 ecg 预览 canvas（无 canvas 则无操作）
+        initEcgHeartCanvases(panel, state.settings.ecgAnimation, state.settings.ecgGlow); // 启动 ecg 预览 canvas（无 canvas 则无操作）
     };
 
     const updateSelection = () => {
@@ -96,6 +120,11 @@ function setupComponentSwitcher() {
         });
         const waveToggle = panel.querySelector('#cs-showEcgWave');
         if (waveToggle) waveToggle.checked = !!state.settings.showEcgWave;
+        const perfIds = ['ecgAnimation', 'ecgGlow', 'historyEcg', 'bgAnimation', 'bgCanvas'];
+        perfIds.forEach((id) => {
+            const el = panel.querySelector('#cs-' + id);
+            if (el) el.checked = !!state.settings[id];
+        });
         renderAllPreviews();
     };
     panel.addEventListener('click', (event) => {
@@ -119,6 +148,24 @@ function setupComponentSwitcher() {
         renderAllPreviews();
         renderChat();
     });
+
+    // 性能控制开关
+    ['ecgAnimation', 'ecgGlow', 'historyEcg', 'bgAnimation', 'bgCanvas'].forEach((id) => {
+        panel.querySelector('#cs-' + id)?.addEventListener('change', (e) => {
+            state.settings[id] = e.target.checked;
+            saveToLocal(null, true);
+            renderAllPreviews();
+            renderChat();
+            if (id === 'bgAnimation') {
+                if (state.settings.bgAnimation) BgEngine.startLoop();
+                else BgEngine.stopLoop();
+            }
+            if (id === 'bgAnimation' || id === 'bgCanvas') {
+                window.dispatchEvent(new Event('resize'));
+            }
+        });
+    });
+
     panel.querySelector('.component-switcher-close').addEventListener('click', closeAllModals);
     DOM.btnCompSwitch.addEventListener('click', () => {
         updateSelection();

@@ -468,7 +468,11 @@ function renderReasoningBlock(node, wrapper) {
         } else {
             toggle.insertAdjacentHTML('beforeend', buildMinimalThinkSvg(emotion, state.settings.ecgSize));
         }
-        if (provider === 'ecg') initEcgHeartCanvases(toggle); // 仅 ECG 监护仪含 canvas，需启动 rAF 循环
+        if (provider === 'ecg') {
+            const isCurrent = (node === state.currentEndNode);
+            const animated = state.settings.ecgAnimation && (state.settings.historyEcg || isCurrent);
+            initEcgHeartCanvases(toggle, animated, state.settings.ecgGlow);
+        }
     }
     toggle.insertAdjacentHTML('beforeend', '<span class="rk-chev"></span>');
     block.querySelector('.reasoning-body').textContent = node.reasoning;

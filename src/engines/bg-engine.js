@@ -168,8 +168,18 @@ export const BgEngine = {
         }
     },
 
+    /** 外部调用停止循环 */
+    stopLoop() {
+        if (this.animationId) {
+            cancelAnimationFrame(this.animationId);
+            this.animationId = null;
+            this.ctx.clearRect(0, 0, W, H);
+        }
+    },
+
     /** 启动渲染循环 — 每帧调用所有活跃插件的 animate */
     startLoop() {
+        if (state.settings.bgAnimation === false) return;
         // 节流目标帧率：背景动画是缓变装饰，无需跟随 60/120Hz 屏幕刷新率全速重绘。
         // 移动端常态把填充率开销直接减半（60→30fps），肉眼几乎无差别。
         const targetFps = 30;

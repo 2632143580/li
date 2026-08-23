@@ -90,10 +90,12 @@ export function buildEcgMonitorSvg(emotion = 'calm', size = 'md') {
  * 幂等：同一 canvas 只启动一次；DOM 重建产生新 canvas，旧循环因 !isConnected 自动退出。
  * @param {ParentNode} [scope=document] 搜索范围
  */
-export function initEcgHeartCanvases(scope = document) {
+export function initEcgHeartCanvases(scope = document, animated = true, glow = true) {
     scope.querySelectorAll('canvas.rk-ecg-cv').forEach((canvas) => {
         if (canvas._rkEcgInited) return;
         canvas._rkEcgInited = true;
+        canvas._rkEcgAnimated = animated;
+        canvas._rkEcgGlow = glow;
         startEcgLoop(canvas);
     });
 }
@@ -140,8 +142,14 @@ function startEcgLoop(canvas) {
         const h = canvas.getBoundingClientRect().height || 20;
         ctx.lineWidth = Math.min(2.2, Math.max(1, h * 0.013));
         ctx.strokeStyle = ecgColor;
-        ctx.shadowBlur = Math.min(10, h * 0.06);
-        ctx.shadowColor = ecgColor;
+        // 辉光开关：false 时去掉 shadowBlur，降低 GPU 负载
+        if (canvas._rkEcgGlow !== false) {
+            ctx.shadowBlur = Math.min(10, h * 0.06);
+            ctx.shadowColor = ecgColor;
+        } else {
+            ctx.shadowBlur = 0;
+            ctx.shadowColor = 'transparent';
+        }
     }
 
     // 主题切换（<html> 的 class/style 变化：theme-light 翻转 / 插件覆盖令牌）时，实时刷新波形颜色。
@@ -366,6 +374,13 @@ function startEcgLoop(canvas) {
     }
 
     scanLineEl.style.transform = 'translateX(0px)';
+
+    // 性能开关：关闭动画则静态铺满一整幅波形（复用 drawStaticFullWave），不跑 rAF 循环
+    if (canvas._rkEcgAnimated === false) {
+        drawStaticFullWave();
+        themeObserver.disconnect();             // 静态路径不跑循环，此处显式停观察
+        return;
+    }
 
     // prefers-reduced-motion：不跑循环，静态铺满一整幅波形（复用 drawStaticFullWave，单一实现）
     if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {

@@ -337,3 +337,7 @@
 .cs-preview .rk-think-glm, .cs-preview .rk-think-minimal { flex: none; }
 .component-switcher-wave { display: flex; align-items: center; gap: 8px; padding: 0 16px 6px; color: var(--white-a75); font-size: 13px; }
 .component-switcher-wave .cs-wave-text { cursor: default; }
+.component-switcher-perf { padding: 0 16px 16px; }
+.component-switcher-perf .component-switcher-label { margin-bottom: 8px; }
+.component-switcher-perf-row { display: flex; align-items: center; gap: 8px; padding: 4px 0; }
+.component-switcher-perf-row .cs-perf-text { color: var(--white-a75); font-size: 13px; }

@@ -70,6 +70,13 @@ export const DEFAULT_SETTINGS = {
     ecgSize: 'md',             // 心电图尺寸：xs / sm / md / lg / xl；由组件切换 Sheet 控制
                                //   默认开；关闭只去掉右侧波形，左侧爱心(与折叠头一体)恒显示。
 
+    // 性能控制开关（组件切换页）
+    ecgAnimation: true,        // 心电图动画：false=静态波形，不跑rAF循环
+    ecgGlow: true,             // 波形辉光：false=去掉shadowBlur，降低GPU负载
+    historyEcg: true,          // 历史消息心电图动画：false=仅当前消息动画，历史消息静态
+    bgAnimation: true,         // 背景动画：false=停止BgEngine rAF循环
+    bgCanvas: true,            // 背景画布：false=隐藏全屏Canvas，释放GPU内存
+
     ttsCloud: {
         apiKey: '',            // 云端 Key：唯一敏感项，明文存本机（personal 自用）；baseUrl/model 见 config.js 的 TTS_CLOUD（硬编码，不序列化）
         voice: 'mimo_default'  // 用户自选音色（MiMo 预置清单），随设置持久化

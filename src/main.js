@@ -52,19 +52,25 @@ export function resize() {
 
     setViewport(vw, vh);
 
-    // 背景画布
-    BgEngine.canvas.width = W * dpr;
-    BgEngine.canvas.height = H * dpr;
-    BgEngine.canvas.style.width = W + "px";
-    BgEngine.canvas.style.height = H + "px";
-    BgEngine.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    const showBg = state.settings.bgCanvas !== false;
+    DOM.bg.style.display = showBg ? '' : 'none';
+    DOM.uiCanvas.style.display = showBg ? '' : 'none';
 
-    // UI 画布
-    DOM.uiCanvas.width = W * dpr;
-    DOM.uiCanvas.height = H * dpr;
-    DOM.uiCanvas.style.width = W + "px";
-    DOM.uiCanvas.style.height = H + "px";
-    uiCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    if (showBg) {
+        // 背景画布
+        BgEngine.canvas.width = W * dpr;
+        BgEngine.canvas.height = H * dpr;
+        BgEngine.canvas.style.width = W + "px";
+        BgEngine.canvas.style.height = H + "px";
+        BgEngine.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+        // UI 画布
+        DOM.uiCanvas.width = W * dpr;
+        DOM.uiCanvas.height = H * dpr;
+        DOM.uiCanvas.style.width = W + "px";
+        DOM.uiCanvas.style.height = H + "px";
+        uiCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
 
     // 通知所有活跃插件尺寸变化
     BgEngine.activePlugins.forEach(p => {
