@@ -38,21 +38,30 @@
 /** 已启动循环的 canvas 集合（用于活跃态翻转时重启循环，避免漏启）。 @type {Set<HTMLCanvasElement>} */
 const ecgCanvases = new Set();
 
-/** 离屏暂停观察器（共享单例）：container 滚出视口即停 rAF，回屏自动重启。
- *  纯正向优化——屏外波形不可见，停止绘制零视觉损失；rootMargin 预热带让回滚前先起跑。
- *  观察目标是 .rk-ecg-mon 容器（display:none 时 IO 也判离屏，组件页预览关闭即自动暂停）。 */
+/** 离屏冻结观察器（共享单例，目标 = .reasoning 块，覆盖三种波形组件）：
+ *  ① 目标滚出视口或 display:none（折叠）→ 挂 .ecg-offscreen 类，CSS 冻结 glm/kimi 的流光动画；
+ *  ② 若块内含 ecg canvas → 置 _rkEcgOffscreen 停 canvas rAF 轮，回屏自动重启。
+ *  屏外/折叠均不可见，不产帧零视觉损失；rootMargin 预热带让回滚前先起跑。 */
 const ecgIO = (typeof IntersectionObserver !== 'undefined')
     ? new IntersectionObserver((entries) => {
         for (const en of entries) {
-            const cv = en.target.querySelector(':scope > canvas.rk-ecg-cv');
+            en.target.classList.toggle('ecg-offscreen', !en.isIntersecting);
+            const cv = en.target.querySelector('canvas.rk-ecg-cv');
             if (!cv) continue;
             cv._rkEcgOffscreen = !en.isIntersecting;
-            if (en.isIntersecting && !document.hidden && cv.isConnected) {
+            if (en.isIntersecting && !document.hidden && cv.isConnected
+                && cv._rkEcgAnimated !== false) {
                 scheduleDraw(cv, cv._rkEcgDraw);
             }
         }
     }, { rootMargin: '120px 0px' })
     : null;
+
+/** 登记一个思维链块做离屏冻结（幂等：重复 observe 同一元素无副作用）。
+ *  由 tree-render 对所有 provider 的 .reasoning 块统一调用。 @param {Element} block */
+export function observeEcgContainer(block) {
+    if (ecgIO) ecgIO.observe(block);
+}
 
 /** 防重入调度：draw 与 visibilitychange 都可能拉起下一帧。用每 canvas 的 _rkRafPending 防叠加多份并行循环（模块级 shared 会误拒其他 canvas）。 */
 function scheduleDraw(canvas, drawFn) {
@@ -289,7 +298,7 @@ function startEcgLoop(canvas) {
         // DOM 已被重建/移除 → 自动退出循环，停主题观察 + 撤离屏观察 + 移出登记集合，无泄漏
         if (!canvas.isConnected) {
             themeObserver.disconnect();
-            if (ecgIO) ecgIO.unobserve(container);
+            if (ecgIO) ecgIO.unobserve(container.closest('.reasoning') || container);
             ecgCanvases.delete(canvas);
             return;
         }
@@ -407,7 +416,6 @@ function startEcgLoop(canvas) {
             if (resizeCanvas()) {
                 ro.disconnect();
                 scanLineEl.style.transform = 'translateX(0px)';
-                if (ecgIO) ecgIO.observe(container);   // 离屏暂停只对动画路径有意义
                 scheduleDraw(canvas, draw);
             }
         });
@@ -433,6 +441,6 @@ function startEcgLoop(canvas) {
         return;
     }
 
-    if (ecgIO) ecgIO.observe(container);        // 离屏暂停（动画路径专属；初始离屏时 IO 首回调即置停）
+    // 离屏冻结登记由 tree-render 统一负责（observeEcgContainer，覆盖三种 provider），此处不再重复 observe
     scheduleDraw(canvas, draw);
 }
