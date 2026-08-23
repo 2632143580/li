@@ -173,7 +173,9 @@
 
         <!-- 右侧顶栏 -->
         <div class="top-bar">
-            <svg id="btn-comp-switch" class="icon-btn comp-switch-btn" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-label="组件切换"><path d="M4 7h10M18 7h2M4 12h3M11 12h9M4 17h10M18 17h2"/><circle cx="16" cy="7" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="16" cy="17" r="2"/></svg>
+            <!-- 组件切换入口：迷你监护仪（屏框+心电尖峰）——按钮管的就是"屏上显示什么波形"，所见即所管；
+                 替换原三滑杆 tune 图标（混音台隐喻偏"调节"，且与旁边设置按钮语义撞车） -->
+            <svg id="btn-comp-switch" class="icon-btn comp-switch-btn" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-label="组件切换"><rect x="3.5" y="5" width="17" height="14" rx="3.5"/><path class="cs-pulse" d="M6.5 12h3l1.6-4.2 2.6 7.6 1.6-3.4h2.2"/></svg>
             <!-- 语音设置入口：点击打开「语音设置模态框」（句句发语音：开/关 + 发语音概率 + 音色 + 语速）；图标点亮=语音回复已开启 -->
             <svg id="btn-tts-toggle" class="icon-btn tts-toggle-btn tts-on"><use href="#i-vol-on"/></svg>
             <!-- 消息导航入口：双气泡 = 会话/消息集合，尾端小气泡呼应「切换分支」；与顶栏其他图标（列表/云/音量/圆环）零语义冲突 -->
