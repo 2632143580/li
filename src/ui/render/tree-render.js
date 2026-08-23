@@ -471,7 +471,7 @@ function renderReasoningBlock(node, wrapper) {
         if (provider === 'ecg') {
             const isCurrent = (node === state.currentEndNode);
             const animated = state.settings.ecgAnimation && (state.settings.historyEcg || isCurrent);
-            initEcgHeartCanvases(toggle, animated, state.settings.ecgGlow);
+            initEcgHeartCanvases(toggle, animated, state.settings.ecgGlow, state.settings.ecgHalfRate);
         }
     }
     toggle.insertAdjacentHTML('beforeend', '<span class="rk-chev"></span>');

@@ -73,6 +73,10 @@ function setupComponentSwitcher() {
                     <span class="cs-perf-text">历史消息动画</span>
                 </div>
                 <div class="component-switcher-perf-row">
+                    <label class="toggle-switch"><input type="checkbox" id="cs-ecgHalfRate"><span class="toggle-slider"></span></label>
+                    <span class="cs-perf-text">波形 30fps（省电）</span>
+                </div>
+                <div class="component-switcher-perf-row">
                     <label class="toggle-switch"><input type="checkbox" id="cs-bgAnimation"><span class="toggle-slider"></span></label>
                     <span class="cs-perf-text">背景动画</span>
                 </div>
@@ -97,7 +101,8 @@ function setupComponentSwitcher() {
     };
     const renderAllPreviews = () => {
         panel.querySelectorAll('[data-preview]').forEach((el) => renderPreview(el, el.dataset.preview));
-        initEcgHeartCanvases(panel, state.settings.ecgAnimation, state.settings.ecgGlow); // 启动 ecg 预览 canvas（无 canvas 则无操作）
+        // 启动 ecg 预览 canvas（无 canvas 则无操作）；30fps 省电模式同步作用于预览
+        initEcgHeartCanvases(panel, state.settings.ecgAnimation, state.settings.ecgGlow, state.settings.ecgHalfRate);
     };
 
     const updateSelection = () => {
@@ -120,7 +125,7 @@ function setupComponentSwitcher() {
         });
         const waveToggle = panel.querySelector('#cs-showEcgWave');
         if (waveToggle) waveToggle.checked = !!state.settings.showEcgWave;
-        const perfIds = ['ecgAnimation', 'ecgGlow', 'historyEcg', 'bgAnimation', 'bgCanvas'];
+        const perfIds = ['ecgAnimation', 'ecgGlow', 'historyEcg', 'ecgHalfRate', 'bgAnimation', 'bgCanvas'];
         perfIds.forEach((id) => {
             const el = panel.querySelector('#cs-' + id);
             if (el) el.checked = !!state.settings[id];
@@ -150,7 +155,7 @@ function setupComponentSwitcher() {
     });
 
     // 性能控制开关
-    ['ecgAnimation', 'ecgGlow', 'historyEcg', 'bgAnimation', 'bgCanvas'].forEach((id) => {
+    ['ecgAnimation', 'ecgGlow', 'historyEcg', 'ecgHalfRate', 'bgAnimation', 'bgCanvas'].forEach((id) => {
         panel.querySelector('#cs-' + id)?.addEventListener('change', (e) => {
             state.settings[id] = e.target.checked;
             saveToLocal(null, true);

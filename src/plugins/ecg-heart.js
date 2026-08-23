@@ -38,6 +38,22 @@
 /** 已启动循环的 canvas 集合（用于活跃态翻转时重启循环，避免漏启）。 @type {Set<HTMLCanvasElement>} */
 const ecgCanvases = new Set();
 
+/** 离屏暂停观察器（共享单例）：container 滚出视口即停 rAF，回屏自动重启。
+ *  纯正向优化——屏外波形不可见，停止绘制零视觉损失；rootMargin 预热带让回滚前先起跑。
+ *  观察目标是 .rk-ecg-mon 容器（display:none 时 IO 也判离屏，组件页预览关闭即自动暂停）。 */
+const ecgIO = (typeof IntersectionObserver !== 'undefined')
+    ? new IntersectionObserver((entries) => {
+        for (const en of entries) {
+            const cv = en.target.querySelector(':scope > canvas.rk-ecg-cv');
+            if (!cv) continue;
+            cv._rkEcgOffscreen = !en.isIntersecting;
+            if (en.isIntersecting && !document.hidden && cv.isConnected) {
+                scheduleDraw(cv, cv._rkEcgDraw);
+            }
+        }
+    }, { rootMargin: '120px 0px' })
+    : null;
+
 /** 防重入调度：draw 与 visibilitychange 都可能拉起下一帧。用每 canvas 的 _rkRafPending 防叠加多份并行循环（模块级 shared 会误拒其他 canvas）。 */
 function scheduleDraw(canvas, drawFn) {
     if (canvas._rkRafPending) return;
@@ -49,9 +65,12 @@ function scheduleDraw(canvas, drawFn) {
  *  @param {boolean} v 仅 v=true 时拉起（false 无操作） */
 export function setEcgActive(v) {
     if (v) {
-        // 思考开始：把已定格的循环重新拉起（visible 且 connected 才拉）
+        // 思考开始：把已定格的循环重新拉起（visible、connected 且处于动画模式的才拉；
+        // 动画关闭/静态模式的 canvas 不拉——否则静态波形会被误当动画重启，绕过 ecgAnimation 开关）
         ecgCanvases.forEach((c) => {
-            if (!document.hidden && c.isConnected) scheduleDraw(c, c._rkEcgDraw);
+            if (!document.hidden && c.isConnected && c._rkEcgAnimated !== false && !c._rkEcgOffscreen) {
+                scheduleDraw(c, c._rkEcgDraw);
+            }
         });
     }
 }
@@ -90,12 +109,13 @@ export function buildEcgMonitorSvg(emotion = 'calm', size = 'md') {
  * 幂等：同一 canvas 只启动一次；DOM 重建产生新 canvas，旧循环因 !isConnected 自动退出。
  * @param {ParentNode} [scope=document] 搜索范围
  */
-export function initEcgHeartCanvases(scope = document, animated = true, glow = true) {
+export function initEcgHeartCanvases(scope = document, animated = true, glow = true, halfRate = false) {
     scope.querySelectorAll('canvas.rk-ecg-cv').forEach((canvas) => {
         if (canvas._rkEcgInited) return;
         canvas._rkEcgInited = true;
         canvas._rkEcgAnimated = animated;
         canvas._rkEcgGlow = glow;
+        canvas._rkEcgHalfRate = !!halfRate;   // 30fps 模式：隔帧绘制 + 步进×2，扫描速度视觉不变
         startEcgLoop(canvas);
     });
 }
@@ -161,7 +181,10 @@ function startEcgLoop(canvas) {
     ecgCanvases.add(canvas);
     canvas._rkEcgDraw = draw; // 供 scheduleDraw 反查本闭包的 draw
     const onVisible = () => {
-        if (!document.hidden && canvas.isConnected) scheduleDraw(canvas, draw);
+        // 仅动画模式拉起（静态模式拉起会绕过 ecgAnimation 开关）；离屏的由 IO 回调负责
+        if (!document.hidden && canvas.isConnected && canvas._rkEcgAnimated !== false && !canvas._rkEcgOffscreen) {
+            scheduleDraw(canvas, draw);
+        }
     };
     document.addEventListener('visibilitychange', onVisible);
     // DOM 断开时（draw 内 isConnected 退出）顺手解绑，无泄漏
@@ -263,12 +286,29 @@ function startEcgLoop(canvas) {
     }
 
     function draw(timestamp) {
-        // DOM 已被重建/移除 → 自动退出循环，并停主题观察，无泄漏
-        if (!canvas.isConnected) { themeObserver.disconnect(); return; }
+        // DOM 已被重建/移除 → 自动退出循环，停主题观察 + 撤离屏观察 + 移出登记集合，无泄漏
+        if (!canvas.isConnected) {
+            themeObserver.disconnect();
+            if (ecgIO) ecgIO.unobserve(container);
+            ecgCanvases.delete(canvas);
+            return;
+        }
 
         // 切后台/锁屏：页面不可见本就无视觉，直接跳过本帧；回前台由 visibilitychange 事件重启循环
         // （用户 2026-08-23 拍板：不再按 state.waiting 停帧，动画持续循环播放）
         if (document.hidden) return;
+
+        // 离屏暂停：容器滚出视口（或所在层 display:none）→ 本帧后停轮，回屏由 IntersectionObserver 重启。
+        // 屏外波形不可见，停止绘制零视觉损失（快速滚动聊天时 GPU 暴涨的根因修复点）。
+        if (canvas._rkEcgOffscreen) return;
+
+        // 30fps 省电模式：隔帧跳过绘制（跳帧时步进在下一次绘制中×2 补偿，扫描速度视觉不变）
+        let speedScale = 1;
+        if (canvas._rkEcgHalfRate) {
+            canvas._rkEcgSkipFrame = !canvas._rkEcgSkipFrame;
+            if (canvas._rkEcgSkipFrame) { scheduleDraw(canvas, draw); return; }
+            speedScale = 2;
+        }
 
         const delta = timestamp - lastTime;
         lastTime = timestamp;
@@ -279,8 +319,8 @@ function startEcgLoop(canvas) {
         const height = canvas.height / dpr;
         const centerY = height / 2;
 
-        const speed = baseSpeed;
-        const phaseStep = 0.4 *
+        const speed = baseSpeed * speedScale;
+        const phaseStep = 0.4 * speedScale *
             (mode === 'tachycardia' ? 1.5 :
                 mode === 'bradycardia' ? 0.7 :
                 mode === 'arrhythmia' ? (Math.random() > 0.95 ? 0.15 : 1.0) :
@@ -363,9 +403,11 @@ function startEcgLoop(canvas) {
     if (!resizeCanvas()) {
         // 容器尚未有尺寸（如 display:none）：等 ResizeObserver 报尺寸后再启动
         const ro = new ResizeObserver(() => {
+            if (!canvas.isConnected) { ro.disconnect(); return; }   // 容器已随消息被移除，别再等尺寸
             if (resizeCanvas()) {
                 ro.disconnect();
                 scanLineEl.style.transform = 'translateX(0px)';
+                if (ecgIO) ecgIO.observe(container);   // 离屏暂停只对动画路径有意义
                 scheduleDraw(canvas, draw);
             }
         });
@@ -379,6 +421,7 @@ function startEcgLoop(canvas) {
     if (canvas._rkEcgAnimated === false) {
         drawStaticFullWave();
         themeObserver.disconnect();             // 静态路径不跑循环，此处显式停观察
+        ecgCanvases.delete(canvas);             // 永不进 draw（无退出路径可清），显式移出防 Set 强引用泄漏
         return;
     }
 
@@ -386,8 +429,10 @@ function startEcgLoop(canvas) {
     if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
         drawStaticFullWave();
         themeObserver.disconnect();             // 静态路径不跑循环，此处显式停观察
+        ecgCanvases.delete(canvas);             // 同上：显式移出防泄漏
         return;
     }
 
+    if (ecgIO) ecgIO.observe(container);        // 离屏暂停（动画路径专属；初始离屏时 IO 首回调即置停）
     scheduleDraw(canvas, draw);
 }

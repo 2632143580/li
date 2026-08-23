@@ -74,6 +74,7 @@ export const DEFAULT_SETTINGS = {
     ecgAnimation: true,        // 心电图动画：false=静态波形，不跑rAF循环
     ecgGlow: true,             // 波形辉光：false=去掉shadowBlur，降低GPU负载
     historyEcg: true,          // 历史消息心电图动画：false=仅当前消息动画，历史消息静态
+    ecgHalfRate: false,        // 心电图 30fps 省电模式：true=隔帧绘制+步进×2补偿（扫描速度视觉不变，绘制次数减半）
     bgAnimation: true,         // 背景动画：false=停止BgEngine rAF循环
     bgCanvas: true,            // 背景画布：false=隐藏全屏Canvas，释放GPU内存
 
