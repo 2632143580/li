@@ -5,7 +5,7 @@ import { debouncedSave } from '../core/storage.js';
 const DEFAULT_PREFIX = '（警告：已触发禁止词「{words}」，请更换表达方式）';
 
 function normalizeEntry(entry) {
-    if (typeof entry === 'string') return { word: entry.trim(), mode: 'contains', enabled: true, temporary: false, count: 0 };
+    if (typeof entry === 'string') return { word: entry.trim(), mode: 'contains', enabled: true, count: 0 };
     if (!entry || typeof entry !== 'object') return null;
     const word = typeof entry.word === 'string' ? entry.word.trim() : '';
     if (!word) return null;
@@ -13,7 +13,6 @@ function normalizeEntry(entry) {
         word,
         mode: entry.mode === 'wildcard' ? 'wildcard' : 'contains',
         enabled: entry.enabled !== false,
-        temporary: entry.temporary === true,
         count: Number.isFinite(entry.count) ? entry.count : 0
     };
 }
@@ -67,14 +66,14 @@ class ModeratorEngine {
             if (seen.has(key)) return null;
             seen.add(key);
             const previous = old.get(key);
-            return previous ? { ...previous, word, mode } : { word, mode, enabled: true, temporary: false, count: 0 };
+            return previous ? { ...previous, word, mode } : { word, mode, enabled: true, count: 0 };
         }).filter(Boolean);
         this.save();
         return this.words;
     }
 
-    addWord(word, mode = 'contains', temporary = false) {
-        const entry = normalizeEntry({ word, mode, temporary });
+    addWord(word, mode = 'contains') {
+        const entry = normalizeEntry({ word, mode });
         if (!entry) throw new Error('词条不能为空');
         const exists = this.words.find((item) => item.word === entry.word && item.mode === entry.mode);
         if (exists) return exists;
