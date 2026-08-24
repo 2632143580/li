@@ -37,7 +37,7 @@ import { registerUI } from '../../core/registry.js';
 import { openModal, closeAllModals } from '../../core/modal.js';
 import { getProviderByUrl } from '../../core/utils.js';
 import { Logger } from '../../core/logger.js';
-import { fetchModelsForProvider } from '../../core/models.js';
+import { fetchModelsForProvider, getProviderModels } from '../../core/models.js';
 import { loadSession, persistSession, saveSession, setSessionPinned } from '../../core/storage.js';
 import { showToast } from '../../core/toast.js';
 import { getEffectiveSysPrompt } from '../../core/sessions.js';
@@ -494,20 +494,14 @@ function setupMsgNav() {
      * 快速切换会话 LLM（chip 点击）：只有两个模型，在 智谱↔DeepSeek 间两态互切（无「全局」第三态）。
      * key 复用全局 settings.keys 槽（不存会话，避免密钥明文随会话复制）；
      * 只写会话级配置（当前会话写 state + 落盘，后台会话写存档），永不触碰全局 settings。
+     * 切换先行、清单拉取后台化：此前 await 拉取（最长 10s 超时）卡在写配置之前，网络慢时点 chip 3s+ 无反馈；
+     * 现在先写配置 + toast 秒回，未缓存才后台拉（已缓存跳过），失败以 warn toast 可见（不再静默 console）。
      * @param {string} id 会话 id @param {string} providerKey chip 当前模型标识（'zhipu'|'deepseek'，与渲染同源）
      */
     async function handleQuickLlmSwitch(id, providerKey) {
         // 两态互切：当前是智谱→切 DeepSeek，反之→智谱；点一下即设显式会话级覆盖，无「继承全局」中间态
         const cur = providerKey === 'deepseek' ? 'deepseek' : 'zhipu';
         const next = cur === 'zhipu' ? 'deepseek' : 'zhipu';
-
-        // 切换只切服务商（apiUrl），model 零写死、实时跟随设置页；
-        // 顺带拉取该服务商清单（填充缓存 + 验证 key），但拉取结果不影响切换本身（model 不取自清单，故不中止切换）。
-        try {
-            await fetchModelsForProvider(next);
-        } catch (err) {
-            Logger.warn('[MsgNav] 切到 ' + LLM_PROVIDERS[next].name + ' 时拉取模型失败（可稍后在设置页重试）', err);
-        }
 
         // 写会话级配置：只指定服务商；model 取该服务商在设置页调好的默认模型（零写死、不取清单首）。
         const nextCfg = { provider: next, model: state.settings.providers[next].model || '' };
@@ -529,6 +523,15 @@ function setupMsgNav() {
         }
         renderSessions();
         showToast('已切换至 ' + LLM_PROVIDERS[next].name, 'success');
+
+        // 清单拉取后台化：目的仅是填充缓存 + 验证 key（model 不取自清单，故不影响切换本身）。
+        // 已缓存跳过（切换本身用不到清单，重复拉纯浪费请求）；未缓存才后台拉，失败用 toast 告知。
+        if (!getProviderModels(next).length) {
+            fetchModelsForProvider(next).catch((err) => {
+                Logger.warn('[MsgNav] 切到 ' + LLM_PROVIDERS[next].name + ' 后台拉取模型清单失败', err);
+                showToast(LLM_PROVIDERS[next].name + ' 模型清单拉取失败，可稍后在设置页重试', 'warn');
+            });
+        }
     }
 
     /**

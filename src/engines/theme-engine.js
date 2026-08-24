@@ -7,12 +7,11 @@
  *       注入给用户插件的 state 是只读 Proxy，写入被拦截。
  *
  * 导出：ThemeEngine
- * 依赖：core/logger, core/state, core/dom, plugins/default-theme, ui/input-renderer（updateInputColors）
+ * 依赖：core/logger, core/state, core/dom, ui/input-renderer（updateInputColors）
  */
 import { Logger } from '../core/logger.js';
 import { state } from '../core/store.js';
 import { DOM } from '../core/dom.js';
-import { DefaultThemePlugin } from '../plugins/default-theme.js';
 import { updateInputColors } from '../ui/input-renderer.js';
 
 /** 解析颜色亮度（0–255），支持 #rrggbb / #rgb / rgb(r,g,b)；用于判断主题深浅以加 theme-light 信号。
@@ -50,9 +49,8 @@ export const ThemeEngine = {
     /** 已注册主题对象表：id → themeObj @type {object<string,object>} */
     availableThemes: {},
 
-    /** 初始化引擎，注册内置 default_theme 模板 */
+    /** 初始化引擎（内置主题由 quick-theme 等宿主模块按需 register；启动即挂载的基础配色由 tokens.css :root 承担） */
     init() {
-        this.register('default_theme', DefaultThemePlugin);
         return this;
     },
 

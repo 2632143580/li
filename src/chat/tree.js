@@ -213,6 +213,16 @@ export function editAndResend(node, parentNode, newText) {
 //  设置管理（纯函数：把设置应用到 UI 与状态，不含事件绑定）
 // ================================================================
 
+/** 应用消息气泡不透明度（单一消费点）。
+ *  把 settings.bubbleOpacity 写入 :root --bubble-opacity；全部气泡底色（默认皮肤/语音条/错误泡/主题气泡）
+ *  统一以 calc(α * var(--bubble-opacity)) 消费该 token（见 waifu.css / tts.css / chat.css / quick-themes.js）。
+ *  钳位 0~1 容错脏档；applySettings（启动/保存）与设置页取消回退均经此应用。 */
+export function applyBubbleOpacity() {
+    const v = Number(state.settings.bubbleOpacity);
+    document.documentElement.style.setProperty('--bubble-opacity',
+        (Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : 1).toString());
+}
+
 /** 应用设置到 UI 和状态 */
 export function applySettings() {
     // 根 content 同步为「有效系统提示词」：当前会话有覆盖则用覆盖，否则全局默认（会话级覆盖 + 全局默认双轨）
@@ -220,6 +230,7 @@ export function applySettings() {
     // 构建来源后缀：本地构建=本地，GitHub Actions 构建=github（由 vite.config.js 经 import.meta.env.VITE_BUILD_ENV 注入）
     document.title = state.settings.aiName + ' · ' + (import.meta.env.VITE_BUILD_ENV || '本地');
     // --msg-font-size 已由 tokens.css 提供默认 16px（chat.css 消费），字号设置移除后不再用 JS 覆写（2026-08-16）
+    applyBubbleOpacity(); // 气泡底色不透明度 token（含启动恢复/保存提交/取消回退的统一入口）
     inputRenderer.markDirty();
 }
 

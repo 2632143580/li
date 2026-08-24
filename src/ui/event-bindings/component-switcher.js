@@ -98,6 +98,10 @@ function setupComponentSwitcher() {
             else if (provider === 'glm') previewEl.insertAdjacentHTML('beforeend', buildGlmThinkSvg(emotion, size));
             else previewEl.insertAdjacentHTML('beforeend', buildMinimalThinkSvg(emotion, size));
         }
+        // 性能开关对预览生效（2026-08-24 根治）：预览=「当前消息」语义，与聊天区当前消息同门槛（仅 ecgAnimation，
+        // 不吃 historyEcg——那是历史消息专属语义）。复用 .reasoning-static 冻结规则（后代选择器，挂容器即生效，
+        // chat.css L320），ECG canvas 预览则由下方 initEcgHeartCanvases 的 ecgAnimation 参数控制。
+        previewEl.classList.toggle('reasoning-static', !state.settings.ecgAnimation);
     };
     const renderAllPreviews = () => {
         panel.querySelectorAll('[data-preview]').forEach((el) => renderPreview(el, el.dataset.preview));

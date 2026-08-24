@@ -309,7 +309,7 @@ export function bindPluginPanelEvents() {
         }
     }
 
-    // 生成插件项 DOM（含导出按钮与开关）
+    // 生成插件项 DOM（名称/状态 + 挂载开关）
     function createPluginItem(id, plugin, isActive, type) {
         const item = document.createElement('div');
         item.className = 'plugin-item';
@@ -340,31 +340,27 @@ export function bindPluginPanelEvents() {
         const actions = document.createElement('div');
         actions.className = 'plugin-actions';
 
-        // 仅当插件非 exportOnly 时渲染开关；exportOnly 为主题模板，无开关意义
-        const isExportOnly = !!plugin.meta?.exportOnly;
-        if (!isExportOnly) {
-            // 开关
-            const toggleLabel = document.createElement('label');
-            toggleLabel.className = 'toggle-switch';
-            const toggleInput = document.createElement('input');
-            toggleInput.type = 'checkbox';
-            toggleInput.checked = !!isActive;
-            toggleInput.onchange = () => {
-                if (toggleInput.checked) {
-                    if (type === 'bg') BgEngine.mount(id);
-                    else if (type === 'theme') ThemeEngine.mount(id);
-                } else {
-                    if (type === 'bg') BgEngine.unmount(id);
-                    else if (type === 'theme') ThemeEngine.unmount(id);
-                }
-                renderPluginList();
-            };
-            const toggleSpan = document.createElement('span');
-            toggleSpan.className = 'toggle-slider';
-            toggleLabel.appendChild(toggleInput);
-            toggleLabel.appendChild(toggleSpan);
-            actions.appendChild(toggleLabel);
-        }
+        // 挂载/卸载开关（全部已注册插件均有；无主题模板例外——default_theme 导出模板已于 2026-08-24 移除）
+        const toggleLabel = document.createElement('label');
+        toggleLabel.className = 'toggle-switch';
+        const toggleInput = document.createElement('input');
+        toggleInput.type = 'checkbox';
+        toggleInput.checked = !!isActive;
+        toggleInput.onchange = () => {
+            if (toggleInput.checked) {
+                if (type === 'bg') BgEngine.mount(id);
+                else if (type === 'theme') ThemeEngine.mount(id);
+            } else {
+                if (type === 'bg') BgEngine.unmount(id);
+                else if (type === 'theme') ThemeEngine.unmount(id);
+            }
+            renderPluginList();
+        };
+        const toggleSpan = document.createElement('span');
+        toggleSpan.className = 'toggle-slider';
+        toggleLabel.appendChild(toggleInput);
+        toggleLabel.appendChild(toggleSpan);
+        actions.appendChild(toggleLabel);
 
         header.appendChild(actions);
         item.appendChild(header);

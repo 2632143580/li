@@ -118,7 +118,8 @@
     padding: 8px;
     /* 不对称圆角——错误气泡恒为 AI（居左），收 top-left（与 .chat-bubble--ai 一致） */
     border-radius: var(--radius-sm) var(--radius-lg) var(--radius-lg) var(--radius-lg);
-    background: color-mix(in srgb, var(--color-error) 6%, transparent);
+    /* 底色吃 --bubble-opacity（消息气泡不透明度滑块，只缩放底色 alpha；消费模式见 tokens.css） */
+    background: color-mix(in srgb, var(--color-error) calc(6% * var(--bubble-opacity)), transparent);
     animation: none;
 }
 

@@ -13,9 +13,8 @@
   src/core/dom.js             DOM 元素总表、uiCtx、视口尺寸 W/H 与 setViewport
   src/core/storage.js         saveToLocal / loadFromLocal / debouncedSave
   src/engines/bg-engine.js    BgEngine 背景插件引擎（注册 StarPlugin）
-  src/engines/theme-engine.js ThemeEngine 主题插件引擎（注册 DefaultThemePlugin）
+  src/engines/theme-engine.js ThemeEngine 主题插件引擎（quick-theme 等宿主模块按需注册）
   src/plugins/star.js         StarPlugin 星空背景
-  src/plugins/default-theme.js DefaultThemePlugin 默认配色模板（仅导出）
   src/ui/input-renderer.js    Canvas 输入框渲染、文本测量缓存、输入框布局、配色缓存
   src/ui/input-manager.js     隐藏 input 焦点/IME 管理 + 全屏编辑器
   src/ui/context-menu.js      消息长按/右键菜单
@@ -475,6 +474,17 @@
                     <div class="dim-overlay" id="bg-dim-sim"></div>
                 </div>
                 <input type="range" class="dim-slider" id="set-bgDim" min="0" max="100" step="1" value="40">
+            </div>
+
+            <hr class="section-divider">
+
+            <!-- 4. 消息气泡不透明度（只缩放气泡底色 alpha，文字/边框不变；提交后经 applyBubbleOpacity 写 :root --bubble-opacity） -->
+            <div class="section">
+                <div class="section-title">消息气泡不透明度</div>
+                <div class="bubble-op-row">
+                    <span class="bubble-op-val" id="set-bubbleOpacity-val">100%</span>
+                    <input type="range" class="dim-slider" id="set-bubbleOpacity" min="0" max="100" step="1" value="100">
+                </div>
             </div>
 
         </div>

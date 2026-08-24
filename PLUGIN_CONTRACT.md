@@ -22,7 +22,7 @@
 > 混合插件拆分规则：背景引擎取走 `init/animate/onMount/onUnmount`；主题引擎取走 `meta.cssText/tokens`。`onMount` 归背景侧调度，主题侧不要依赖 `onMount` 注入。
 
 ## 三、主题上色 · 必须用这两个钩子（最容易写错的地方）
-**气泡长什么样完全由主题负责**。内置默认主题标了 `exportOnly`，**不挂载**，所以一启动没有默认气泡底色，全靠你激活的主题去画。
+**气泡长什么样完全由主题负责**。宿主**没有**默认主题插件，所以一启动没有默认气泡底色，全靠你激活的主题去画（启动基础配色来自 `src/styles/tokens.css` 的 `:root`）。
 
 | 你要上色的目标 | 必须用的选择器（DOM 真实类名） |
 |---|---|
@@ -43,6 +43,7 @@
 ## 五、可用 Design Token（也就是预设好的 CSS 变量，改色优先用这些）
 圆角请统一用 `var(--radius-md)`，不要硬编码 `px`（应用以后改圆角，你的插件会跟着变）。
 - 颜色：`--color-bg` `--color-user` `--color-ai` `--color-accent` `--color-accent-soft` `--color-error` `--color-accent-bright` `--color-accent-solid` `--color-accent-glow` `--color-accent-dim` `--color-user-bright`
+- 气泡不透明度：`--bubble-opacity`（0~1，宿主按设置页滑块写入）。给气泡写底色时 alpha 一律包一层：`rgba(255,255,255, calc(.06 * var(--bubble-opacity)))`——这样你的气泡能跟着「消息气泡不透明度」滑块走；直接写死 alpha 的气泡不受滑块控制。
 - 圆角：`--radius-sm`(4px) `--radius-md`(8px) `--radius-lg`(12px)
 - 过渡：`--transition-fast` `--transition-normal` `--transition-smooth`
 - 白色透明度序列：`--white-a03` ~ `--white-a90`（03/05/06/08/10/12/20/30/35/40/45/50/60/70/80/90）

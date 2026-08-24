@@ -5,7 +5,7 @@
  *       不含任何逻辑、不触碰 DOM、不发请求、不依赖其它模块。
  *       可变全局状态见 core/state.js；无副作用工具函数见 core/utils.js。
  *
- * 导出：API_TIMEOUT_MS, STORAGE_KEY, TAU, ERROR_PREFIX, DEFAULT_SETTINGS, WELCOME
+ * 导出：API_TIMEOUT_MS, MODELS_TIMEOUT_MS, STORAGE_KEY, TAU, ERROR_PREFIX, DEFAULT_SETTINGS, WELCOME
  * 依赖：无
  */
 
@@ -15,6 +15,9 @@
 
 /** 单次流式读取的超时上限，单位毫秒。超时后 AbortController 中止请求。 @type {number} */
 export const API_TIMEOUT_MS = 30000;
+/** /models 模型清单拉取的超时上限，单位毫秒（models.js fetchModelsForProvider 消费）。清单是辅助数据，
+ *  超时即失败可见，不等满聊天级 30s。 @type {number} */
+export const MODELS_TIMEOUT_MS = 10000;
 /** localStorage 存档键名（全局键：settings + 会话索引 + 激活 id + 计数器，v4）。改动此值等于丢弃旧存档。 @type {string} */
 export const STORAGE_KEY = 'liChatData_v2';
 /** 单会话存档键前缀：SESSION_KEY_PREFIX + sessionId -> { id, chatTree, stats, sysPrompt|null, draft, createdAt, updatedAt, manualTitle } @type {string} */
@@ -41,6 +44,9 @@ export const ERROR_PREFIX = '发生错误:';
  *   ttsProb         {number}  发语音概率 0~1；每条 AI 消息按此概率掷骰决定是否渲染成语音条（其余渲染为文字）。默认 1 = 每条都语音（保留原「句句发语音」行为），0 = 永不语音
  *   keys            {{zhipu:string, deepseek:string}} 按服务商分别记忆的 Key（custom 已移除，自定义服务商直接用当前 apiKey）
  *   bgDimOpacity    {number}  背景遮罩不透明度，0.0 全透明 ~ 1.0 全遮盖
+ *   bubbleOpacity   {number}  消息气泡底色不透明度，0.0 气泡全透明 ~ 1.0 原始浓度（只缩放底色 alpha，
+ *                             文字/边框不受影响）；经 tree.js applyBubbleOpacity 写入 :root --bubble-opacity，
+ *                             全部气泡底色以 calc(α * var(--bubble-opacity)) 消费（含主题气泡，见 hooks.json）
  *   bgTransform     {{scale:number, xPct:number, yPct:number}} 背景图变换；
  *                             scale 为缩放倍数（>=1），xPct/yPct 是相对自身尺寸的平移百分比（分辨率无关）
  *   quickTheme      {string|null} 当前快速配色名（plugins/quick-themes.js 的 QUICK_THEMES 键）；
@@ -89,6 +95,7 @@ export const DEFAULT_SETTINGS = {
         prefixTemplate: '（警告：已触发禁止词「{words}」，请更换表达方式）'
     },
     bgDimOpacity: 0.4,
+    bubbleOpacity: 1,          // 消息气泡底色不透明度（0~1，只缩放底色 alpha；见上方字段注释）
     bgTransform: { scale: 1, xPct: 0, yPct: 0 },
     quickTheme: null
 };
