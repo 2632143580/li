@@ -1,6 +1,9 @@
 /* ====================== 设计令牌 ====================== */
 :root {
     --msg-font-size: 16px;
+    /* 气泡底色不透明度（0~1）：所有气泡底色以 calc(α * var(--bubble-opacity)) 消费（waifu/tts/chat.css + quick-themes 主题气泡）。
+       JS 唯一写入点 = tree.js applyBubbleOpacity（tree.js 注释即契约）；此默认值仅作 JS 未执行前的兜底。 */
+    --bubble-opacity: 1;
     --color-bg: #080b14;
     --color-user: rgba(240, 208, 160, 0.95);
     --color-ai: rgba(170, 208, 160, 0.95);
@@ -123,4 +126,3 @@
     --white-a60: rgba(0,0,0,.8); --white-a70: rgba(0,0,0,.85); --white-a75: rgba(0,0,0,.88); --white-a80: rgba(0,0,0,.9); --white-a85: rgba(0,0,0,.92);
     --white-a90: rgba(0,0,0,.95); --white-a95: rgba(0,0,0,.98);
 }
-

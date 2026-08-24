@@ -15,6 +15,7 @@ import { Logger } from './core/logger.js';
 import { state } from './core/store.js';
 import { DEFAULT_PROVIDER } from './core/constants.js';
 import { loadFromLocal, createFirstSession, saveSession } from './core/storage.js';
+import { syncAvailableModels } from './core/models.js';
 import { BgEngine } from './engines/bg-engine.js';
 import { ThemeEngine } from './engines/theme-engine.js';
 import { initTTS } from './engines/tts-engine.js'; // 语音引擎：加载音色列表（无副作用）
@@ -126,15 +127,11 @@ export function init() {
     resize();
     applySettings();
 
-    // 模型清单：从 localStorage 的 modelCache 恢复「当前服务商」的已拉取列表（不硬编码、刷新不丢）
-    const initProvider = DEFAULT_PROVIDER;
-    state.availableModels = (state.modelCache[initProvider] || []).slice();
-
     // 背景引擎就绪。默认背景底色由 :root --color-bg 兜底（CSS 已设置），不挂任何 Canvas 动画插件——
     // 星空插件已移除：满屏动画画布是移动端常态 GPU 的持续帧驱动源之一（实测约贡献 70%→60% 的 10%）。
     // 真正的大头是「持续帧生产」本身：永不停的 rAF 循环 + box-shadow 无限动画（rAF 已改为按需驱动；
-    // 顶栏语音图标呼吸光晕 ttsGlowPulse、待确认脉冲环 arm-pulse/resetPulse 均已移除）。现默认背景为纯 CSS 底色，零持续动画。
-    // 默认主题(default_theme)仅作为导出模板保留在 availableThemes，不挂载、不占生效槽。
+    // 顶栏语音呼吸光晕 ttsGlowPulse、待确认脉冲环 arm-pulse/resetPulse 均已移除）。现默认背景为纯 CSS 底色，零持续动画。
+    // 启动即生效的基础配色由 tokens.css :root 承担（无默认主题插件，2026-08-24 移除 exportOnly 模板）。
 
     // 加载本地数据或初始化新对话
     if (!loadFromLocal()) {
@@ -145,6 +142,9 @@ export function init() {
         updateInputLayout();
         renderChat();
     }
+    // 模型清单：loadFromLocal 已读回 modelCache（全局键），此处恢复默认服务商的可用列表。
+    // （此前写在 load 之前——那时 modelCache 还是空的，恢复了个寂寞，属无效恢复块，已移除。）
+    syncAvailableModels(DEFAULT_PROVIDER);
     moderator.load(); // 从存档 settings.moderator 恢复词库与模板（构造时 settings 尚未加载）
 
     // 绑定所有事件

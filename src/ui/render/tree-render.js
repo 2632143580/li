@@ -35,7 +35,7 @@ import { getCurrentPath, getLastNodeInPath } from '../../core/tree-core.js';
 import { bus, EVENTS } from '../../core/bus.js';
 import { showContextMenu } from '../context-menu.js';
 import { renderVoiceTiles, renderBoth } from '../voice-tiles.js'; // 语音回复（句句发语音）；renderWaifuContent 为本模块本地定义
-import { buildLoveSvg, buildEcgMonitorSvg, initEcgHeartCanvases } from '../../plugins/ecg-heart.js';
+import { buildLoveSvg, buildEcgMonitorSvg, initEcgHeartCanvases, observeEcgContainer } from '../../plugins/ecg-heart.js';
 import { buildMinimalThinkSvg } from '../../plugins/think-minimal.js';
 import { buildGlmThinkSvg } from '../../plugins/think-glm.js';
 
@@ -468,11 +468,19 @@ function renderReasoningBlock(node, wrapper) {
         } else {
             toggle.insertAdjacentHTML('beforeend', buildMinimalThinkSvg(emotion, state.settings.ecgSize));
         }
+        // 性能开关统一作用于三种波形（2026-08-23 根因修复）：
+        // canvas 路径（ecg）由 initEcgHeartCanvases 的 animated 参数停轮；
+        // SVG 路径（glm/kimi）是 CSS 无限动画，rAF 开关摸不到——此前历史消息的流光动画
+        // 常驻每帧 paint，是「开关全关 GPU 仍 47%」的元凶。这里挂 .reasoning-static 由 CSS 冻结。
+        const isCurrent = (node === state.currentEndNode);
+        const animated = state.settings.ecgAnimation && (state.settings.historyEcg || isCurrent);
+        toggle.classList.toggle('reasoning-static', !animated);
         if (provider === 'ecg') {
-            const isCurrent = (node === state.currentEndNode);
-            const animated = state.settings.ecgAnimation && (state.settings.historyEcg || isCurrent);
-            initEcgHeartCanvases(toggle, animated, state.settings.ecgGlow);
+            initEcgHeartCanvases(toggle, animated, state.settings.ecgGlow, state.settings.ecgHalfRate);
         }
+        // 离屏冻结：IO 统一登记（幂等），块滚出视口时冻结 CSS 流光 + 停 canvas 轮——
+        // 看不见处不产帧，零视觉损失（折叠态头部波形仍可见，不冻结）。
+        observeEcgContainer(block);
     }
     toggle.insertAdjacentHTML('beforeend', '<span class="rk-chev"></span>');
     block.querySelector('.reasoning-body').textContent = node.reasoning;

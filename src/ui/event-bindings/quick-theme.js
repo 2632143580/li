@@ -272,10 +272,11 @@ function buildSchemeFromCode(code, accentMix = 56) {
     // 气泡底色：单色方案把「互补跳色」混入页面底色着色用户气泡（混入比例 = accentMix，由模态框「撞色强度」滑块控制；
     // AI 气泡用更淡的同跳色，比例固定为 round(accentMix*0.43)，保持与用户气泡一致的撞色观感），让整页看得到撞色层次，
     // 解决「单色全红、只有按钮有强调色」的问题；多色/渐变方案沿用原白/黑微调透明气泡（外观不变）。
+    // alpha 全部吃 --bubble-opacity（消息气泡不透明度滑块；user 泡混的是不透明 --color-bg，需外层再叠一层 color-mix 降 alpha）。
     let bubbleCss;
     if (rgbs.length === 1) {
-        bubbleCss = `.chat-bubble--ai{background:color-mix(in srgb, var(--color-accent) ${Math.round(accentMix * 0.43)}%, transparent);padding:10px 14px}`
-                  + `.chat-bubble--user{background:color-mix(in srgb, var(--color-accent) ${accentMix}%, var(--color-bg));padding:10px 14px}`;
+        bubbleCss = `.chat-bubble--ai{background:color-mix(in srgb, var(--color-accent) calc(${Math.round(accentMix * 0.43)}% * var(--bubble-opacity)), transparent);padding:10px 14px}`
+                  + `.chat-bubble--user{background:color-mix(in srgb, color-mix(in srgb, var(--color-accent) ${accentMix}%, var(--color-bg)) calc(100% * var(--bubble-opacity)), transparent);padding:10px 14px}`;
     } else {
         bubbleCss = isLight ? LIGHT_BUBBLE_CSS : DARK_BUBBLE_CSS;
     }
@@ -497,8 +498,9 @@ function updateSchemePreview(code, mix = currentCreateMix) {
         const userBubble = preview.querySelector('.ct-user');
         const aiBubble = preview.querySelector('.ct-ai');
         if (scheme.isSingle) {
-            if (userBubble) userBubble.style.background = `color-mix(in srgb, var(--color-accent) ${mix}%, var(--color-bg))`;
-            if (aiBubble) aiBubble.style.background = `color-mix(in srgb, var(--color-accent) ${Math.round(mix * 0.43)}%, transparent)`;
+            // 与 buildSchemeFromCode 产出的真实 cssText 同款公式（含 --bubble-opacity 消费），缩略图与实际效果一致
+            if (userBubble) userBubble.style.background = `color-mix(in srgb, color-mix(in srgb, var(--color-accent) ${mix}%, var(--color-bg)) calc(100% * var(--bubble-opacity)), transparent)`;
+            if (aiBubble) aiBubble.style.background = `color-mix(in srgb, var(--color-accent) calc(${Math.round(mix * 0.43)}% * var(--bubble-opacity)), transparent)`;
         } else {
             if (userBubble) userBubble.style.background = '';
             if (aiBubble) aiBubble.style.background = '';

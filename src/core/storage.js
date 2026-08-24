@@ -253,6 +253,9 @@ export function loadFromLocal() {
         // 先应用设置再判会话有效性：即使「尚无会话」（首跑刚建键但未写入索引的窗口），
         // 全局设置也必须加载——否则首跑注入/上次修改的设置丢失，请求会打到默认地址。
         applyLoadedSettings(data.settings);
+        // 恢复模型清单缓存：modelCache 随全局键落盘（writeGlobalKey），必须在此读回。
+        // 此前漏读导致每次刷新缓存清空 → 设置页模型列表「时有时无」（当前模型兜底塞入与空列表交替的假象）。
+        state.modelCache = (data.modelCache && typeof data.modelCache === 'object') ? data.modelCache : {};
         state.msgIdCounter = data.msgIdCounter || 0;
         state.sessionIndex = data.sessionIndex || [];
         state.activeSessionId = data.activeSessionId || (state.sessionIndex[0] && state.sessionIndex[0].id) || null;

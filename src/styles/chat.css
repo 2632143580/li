@@ -118,7 +118,8 @@
     padding: 8px;
     /* 不对称圆角——错误气泡恒为 AI（居左），收 top-left（与 .chat-bubble--ai 一致） */
     border-radius: var(--radius-sm) var(--radius-lg) var(--radius-lg) var(--radius-lg);
-    background: color-mix(in srgb, var(--color-error) 6%, transparent);
+    /* 底色吃 --bubble-opacity（消息气泡不透明度滑块，只缩放底色 alpha；消费模式见 tokens.css） */
+    background: color-mix(in srgb, var(--color-error) calc(6% * var(--bubble-opacity)), transparent);
     animation: none;
 }
 
@@ -310,6 +311,17 @@
 .rk-think-glm.sz-md  { width: 32px; height: 16px; }
 .rk-think-glm.sz-lg  { width: 48px; height: 24px; }
 .rk-think-glm.sz-xl  { width: 64px; height: 32px; }
+
+/* 流光动画性能冻结（2026-08-23 根因修复）：
+   kimi/glm 流光是 CSS 无限动画（SVG stroke-dashoffset，每帧 paint），历史消息常驻跑，
+   且此前不受 ecgAnimation/historyEcg 开关控制——「5 开关全关 GPU 仍 47%」的元凶。
+   冻结条件（均零视觉损失）：
+   ① .reasoning-static —— 开关拍板不动画（ecgAnimation 关 或 historyEcg 关且非当前消息），定格当前帧（同 canvas 静态波形语义）；
+   ② .ecg-offscreen —— 块滚出视口（IntersectionObserver 判定，tree-render 登记；折叠态头部波形仍可见故不冻结）。 */
+.reasoning-static .rk-think-minimal,
+.reasoning-static .rk-think-glm .flow,
+.ecg-offscreen .rk-think-minimal,
+.ecg-offscreen .rk-think-glm .flow { animation-play-state: paused; }
 
 /* 组件切换面板与极简思维链图标 */
 .component-switcher-body { max-width: 420px; }

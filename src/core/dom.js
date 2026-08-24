@@ -20,6 +20,7 @@ export const DOM = {};
         'set-apiUrl', 'set-apiKey', 'set-model-text',
         'set-model-options',
         'set-bgDim', 'set-bgDim-val', 'bg-dim-sim',
+        'set-bubbleOpacity', 'set-bubbleOpacity-val',
         'set-aiName', 'set-sysPrompt',
         'api-key-toggle',
         'provider-tabs', 'provider-hint', 'btn-fetch-models',

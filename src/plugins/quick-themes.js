@@ -83,10 +83,12 @@ export const LIGHT_WHITE_ALPHA = {
 }
 
 // ---- 模板：气泡底色 cssText（默认气泡透明，必须注入底色才有「气泡」视觉） ----
+// alpha 均以 calc(α * var(--bubble-opacity)) 书写：吃「消息气泡不透明度」滑块（:root token，tree.js applyBubbleOpacity 写入），
+// 与默认皮肤 waifu.css / 语音条 tts.css / 错误泡 chat.css 同一消费模式（契约见 tokens.css 与 PLUGIN_CONTRACT.md）。
 /** 深色组气泡底色（半透明白底，AI 略浅 user 略深） @type {string} */
-export const DARK_BUBBLE_CSS = `.chat-bubble--ai{background:rgba(255,255,255,.06);padding:10px 14px}.chat-bubble--user{background:rgba(255,255,255,.1);padding:10px 14px}`;
+export const DARK_BUBBLE_CSS = `.chat-bubble--ai{background:rgba(255,255,255,calc(.06 * var(--bubble-opacity)));padding:10px 14px}.chat-bubble--user{background:rgba(255,255,255,calc(.1 * var(--bubble-opacity)));padding:10px 14px}`;
 /** 浅色组气泡底色（半透明深底） @type {string} */
-export const LIGHT_BUBBLE_CSS = `.chat-bubble--ai{background:rgba(0,0,0,.04);padding:10px 14px}.chat-bubble--user{background:rgba(0,0,0,.07);padding:10px 14px}`;
+export const LIGHT_BUBBLE_CSS = `.chat-bubble--ai{background:rgba(0,0,0,calc(.04 * var(--bubble-opacity)));padding:10px 14px}.chat-bubble--user{background:rgba(0,0,0,calc(.07 * var(--bubble-opacity)));padding:10px 14px}`;
 
 /**
  * 快速配色表：键 = 配色名（存 settings.quickTheme，显示为圆点 title），

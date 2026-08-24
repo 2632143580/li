@@ -27,9 +27,10 @@
     /* 分句泡同时带 .chat-bubble--ai 语义钩子：主题插件对普通 AI 气泡与分句泡统一上色（PLUGIN_CONTRACT.md） */
 }
 
-/* 无主题激活时的默认皮肤：底色/边框从 --color-ai 派生（10% / 18% 透明度），跟随 token 系统 */
+/* 无主题激活时的默认皮肤：底色/边框从 --color-ai 派生（10% / 18% 透明度），跟随 token 系统。
+   底色吃 --bubble-opacity（消息气泡不透明度滑块，只缩放底色 alpha、边框文字不变；消费模式见 tokens.css） */
 body:not(.theme-active) .chat-bubble--ai {
-    background: color-mix(in srgb, var(--color-ai) 10%, transparent);
+    background: color-mix(in srgb, var(--color-ai) calc(10% * var(--bubble-opacity)), transparent);
     border: 1px solid color-mix(in srgb, var(--color-ai) 18%, transparent);
     padding: 10px 14px;
 }

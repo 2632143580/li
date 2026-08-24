@@ -45,8 +45,11 @@ export function mountImage(src) {
             // 应用已保存的缩放/平移
             applyBgTransform(pluginState.bgTransform || { scale: 1, xPct: 0, yPct: 0 });
         },
-        // animate 置空：遮罩已是 CSS 合成层，无需 Canvas 每帧重绘
+        // animate 置空：遮罩已是 CSS 合成层，无需 Canvas 每帧重绘。
+        // noFrame 自声明静态插件：BgEngine 见此标志不启动 rAF 循环——
+        // 否则挂图片背景后引擎会以 30fps 空转（每帧 clearRect 全屏 + 调空 animate），纯浪费 GPU/主线程。
         animate: function () {},
+        noFrame: true,
         onUnmount: function () {
             DOM.bgImgLayer.style.display = 'none';
             DOM.bgImgLayer.removeAttribute('src');

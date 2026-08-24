@@ -35,7 +35,13 @@
     "blackAlpha": ["--black-a20", "--black-a30", "--black-a50", "--black-a60"],
     "input": ["--input-ring-normal", "--input-ring-waiting", "--input-line", "--input-dot", "--input-text", "--input-cursor"],
     "bg": ["--bg-modal", "--bg-select", "--bg-input", "--modal-elevation"],
-    "status": ["--status-send", "--status-cache", "--status-warn", "--status-error", "--status-bar-ok", "--status-bar-warn", "--status-bar-danger"]
+    "status": ["--status-send", "--status-cache", "--status-warn", "--status-error", "--status-bar-ok", "--status-bar-warn", "--status-bar-danger"],
+    "bubble": ["--bubble-opacity"]
+  },
+  "bubbleOpacityRule": {
+    "token": "--bubble-opacity",
+    "pattern": "calc(α * var(--bubble-opacity))",
+    "note": "主题给 .chat-bubble--ai/--user 写底色时，alpha 一律用 calc(α * var(--bubble-opacity)) 包一层（例 rgba(255,255,255,calc(.06 * var(--bubble-opacity)))），才能吃「消息气泡不透明度」滑块；宿主由 tree.js applyBubbleOpacity 写入该 token。"
   },
   "maintainer": "改 src/styles/tokens.css 的 :root 或 tree.js 的气泡类名后，必须同步本文件与 PLUGIN_CONTRACT.md"
 }

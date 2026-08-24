@@ -38,6 +38,12 @@ export const BgEngine = {
             hiddenInput: DOM.hiddenInput
         };
         this.setupOverlayWatch();
+        // 切后台/回前台：后台 rAF 本就被浏览器节流到 ~0，但回调仍会周期性唤醒主线程。
+        // 彻底 cancel 掉，回前台按需重启（零视觉损失：后台本就看不见）。
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) this.pauseLoop();
+            else this.resumeLoop();
+        });
         return this;
     },
 
@@ -56,6 +62,9 @@ export const BgEngine = {
         const overlays = '.modal-overlay, #fs-editor';
         const recompute = () => {
             this.overlayDirty = true;
+            // 遮罩可能刚关闭（背景重新可见）：循环在遮罩打开时已被彻底 cancel，这里拉回。
+            // 若遮罩仍是开的 / 循环在跑 / 无动画插件，resumeLoop 自身会全部拦下，幂等。
+            this.resumeLoop();
         };
         if (typeof MutationObserver !== 'undefined') {
             this._overlayMO = new MutationObserver(recompute);
@@ -132,7 +141,7 @@ export const BgEngine = {
             Logger.error(`[BgEngine] 背景插件初始化失败（onMount/init 抛错）：${e?.message || e}`);
             return false;   // 初始化失败：上报 false，调用方据以判失败并回滚
         }
-        if (!this.animationId) this.startLoop();
+        if (!this.animationId && plugin.noFrame !== true) this.startLoop();
         return true;
     },
 
@@ -159,9 +168,8 @@ export const BgEngine = {
         // 插件自管(custom_image 的 onUnmount 已恢复为 ''），引擎不碰外部 DOM。
         this.activePlugins.splice(index, 1);
 
-        // 仅当无任何 Canvas 插件时停止渲染循环(DOM 插件不参与 Canvas 循环)
-        const hasCanvasPlugin = this.activePlugins.some(p => p.pluginObj.type !== 'dom');
-        if (!hasCanvasPlugin && this.animationId) {
+        // 仅当无任何逐帧动画插件时停止渲染循环（DOM 插件与 noFrame 静态插件都不占 Canvas 循环）
+        if (!this._hasAnimator() && this.animationId) {
             cancelAnimationFrame(this.animationId);
             this.animationId = null;
             this.ctx.clearRect(0, 0, W, H);
@@ -177,23 +185,54 @@ export const BgEngine = {
         }
     },
 
+    /** 是否存在需要逐帧重绘的 Canvas 插件（DOM 型与自声明 noFrame 的静态型不算） @returns {boolean} */
+    _hasAnimator() {
+        return this.activePlugins.some(p => p.pluginObj.type !== 'dom' && p.pluginObj.noFrame !== true);
+    },
+
+    /** 彻底停轮（cancel rAF，保留画布最后一帧，恢复时接着画） @returns {void} */
+    pauseLoop() {
+        if (this.animationId) {
+            cancelAnimationFrame(this.animationId);
+            this.animationId = null;
+        }
+    },
+
+    /** 按需重启循环：仅在「无循环 + 设置允许 + 页面可见 + 无遮罩 + 有动画插件」全满足时拉起 @returns {void} */
+    resumeLoop() {
+        if (this.animationId) return;
+        if (state.settings.bgAnimation === false) return;
+        if (document.hidden) return;
+        if (!this._hasAnimator()) return;
+        this.refreshOverlayState();
+        if (this.overlayOpen) return;
+        this.startLoop();
+    },
+
     /** 启动渲染循环 — 每帧调用所有活跃插件的 animate */
     startLoop() {
+        if (this.animationId) return;               // 防重：已有循环在跑（避免双循环叠加双倍帧回调）
         if (state.settings.bgAnimation === false) return;
+        if (!this._hasAnimator()) return;           // 无逐帧插件：启动即空转，直接不启
         // 节流目标帧率：背景动画是缓变装饰，无需跟随 60/120Hz 屏幕刷新率全速重绘。
         // 移动端常态把填充率开销直接减半（60→30fps），肉眼几乎无差别。
         const targetFps = 30;
         const minDelta = 1000 / targetFps;
         let last = -Infinity;
         const loop = (t) => {
-            // 冻结条件：① 页面不可见（切后台/锁屏）整轮跳过，避免后台空转；
-            // ② 全屏遮罩打开——遮罩背后背景动画完全不可见，且遮罩带整屏 backdrop-filter 模糊，
-            //    背景动画每帧变动会逼浏览器每帧重算模糊（常态 GPU 占大头却看不见的「大面」开销）。
-            //    冻结后模糊只算一次，零视觉损失。遮罩状态由 MutationObserver 惰性侦测（见 setupOverlayWatch）。
-            // 两种情况下都保留画布最后一帧（不 clearRect），恢复时立即接着画。
+            // 冻结条件：① 页面不可见（切后台/锁屏）② 全屏遮罩打开——遮罩背后背景动画完全不可见，
+            //    且遮罩带整屏 backdrop-filter 模糊，背景动画每帧变动会逼浏览器每帧重算模糊
+            //    （常态 GPU 占大头却看不见的「大面」开销）。冻结后模糊只算一次，零视觉损失。
+            // 遮罩状态由 MutationObserver 惰性侦测（见 setupOverlayWatch）。
+            // 冻结即彻底 cancel 本轮（不再空转 rAF 回调）；恢复由 visibilitychange / 遮罩关闭回调
+            // 里的 resumeLoop() 按需拉起。两种冻结都保留画布最后一帧（不 clearRect），恢复立即接着画。
             this.refreshOverlayState();
             const blocked = document.hidden || this.overlayOpen;
-            if (!blocked && t - last >= minDelta) {
+            if (blocked) {
+                this.animationId = null;
+                return;
+            }
+            if (t - last >= minDelta) {
                 last = t;
                 this.ctx.clearRect(0, 0, W, H);
                 for (const p of this.activePlugins) {
