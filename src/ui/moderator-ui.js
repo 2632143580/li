@@ -1,147 +1,40 @@
-/**
- * 禁止词引擎 UI（轻量气泡版，副作用模块——import 即完成 DOM 创建与事件绑定）
- *
- * 职责：右下角（输入框右侧）极简入口图标 → 轻量气泡配置面板（词库 + 前缀模板）；
- *       AI 回复命中时弹触发提示条，点「应用前缀」直接把前缀预填进输入框供用户编辑。
- *       全程无模态框遮挡、不侵入发送逻辑（前缀只是普通文本进输入框，发什么就是什么）。
- *
- * 导出：无（副作用导入）
- * 依赖：engines/moderator-engine、core/bus、core/dom、ui/input-manager、ui/input-renderer
- */
 import { moderator } from '../engines/moderator-engine.js';
 import { bus, EVENTS } from '../core/bus.js';
 import { DOM } from '../core/dom.js';
 import { inputManager } from './input-manager.js';
 import { inputRenderer } from './input-renderer.js';
 
-// ============ 样式（就近内联，不拆 style 文件——单文件构建下 style.css 会被整体内联，此处也遵循同样做法） ============
 const style = document.createElement('style');
 style.textContent = `
-    /* 右下角入口图标（紧贴输入框右侧，bottom 与输入框基线对齐附近；与全屏编辑器入口 fs-trigger-btn 水平错开不重叠）
-       主题阶：--white-aXX 深色=白 alpha / 浅色=黑 alpha，跟随主题自动翻转（禁硬编码字面量） */
-    #mod-trigger-btn {
-        position: fixed; bottom: 15px; right: 50px;
-        width: 24px; height: 24px; color: var(--white-a60);
-        cursor: pointer; z-index: 10; display: flex; align-items: center; justify-content: center;
-    }
-    #mod-trigger-btn:hover { color: var(--white-a90); }
-    /* 轻量气泡配置面板：固定定位浮于输入框上方，非模态不遮全屏（背景/文字全部走主题变量，深浅自动适配） */
-    #mod-pop {
-        position: fixed; bottom: 45px; right: 10px;
-        width: 280px; background: var(--bg-select); color: var(--white-a90);
-        border: 1px solid var(--white-a10); border-radius: 8px; padding: 12px;
-        z-index: 20; box-shadow: 0 8px 24px rgba(0,0,0,0.4);
-        display: none; flex-direction: column; gap: 10px;
-    }
-    #mod-pop.show { display: flex; }
-    #mod-pop textarea {
-        width: 100%; background: var(--white-a03); color: inherit;
-        border: 1px solid var(--white-a10); border-radius: 4px; padding: 6px;
-        box-sizing: border-box; font-size: 13px; resize: none; font-family: inherit;
-    }
-    #mod-pop .mod-label { font-size: 12px; color: var(--white-a50); margin-bottom: 2px; display:block; }
-    #mod-pop .mod-actions { display: flex; justify-content: space-between; align-items: center; }
-    #mod-pop .mod-save { background: var(--color-accent); color: var(--color-bg); border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 12px; }
-    /* 触发提示条：命中时浮在气泡上方，含「应用前缀」与「关闭」两个动作 */
-    #mod-hint {
-        position: fixed; bottom: 65px; right: 10px;
-        background: var(--color-user-bright); color: var(--color-bg); border-radius: 8px; padding: 6px 10px;
-        font-size: 12px; display: none; align-items: center; gap: 8px;
-        z-index: 15; box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-    }
-    #mod-hint.show { display: flex; }
-    #mod-hint .mh-apply { background: var(--status-error); color: var(--white-a95); border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-weight: bold; }
-    #mod-hint .mh-close { background: transparent; border: none; color: inherit; cursor: pointer; font-size: 14px; padding: 0; line-height: 1; }
+#mod-trigger-btn,#mod-prefix-btn{position:fixed;bottom:15px;z-index:30;display:flex;align-items:center;justify-content:center;border:1px solid var(--white-a10);background:var(--bg-select);color:var(--white-a80);border-radius:8px;cursor:pointer;box-shadow:0 4px 16px rgba(0,0,0,.25)}
+#mod-trigger-btn{right:12px;width:30px;height:30px}#mod-prefix-btn{right:50px;height:30px;padding:0 10px;font-size:12px}#mod-trigger-btn:hover,#mod-prefix-btn:hover{color:var(--color-accent);border-color:var(--color-accent)}
+#mod-pop,#mod-panel{position:fixed;background:var(--bg-select);color:var(--white-a90);border:1px solid var(--white-a10);box-shadow:0 12px 36px rgba(0,0,0,.45);z-index:40}
+#mod-pop{right:10px;bottom:52px;width:280px;padding:12px;border-radius:10px;display:none;gap:10px;flex-direction:column}#mod-pop.show{display:flex}
+#mod-panel{inset:8vh 8vw;max-width:900px;margin:auto;border-radius:14px;display:none;flex-direction:column;overflow:hidden}#mod-panel.show{display:flex}
+.mod-head,.mod-foot{padding:14px 18px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--white-a10)}.mod-foot{border-top:1px solid var(--white-a10);border-bottom:0;justify-content:flex-end;gap:8px}.mod-body{padding:18px;overflow:auto;display:flex;flex-direction:column;gap:16px}.mod-grid{display:grid;grid-template-columns:1.2fr .8fr;gap:16px}.mod-card{border:1px solid var(--white-a10);border-radius:10px;padding:14px;display:flex;flex-direction:column;gap:10px}.mod-title{font-weight:700;font-size:15px}.mod-muted{color:var(--white-a50);font-size:12px}.mod-input,.mod-select,.mod-textarea{width:100%;box-sizing:border-box;background:var(--white-a03);color:inherit;border:1px solid var(--white-a10);border-radius:6px;padding:8px;font:inherit}.mod-textarea{resize:vertical}.mod-row{display:flex;gap:8px;align-items:center}.mod-row>*{min-width:0}.mod-rule{display:flex;gap:8px;align-items:center;padding:9px;border:1px solid var(--white-a10);border-radius:7px}.mod-rule span:first-child{flex:1;overflow-wrap:anywhere}.mod-btn{background:var(--color-accent);color:var(--color-bg);border:0;border-radius:6px;padding:8px 12px;cursor:pointer;font-size:12px}.mod-btn.secondary{background:var(--white-a10);color:inherit}.mod-close{background:transparent;border:0;color:inherit;font-size:20px;cursor:pointer}.mod-hits{font-size:12px;color:var(--status-error)}
+@media(max-width:600px){#mod-panel{inset:0;border-radius:0}.mod-grid{grid-template-columns:1fr}.mod-body{padding:12px}#mod-prefix-btn{right:48px}}
 `;
 document.head.appendChild(style);
 
-// ============ DOM 结构 ============
-// 入口图标：圆圈 + 斜杠（禁止语义），线条最少
-const btn = document.createElement('div');
-btn.id = 'mod-trigger-btn';
-btn.innerHTML = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><line x1="6" y1="18" x2="18" y2="6"></line></svg>`;
-document.body.appendChild(btn);
-
-// 气泡配置面板：两个 textarea（词库批量粘贴 / 前缀模板）+ 保存按钮 + 词数统计
-const pop = document.createElement('div');
-pop.id = 'mod-pop';
-pop.innerHTML = `
-    <div>
-        <label class="mod-label">禁止词/句 (逗号或换行分隔)</label>
-        <textarea id="mod-words-input" rows="4" placeholder="输入词句，换行或逗号分隔"></textarea>
-    </div>
-    <div>
-        <label class="mod-label">前缀模板 (可用 {words} 代指命中的词)</label>
-        <textarea id="mod-prefix-input" rows="3"></textarea>
-    </div>
-    <div class="mod-actions">
-        <span style="font-size: 10px; opacity: 0.5;">已记录 <span id="mod-count"></span> 个词</span>
-        <button class="mod-save" id="mod-save-btn">保存</button>
-    </div>
-`;
-document.body.appendChild(pop);
-
-// 触发提示条：展示命中词 + 应用/关闭按钮
-const hint = document.createElement('div');
-hint.id = 'mod-hint';
-hint.innerHTML = `
-    <span>触发: <span id="mod-hit-words" style="color:#d20; font-weight:bold;"></span></span>
-    <button class="mh-apply">应用前缀</button>
-    <button class="mh-close">&times;</button>
-`;
-document.body.appendChild(hint);
-
-// ============ 逻辑绑定 ============
-/** 最近一次命中的词条（「应用前缀」按钮读取用） @type {Array<{word:string, count:number}>} */
+const trigger = document.createElement('button'); trigger.id = 'mod-trigger-btn'; trigger.setAttribute('aria-label', '打开禁词管理'); trigger.innerHTML = '⌁'; document.body.appendChild(trigger);
+const prefix = document.createElement('button'); prefix.id = 'mod-prefix-btn'; prefix.textContent = '应用前缀'; prefix.setAttribute('aria-label', '应用最近命中的前缀'); document.body.appendChild(prefix);
+const pop = document.createElement('div'); pop.id = 'mod-pop'; pop.innerHTML = '<div class="mod-title">禁词状态</div><div id="mod-status" class="mod-muted"></div><button class="mod-btn" id="mod-open">打开独立面板</button>'; document.body.appendChild(pop);
+const panel = document.createElement('section'); panel.id = 'mod-panel'; panel.setAttribute('aria-label', '禁词管理面板'); panel.innerHTML = `
+<div class="mod-head"><div><div class="mod-title">禁词管理</div><div class="mod-muted">仅扫描 AI 回复；测试文本不会进入真实流程</div></div><button class="mod-close" id="mod-close" aria-label="关闭">×</button></div>
+<div class="mod-body"><div class="mod-grid"><div class="mod-card"><div class="mod-title">词库规则</div><div class="mod-row"><input class="mod-input" id="mod-word" placeholder="输入词条或通配模式"><select class="mod-select" id="mod-mode"><option value="contains">普通包含</option><option value="wildcard">通配符 * ?</option></select><button class="mod-btn" id="mod-add">添加</button><button class="mod-btn secondary" id="mod-add-temp">临时添加</button></div><div class="mod-muted">* 匹配任意长度，? 匹配单个字符；其他字符按原文匹配。</div><input class="mod-input" id="mod-search" placeholder="搜索词库"><div id="mod-list"></div></div><div class="mod-card"><div class="mod-title">前缀设置</div><textarea class="mod-textarea" id="mod-prefix" rows="5"></textarea><div class="mod-muted">使用 {words} 插入命中的词条。前缀只会写入输入框，不会自动发送。</div><button class="mod-btn" id="mod-save">保存设置</button><div class="mod-title">规则测试</div><textarea class="mod-textarea" id="mod-test" rows="4" placeholder="粘贴一段 AI 回复进行测试"></textarea><button class="mod-btn secondary" id="mod-run">测试识别</button><div id="mod-result" class="mod-hits"></div></div></div></div><div class="mod-foot"><button class="mod-btn secondary" id="mod-clear">清空临时词</button></div>`; document.body.appendChild(panel);
 let lastHits = [];
-
-// 打开气泡：同步词库与模板到输入框，然后切换显示
-btn.onclick = () => {
-    document.getElementById('mod-words-input').value = moderator.getWordsString();
-    document.getElementById('mod-prefix-input').value = moderator.prefixTemplate;
-    document.getElementById('mod-count').textContent = moderator.words.length;
-    pop.classList.toggle('show');
-};
-
-// 保存：批量解析词库 → 存模板 → 刷新计数并关闭气泡
-document.getElementById('mod-save-btn').onclick = () => {
-    const wordsText = document.getElementById('mod-words-input').value;
-    moderator.syncWordsByText(wordsText);
-    moderator.prefixTemplate = document.getElementById('mod-prefix-input').value || '（警告：已触发禁止词「{words}」，请更换表达方式）';
-    moderator.save();
-    document.getElementById('mod-count').textContent = moderator.words.length;
-    pop.classList.remove('show');
-};
-
-// 引擎命中事件：展示命中词并弹出提示条
-bus.on(EVENTS.MODERATOR_HIT, (hits) => {
-    lastHits = hits;
-    document.getElementById('mod-hit-words').textContent = hits.map(h => h.word).join(', ');
-    hint.classList.add('show');
-});
-
-// 应用前缀：非破坏式注入——前缀 + 换行拼到输入框当前文本前，用户可自由编辑，发送时自然带着走
-hint.querySelector('.mh-apply').onclick = () => {
-    if (lastHits.length === 0) return;             // 无命中词不生成（理论上提示条可见必有命中，防御性兜底）
-    const prefix = moderator.generatePrefix(lastHits);
-    const currentText = inputManager.text;         // 取当前输入文本（渲染器的文本来源）
-    DOM.hiddenInput.value = prefix + '\n' + currentText; // 同步写回隐藏输入框（其 value 才是真实输入值）
-    inputManager.text = DOM.hiddenInput.value;     // 同步 text，供渲染器读取显示
-    inputManager.composing = false;                // 若正处 IME 组合，重置组合态，防止组合文本叠加到新前缀上
-    inputManager.compData = '';                    // 清残留组合文本（composing=false 后不再被渲染，但保持状态干净）
-    inputRenderer.markDirty();                     // 置脏触发 Canvas 重绘，立即显示新文本
-    DOM.hiddenInput.focus();                       // 聚焦让用户立刻修改或继续写正文
-    hint.classList.remove('show');                 // 关闭提示条，避免重复应用
-};
-
-// 关闭提示条
-hint.querySelector('.mh-close').onclick = () => {
-    hint.classList.remove('show');
-};
-
-// 点击气泡外任意处关闭气泡（不挡其它 UI 的点击）
-document.addEventListener('click', (e) => {
-    if (pop.classList.contains('show') && !pop.contains(e.target) && e.target !== btn && !btn.contains(e.target)) {
-        pop.classList.remove('show');
-    }
-});
+function renderList() { const q = document.getElementById('mod-search').value.trim().toLowerCase(); const list = document.getElementById('mod-list'); list.innerHTML = ''; moderator.words.filter((w) => w.word.toLowerCase().includes(q)).forEach((w) => { const row = document.createElement('div'); row.className = 'mod-rule'; row.innerHTML = '<span>' + w.word + '</span><span class="mod-muted">' + (w.mode === 'wildcard' ? '通配' : '包含') + ' · ' + w.count + '</span><button class="mod-close" aria-label="删除 ' + w.word + '">×</button>'; row.querySelector('button').onclick = () => { moderator.removeWord(w.word, w.mode); renderList(); updateStatus(); }; list.appendChild(row); }); }
+function updateStatus() { document.getElementById('mod-status').textContent = '已启用 ' + moderator.words.filter((w) => w.enabled).length + ' 条 · 最近命中 ' + lastHits.length + ' 条'; }
+function applyHits(hits = lastHits) { if (!hits.length) return; const text = moderator.generatePrefix(hits) + '\n' + (inputManager.text || ''); DOM.hiddenInput.value = text; inputManager.text = text; inputManager.composing = false; inputManager.compData = ''; inputRenderer.markDirty(); DOM.hiddenInput.focus(); }
+trigger.onclick = () => { pop.classList.toggle('show'); updateStatus(); };
+prefix.onclick = () => applyHits();
+document.getElementById('mod-open').onclick = () => { pop.classList.remove('show'); panel.classList.add('show'); document.getElementById('mod-prefix').value = moderator.prefixTemplate; renderList(); };
+document.getElementById('mod-close').onclick = () => panel.classList.remove('show');
+document.getElementById('mod-add').onclick = () => { const input = document.getElementById('mod-word'); if (!input.value.trim()) return; moderator.addWord(input.value, document.getElementById('mod-mode').value); input.value = ''; renderList(); updateStatus(); };
+document.getElementById('mod-add-temp').onclick = () => { const input = document.getElementById('mod-word'); if (!input.value.trim()) return; moderator.addWord(input.value, document.getElementById('mod-mode').value, true); input.value = ''; renderList(); updateStatus(); };
+document.getElementById('mod-search').oninput = renderList;
+document.getElementById('mod-save').onclick = () => { moderator.prefixTemplate = document.getElementById('mod-prefix').value || moderator.prefixTemplate; moderator.save(); updateStatus(); };
+document.getElementById('mod-run').onclick = () => { const hits = moderator.checkText(document.getElementById('mod-test').value); document.getElementById('mod-result').textContent = hits.length ? hits.map((h) => h.word + '：' + h.match.reason).join('；') : '未识别到命中'; };
+document.getElementById('mod-clear').onclick = () => { moderator.words = moderator.words.filter((w) => !w.temporary); moderator.save(); renderList(); updateStatus(); };
+bus.on(EVENTS.MODERATOR_HIT, (hits) => { lastHits = hits; updateStatus(); });
+document.addEventListener('click', (event) => { if (!pop.contains(event.target) && event.target !== trigger && !trigger.contains(event.target)) pop.classList.remove('show'); });
