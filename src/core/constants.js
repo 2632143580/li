@@ -69,18 +69,8 @@ export const DEFAULT_SETTINGS = {
     ttsAutoRead: false,       // 自动朗读：AI 回复流式生成时逐句自动播放（独立于 ttsEnabled；纯文字模式无语音条，不读）
     showReasoning: true,      // 显示思维链：AI 回复若有 reasoning_content 则在正文上方渲染可折叠「思维链」块；默认开
     reasoningAutoExpand: true, // 思维链自动展开：AI 回复后思维链默认展开（关闭则默认折叠、可手动展开）；默认开
-    showEcgWave: true,        // 思维链头部「波形监护仪」显示开关（UI 控件现位于组件页 component-switcher，原设置页开关已迁入）。用户定义：『心电图』=波形(右侧 canvas 监护仪)，不含左侧 love.svg 爱心。
-    thinkIconStyle: 'ecg',    // 【已废弃】旧图标风格 ecg/minimal，现统一由 thinkIconProvider 决定；保留仅为兼容旧存档（minimal→kimi）
-    thinkIconProvider: 'ecg', // 组件来源：ecg（医疗监护仪：爱心+心电canvas）/ glm（双线流光：track+flow）/ kimi（单线流光：单path脉冲）
-    ecgEmotion: 'calm',       // 默认情绪：calm / excited / sad / thinking
-    ecgSize: 'md',             // 心电图尺寸：xs / sm / md / lg / xl；由组件切换 Sheet 控制
-                               //   默认开；关闭只去掉右侧波形，左侧爱心(与折叠头一体)恒显示。
+    // 思维链头部仅爱心图标（三种波形组件及性能开关已于 2026-08-25 整体移除）
 
-    // 性能控制开关（组件切换页）
-    ecgAnimation: true,        // 心电图动画：false=静态波形，不跑rAF循环
-    ecgGlow: true,             // 波形辉光：false=去掉shadowBlur，降低GPU负载
-    historyEcg: true,          // 历史消息心电图动画：false=仅当前消息动画，历史消息静态
-    ecgHalfRate: false,        // 心电图 30fps 省电模式：true=隔帧绘制+步进×2补偿（扫描速度视觉不变，绘制次数减半）
     bgAnimation: true,         // 背景动画：false=停止BgEngine rAF循环
     bgCanvas: true,            // 背景画布：false=隐藏全屏Canvas，释放GPU内存
 

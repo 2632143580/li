@@ -21,7 +21,6 @@ import { cancelPendingStream } from '../ui/render/tree-render.js';
 import { resetTileTracking } from '../ui/voice-tiles.js';
 import { clearAutoQueue } from '../engines/tts-engine.js';
 import { inputManager } from '../ui/input-manager.js';
-import { inputRenderer } from '../ui/input-renderer.js';
 import { DOM } from '../core/dom.js';
 import { closeAllModals } from '../core/modal.js';
 
@@ -35,14 +34,12 @@ function restoreDraft(draft) {
     const t = draft || '';
     inputManager.text = t;
     if (DOM.hiddenInput) DOM.hiddenInput.value = t;
-    inputRenderer.markDirty();
 }
 
 /** 清空输入框。 */
 function clearInput() {
     inputManager.text = '';
     if (DOM.hiddenInput) DOM.hiddenInput.value = '';
-    inputRenderer.markDirty();
 }
 
 /**

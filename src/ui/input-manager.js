@@ -4,14 +4,31 @@
  * 职责：管理隐藏输入框的焦点状态、IME 组合输入、回车发送；并提供全屏编辑器开关。
  *       inputManager.text 是渲染器读取的输入文本来源。
  *
- * 导出：inputManager, openFSEditor, alignIcons, currentAlign, bindFsEditorEvents
- * 依赖：core/dom, ui/input-renderer, engines/bg-engine, chat/tree（sendMessage）
+ * 导出：inputManager, openFSEditor, alignIcons, currentAlign, bindFsEditorEvents, updateInputLayout
+ * 依赖：core/dom, engines/bg-engine, chat/tree（sendMessage）
  */
-import { DOM } from '../core/dom.js';
+import { DOM, W, H } from '../core/dom.js';
 import { openModal, closeAllModals } from '../core/modal.js';
-import { inputRenderer } from './input-renderer.js';
 import { BgEngine } from '../engines/bg-engine.js';
 import { sendMessage } from '../chat/tree.js';
+
+/**
+ * 更新输入框位置和尺寸（随视口变化）。
+ * 原 Canvas 输入渲染器（呼吸圆环+输入线）已移除，此函数仅负责 #hiddenInput 的 DOM 定位。
+ * @returns {void}
+ */
+export function updateInputLayout() {
+    const startX = 40;
+    const y = H - 45;
+    const maxLen = W - 40 - 60;
+    DOM.hiddenInput.style.left = startX + "px";
+    DOM.hiddenInput.style.top = (y - 15) + "px";
+    DOM.hiddenInput.style.width = maxLen + "px";
+    DOM.hiddenInput.style.height = "30px";
+    DOM.hiddenInput.style.fontSize = '16px'; // 字号设置已移除（2026-08-16），固定默认 16px
+    DOM.hiddenInput.style.fontFamily = "Georgia, 'KaiTi', serif";
+    DOM.hiddenInput.style.paddingLeft = "12px";
+}
 
 /** 输入管理器单例 @type {object} */
 export const inputManager = {
@@ -28,30 +45,24 @@ export const inputManager = {
     init() {
         DOM.hiddenInput.addEventListener("focus", () => {
             this.focused = true;
-            inputRenderer.markDirty();
         });
         DOM.hiddenInput.addEventListener("blur", () => {
             this.focused = false;
-            inputRenderer.markDirty();
         });
         DOM.hiddenInput.addEventListener("compositionstart", () => {
             this.composing = true;
-            inputRenderer.markDirty();
         });
         DOM.hiddenInput.addEventListener("compositionupdate", (e) => {
             this.compData = e.data;
-            inputRenderer.markDirty();
         });
         DOM.hiddenInput.addEventListener("compositionend", () => {
             this.composing = false;
             this.compData = "";
             this.text = DOM.hiddenInput.value;
-            inputRenderer.markDirty();
         });
         DOM.hiddenInput.addEventListener("input", () => {
             if (!this.composing) {
                 this.text = DOM.hiddenInput.value;
-                inputRenderer.markDirty();
             }
         });
         DOM.hiddenInput.addEventListener("keydown", (e) => {

@@ -22,7 +22,7 @@ export function bindGlobalEvents() {
 
     // 点击底部区域聚焦输入框
     window.addEventListener('click', (e) => {
-        if (e.target.id !== 'chat' && e.target.id !== 'bg' && e.target.id !== 'ui-canvas') return;
+        if (e.target.id !== 'chat' && e.target.id !== 'bg') return;
         if (e.clientY > H - 80) DOM.hiddenInput.focus();
     });
 

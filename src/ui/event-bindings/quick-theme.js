@@ -58,7 +58,7 @@ function mountScheme(scheme, id) {
 /**
  * 应用快速配色（唯一槽位）：
  * 1. 若已有快速配色主题挂着 → 先 ThemeEngine.unmount（避免多组配色叠加打架）
- * 2. 用该组 tokens 包装成主题对象 → ThemeEngine.register + mount（与用户主题插件同通道，updateInputColors 自动刷新输入框）
+ * 2. 用该组 tokens 包装成主题对象 → ThemeEngine.register + mount（与用户主题插件同通道）
  * 3. 持久化 settings.quickTheme（storage 白名单自动纳入）+ 刷新色块高亮
  * @param {string} name - QUICK_THEMES 的键（配色名）
  * @returns {boolean} 是否应用成功（QUICK_THEMES 无此键返回 false）
@@ -94,24 +94,6 @@ export function applyCustomScheme(id) {
     saveToLocal(null, true);
     refreshHighlights();
     return true;
-}
-
-/**
- * 恢复默认主题（原版 tokens.css，无任何配色挂载）：
- * 卸载当前配色（ThemeEngine.unmount 会 removeProperty 还原 tokens.css 默认值）
- * + 清空快速/自定义激活态与持久化。
- * @returns {void}
- */
-export function applyDefaultTheme() {
-    if (activeQuickThemeId) {
-        ThemeEngine.unmount(activeQuickThemeId);
-        activeQuickThemeId = null;
-    }
-    state.settings.quickTheme = null;
-    activeCustomId = null;
-    saveCustomSchemes(null);
-    saveToLocal('已恢复默认主题');
-    refreshHighlights();
 }
 
 // ================================================================
@@ -326,18 +308,13 @@ function renderQuickThemePalette() {
     const palette = DOM.quickThemePalette;
     if (!palette) return;
     palette.innerHTML = '';
-    // 默认主题圆点（恢复原版 tokens.css，无任何配色挂载；swatch = tokens.css :root 默认基色）
-    const defDot = document.createElement('div');
-    defDot.className = 'qt-dot qt-default';
-    defDot.dataset.default = '1';
-    defDot.style.background = '#080b14';
-    palette.appendChild(defDot);
     // 内置配色
     for (const [name, theme] of Object.entries(QUICK_THEMES)) {
         const dot = document.createElement('div');
         dot.className = 'qt-dot';
         dot.dataset.qt = name;
-        dot.style.background = theme.swatch;
+        dot.style.setProperty('--swatch', theme.swatch);
+        dot.title = name;
         palette.appendChild(dot);
     }
     // 自定义配色
@@ -345,7 +322,8 @@ function renderQuickThemePalette() {
         const dot = document.createElement('div');
         dot.className = 'qt-dot qt-custom';
         dot.dataset.cs = scheme.id;
-        dot.style.background = scheme.swatch;
+        dot.style.setProperty('--swatch', scheme.swatch);
+        dot.title = scheme.name;
         // 右键二次确认删除：trigger=contextmenu，避免与「左键点击=应用配色」冲突
         armClickConfirm(dot, () => deleteCustomScheme(scheme.id), { trigger: 'contextmenu', armedText: '再次点击删除（右键）' });
         palette.appendChild(dot);
@@ -366,8 +344,7 @@ function refreshHighlights() {
     if (!palette) return;
     palette.querySelectorAll('.qt-dot').forEach(d => {
         let active = false;
-        if (d.dataset.default) active = !state.settings.quickTheme && !activeCustomId;
-        else if (d.dataset.qt) active = d.dataset.qt === state.settings.quickTheme;
+        if (d.dataset.qt) active = d.dataset.qt === state.settings.quickTheme;
         else if (d.dataset.cs) active = d.dataset.cs === activeCustomId;
         d.classList.toggle('active', active);
     });
@@ -586,7 +563,6 @@ export function bindQuickThemeEvents() {
     palette.addEventListener('click', (e) => {
         const dot = e.target.closest('.qt-dot');
         if (!dot) return;
-        if (dot.dataset.default) { applyDefaultTheme(); return; }
         if (dot.dataset.add) { openCustomSchemeModal(); return; }
         if (dot.dataset.cs) { applyCustomScheme(dot.dataset.cs); return; }
         if (dot.dataset.qt) { applyQuickTheme(dot.dataset.qt); }

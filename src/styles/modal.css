@@ -26,12 +26,11 @@ body.modal-open { overflow: hidden; }
    直接锁 #chat，模态框关闭时随 body.modal-open 移除自动恢复。 */
 body.modal-open #chat { overflow: hidden !important; }
 
-/* 底部输入层穿透根治：#ui-canvas（z-index:3）画着呼吸圆环+输入线，#hiddenInput（z-index:10）
+/* 底部输入层穿透根治：#hiddenInput（z-index:10）
    可被 tap 聚焦弹键盘。模态遮罩 z-index:100 虽在它们之上，但背景是 60% 半透明黑（--black-a60），
   输入画布的亮色图形透过 40% 透明度仍可见。其他面板 sheet-body 高、恰好盖住底部输入区没暴露此问题；
   消息导航或组件切换内容少时 sheet-body 矮，底部输入图形从遮罩下方透出。
    根治：模态打开时直接隐藏 Canvas 输入层和隐藏输入框，关闭后随 class 移除自动恢复。 */
-body.modal-open #ui-canvas,
 body.modal-open #hiddenInput { visibility: hidden; }
 
 /* 模态框打开时暂停背后的全部 CSS 动画（背后被全屏 overlay 遮住不可见，暂停零视觉损失）：

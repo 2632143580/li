@@ -4,7 +4,7 @@
  * 职责：统一收口所有 getElementById，避免散落各处的 DOM 查询；
  *       提供视口尺寸 W/H 的活绑定（setViewport 重载），供跨模块只读读取。
  *
- * 导出：DOM, uiCtx, W, H, setViewport
+ * 导出：DOM, W, H, setViewport
  * 依赖：无（最底层视图层，不 import 任何业务模块）
  */
 
@@ -14,7 +14,7 @@ export const DOM = {};
 (function buildDOMCache() {
     // 原单文件 buildDOMCache 的 id 清单，逐字保留以保证与 index.html 的 id 对齐
     const ids = [
-        'bg', 'bg-img-layer', 'bg-dim-layer', 'bg-dom-layer', 'chat', 'ui-canvas', 'hiddenInput', 'save-indicator',
+        'bg', 'bg-img-layer', 'bg-dim-layer', 'bg-dom-layer', 'chat', 'hiddenInput', 'save-indicator',
         'top-msg-count', 'cache-status', 'cache-hit-val', 'context-menu',
         'settings-icon', 'modal', 'modal-close', 'modal-cancel',
         'set-apiUrl', 'set-apiKey', 'set-model-text',
@@ -34,7 +34,7 @@ export const DOM = {};
         'bg-modal', 'btn-bg-plugin', 'bg-modal-close', 'plugin-list-container', 'theme-list-container',
         'fs-editor', 'fs-textarea', 'fs-title', 'fs-confirm', 'fs-cancel',
         'fs-trigger-btn', 'fs-align-btn',
-        'btn-comp-switch', 'btn-msg-nav', 'btn-clear-chat', 'btn-import-all', 'btn-export-all',
+        'btn-msg-nav', 'btn-clear-chat', 'btn-import-all', 'btn-export-all',
         'btn-tts-toggle',
         // 语音设置模态框（云端唯一语音源：系统语音/语速/概率预设已移除）
         'voice-modal', 'voice-modal-close', 'voice-modal-cancel',
@@ -68,9 +68,6 @@ export const DOM = {};
         DOM[camelKey] = document.getElementById(id);
     }
 })();
-
-/** UI 画布 2D 上下文，供输入渲染器（drawInputArea）绘制呼吸圆环与文本。 @type {CanvasRenderingContext2D} */
-export const uiCtx = DOM.uiCanvas.getContext("2d");
 
 /**
  * 视口尺寸（CSS 像素）。以 let 导出实现「活绑定」：

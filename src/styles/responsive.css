@@ -10,6 +10,12 @@
     .modal-content { width: 94%; padding: 18px; }
     .compact-grid { gap: 10px; }
     #fs-textarea { font-size: 16px; }
+    /* 色块选择器：窄屏缩小触控容器到 36px（仍满足 ≥36px 最低标准），
+       适配 tb-body 竖向布局宽度限制 */
+    .qt-dot { width: 36px; height: 36px; }
+    .qt-dot::before { width: 14px; height: 14px; }
+    .qt-dot.qt-add::before { width: 24px; height: 24px; }
+    .qt-palette { gap: 4px; padding: 2px 4px; }
 }
 
 /* ====================== 无障碍：减少动效 ====================== */

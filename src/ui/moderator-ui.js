@@ -6,13 +6,12 @@
  *       全程无模态框遮挡、不侵入发送逻辑（前缀只是普通文本进输入框，发什么就是什么）。
  *
  * 导出：无（副作用导入）
- * 依赖：engines/moderator-engine、core/bus、core/dom、ui/input-manager、ui/input-renderer
+ * 依赖：engines/moderator-engine、core/bus、core/dom、ui/input-manager
  */
 import { moderator } from '../engines/moderator-engine.js';
 import { bus, EVENTS } from '../core/bus.js';
 import { DOM } from '../core/dom.js';
 import { inputManager } from './input-manager.js';
-import { inputRenderer } from './input-renderer.js';
 
 // ============ 样式（就近内联，不拆 style 文件——单文件构建下 style.css 会被整体内联，此处也遵循同样做法） ============
 const style = document.createElement('style');
@@ -129,7 +128,6 @@ hint.querySelector('.mh-apply').onclick = () => {
     inputManager.text = DOM.hiddenInput.value;     // 同步 text，供渲染器读取显示
     inputManager.composing = false;                // 若正处 IME 组合，重置组合态，防止组合文本叠加到新前缀上
     inputManager.compData = '';                    // 清残留组合文本（composing=false 后不再被渲染，但保持状态干净）
-    inputRenderer.markDirty();                     // 置脏触发 Canvas 重绘，立即显示新文本
     DOM.hiddenInput.focus();                       // 聚焦让用户立刻修改或继续写正文
     hint.classList.remove('show');                 // 关闭提示条，避免重复应用
 };

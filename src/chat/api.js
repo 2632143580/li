@@ -10,7 +10,7 @@
  * 导出：streamChat, executeStreamRequest, applyPluginCode
  * 依赖：core/logger, core/store, core/constants, core/utils, core/storage,
  *       engines/bg-engine, engines/theme-engine, hooks.json,
- *       ui/input-renderer, chat/tree, core/bus（订阅 tree 的 STREAM_REQUEST）
+ *       chat/tree, core/bus（订阅 tree 的 STREAM_REQUEST）
  * 注意：事件绑定（bind*）与背景图编辑状态（tempSettings / crop*）已迁到 ui/event-bindings，
  *       本模块不再持有 UI 事件代码，仅保留 API 与插件解析能力。
  */
@@ -23,7 +23,6 @@ import { saveToLocal, saveSession } from '../core/storage.js';
 import { BgEngine } from '../engines/bg-engine.js';
 import { ThemeEngine } from '../engines/theme-engine.js';
 import hooksData from '../../hooks.json'; // 宿主契约单一事实源：插件归因告警（通配/未命中钩子）从此读取
-import { inputRenderer } from '../ui/input-renderer.js';
 import { inputManager } from '../ui/input-manager.js';
 // 来自 tree.js 的纯函数 / 状态（循环引用安全：均为运行时调用 / 活绑定）
 // 仅保留本模块实际引用的名字；其余 tree.js 导出不再在此 import（避免死导入）。
@@ -54,7 +53,6 @@ export async function streamChat(messages, onChunk, onDone, onError, sessionId, 
     sessionId = sessionId || state.activeSessionId;
     if (!messages.some(m => m.role === 'user')) {
         clearPending(sessionId);
-        inputRenderer.markDirty();
         onError(new Error("本轮没有可发送的用户消息，无法请求模型。"));
         return;
     }
@@ -89,7 +87,6 @@ export async function streamChat(messages, onChunk, onDone, onError, sessionId, 
         // 前置校验：model 仍为空（未配置 / 手动清空 / 未拉取）→ 友好报错，绝不发空请求
         if (!model) {
             clearPending(sessionId);
-            inputRenderer.markDirty();
             onError(new Error('未配置模型：请先在设置页为该服务商选择模型后再发送。'));
             return;
         }
@@ -200,7 +197,6 @@ export async function streamChat(messages, onChunk, onDone, onError, sessionId, 
         clearTimeout(timeoutId);
         // 兜底：上面三个出口已各自置 false，此处覆盖 return/异常绕过的残余路径。重复赋值幂等无副作用。
         clearPending(sessionId);
-        inputRenderer.markDirty();
     }
 }
 
@@ -287,14 +283,12 @@ bus.on(EVENTS.STREAM_REQUEST, ({ apiMessages, aiNode, sessionId }) => {
                 Logger.error('[API] 流式处理被拒', err);
                 if (aiNode) setNodeError(aiNode, err.message || '请求处理失败');
                 clearPending(sessionId || state.activeSessionId);
-                inputRenderer.markDirty();
             });
         }
     } catch (err) {
         Logger.error('[API] 处理 STREAM_REQUEST 失败', err);
         if (aiNode) setNodeError(aiNode, err.message || '请求处理失败');
         clearPending(sessionId || state.activeSessionId);
-        inputRenderer.markDirty();
     }
 });
 /**

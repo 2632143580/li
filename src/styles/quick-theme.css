@@ -23,22 +23,30 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    cursor: pointer;
+    flex-shrink: 0;
+    -webkit-tap-highlight-color: transparent;
+}
+.qt-dot::before {
+    content: '';
     width: 16px;
     height: 16px;
     border-radius: 50%;
-    cursor: pointer;
+    background: var(--swatch, transparent);
     border: 1px solid var(--white-a30);
-    transition: transform var(--transition-fast), box-shadow var(--transition-fast);
-    flex-shrink: 0;
+    transition: transform var(--transition-fast), box-shadow var(--transition-fast), border-color var(--transition-fast);
 }
 
-.qt-dot:hover {
+.qt-dot:hover::before {
     transform: scale(1.18);
     border-color: var(--white-a60);
 }
 
 /* 选中态：白-强调双环描边（深/浅底都可见），无打勾（与描边重复，已移除） */
-.qt-dot.active {
+.qt-dot.active::before {
     box-shadow: 0 0 0 2px var(--white-a90), 0 0 0 4px var(--color-accent);
 }
 
@@ -48,18 +56,24 @@
     position: sticky;
     right: 0;
     z-index: 2;
-    border: 1px dashed var(--white-a40);
     color: var(--white-a60);
     font-size: 15px;
     font-weight: 600;
     line-height: 1;
     user-select: none;
-    /* 实心底遮挡滑到下方的色块，保证「+」区域干净可点 */
-    background: var(--color-bg, #111418);
     flex-shrink: 0;
 }
-.qt-dot.qt-add:hover {
+.qt-dot.qt-add::before {
+    width: 28px;
+    height: 28px;
+    border: 1px dashed var(--white-a40);
+    background: var(--color-bg, #111418);
+}
+.qt-dot.qt-add:hover::before {
     border-color: var(--color-accent);
+    transform: none;
+}
+.qt-dot.qt-add:hover {
     color: var(--color-accent);
 }
 

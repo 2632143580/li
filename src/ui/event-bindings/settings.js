@@ -17,7 +17,7 @@ import { showToast } from '../../core/toast.js';
 import { safeParseInt, ensureKeysObject } from '../../core/utils.js';
 import { DEFAULT_SETTINGS, DEFAULT_PROVIDER } from '../../core/constants.js';
 import { tempSettings, setTempSettings } from './temp-settings.js';
-import { updateInputLayout } from '../input-renderer.js';
+import { updateInputLayout } from '../input-manager.js';
 import {
     applySettings, checkProviderMatch, populateModelSelect,
     showModelOptions, hideModelOptions

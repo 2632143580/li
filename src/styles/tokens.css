@@ -4,12 +4,18 @@
     /* 气泡底色不透明度（0~1）：所有气泡底色以 calc(α * var(--bubble-opacity)) 消费（waifu/tts/chat.css + quick-themes 主题气泡）。
        JS 唯一写入点 = tree.js applyBubbleOpacity（tree.js 注释即契约）；此默认值仅作 JS 未执行前的兜底。 */
     --bubble-opacity: 1;
-    --color-bg: #080b14;
-    --color-user: rgba(240, 208, 160, 0.95);
-    --color-ai: rgba(170, 208, 160, 0.95);
-    --color-accent: rgba(150, 220, 130, 0.9);
-    --color-accent-soft: rgba(150, 220, 130, 0.15);
-    --color-error: rgba(255, 100, 100, 0.9);
+    /* 漆夜金主题（默认主题，原先的默认配色已由漆夜金覆盖） */
+    --color-bg: #0E1014;
+    --color-user: rgba(232,230,227,.95);
+    --color-ai: rgba(200,200,205,.95);
+    --color-accent: rgba(232,230,227,.9);
+    --color-accent-soft: rgba(232,230,227,.12);
+    --color-accent-bright: rgba(255,255,255,.9);
+    --color-accent-solid: rgba(255,255,255,1);
+    --color-accent-glow: rgba(232,230,227,.4);
+    --color-accent-dim: rgba(232,230,227,.25);
+    --color-user-bright: rgba(232,230,227,.9);
+    --color-error: rgba(229,72,77,.9);
     --radius-sm: 4px;
     --radius-md: 8px;
     --radius-lg: 12px;
@@ -49,33 +55,23 @@
     --black-a50: rgba(0, 0, 0, 0.5);
     --black-a60: rgba(0, 0, 0, 0.6);
 
-    /* 语义化强调色 */
-    --color-accent-bright: rgba(180, 240, 150, 0.9);
-    --color-accent-solid: rgba(180, 240, 150, 1);
-    --color-accent-glow: rgba(150, 220, 130, 0.5);
-    --color-accent-dim: rgba(150, 220, 130, 0.3);
-    --color-user-bright: rgba(240, 208, 160, 0.9);
-
-    /* ECG 爱心图标（ecg-heart 插件）主题令牌：委托现有双套令牌，自动随深浅主题翻转；
+    /* 爱心图标（love-icon.js）主题令牌：委托现有双套令牌，自动随深浅主题翻转；
        组件只引用此处，不改即随主题变。heart=主题色、line=底块同色镂空刻进爱心（深浅皆可见） */
     --rk-love-surface: var(--color-bg);
     --rk-love-heart: var(--color-accent-solid);
     --rk-love-line: var(--color-bg);
 
-    /* 输入框 Canvas 绘制专用变量 — 供 ThemeEngine 覆盖 */
-    --input-ring-normal: rgba(200,220,180,.15);
-    --input-ring-waiting: rgba(240, 180, 100, .25);
-    --input-line: rgba(201,127,74,.6);
-    --input-dot: rgba(212,163,115,.3);
-    --input-text: rgba(240,208,160,.95);
-    --input-cursor: rgba(240,208,160,.8);
+    /* 输入框文字色（漆夜金暖白）— #hiddenInput 文字与光标；Canvas 输入渲染已移除，
+       原 ring/line/dot 系列 Canvas 专用 token 一并删除 */
+    --input-text: rgba(232,230,227,.95);
+    --input-cursor: rgba(232,230,227,.8);
 
-    /* 语义化背景 */
-    --bg-modal: rgba(13, 16, 24, 0.95);
-    --bg-select: rgba(20, 24, 35, 0.98);
-    --bg-input: rgba(8, 11, 20, 0.98);
-    /* 模态框浮起投影（--modal-elevation）：由 buildModalTokens(baseHex, isLight) 按深/浅设定，浅色组 18px 光晕+2px 描边、深色组 14px 光晕+1px 描边；黑阴影落在黑底不可见，故用强调色微光环让弹窗「浮起」 */
-    --modal-elevation: 0 0 40px var(--black-a50);
+    /* 语义化背景（漆夜金 buildModalTokens） */
+    --bg-modal: rgba(14, 16, 20, 0.96);
+    --bg-select: rgba(20, 22, 26, 0.98);
+    --bg-input: rgba(10, 12, 16, 0.98);
+    /* 模态框浮起投影（--modal-elevation）：深色组 14px 光晕+1px 描边 */
+    --modal-elevation: 0 0 14px var(--color-accent-glow), 0 0 0 1px var(--color-accent-glow);
 
 
     /* 设置面板·星空仿真场景装饰色（固定深色，仅供 dim-visual 星空预览；非语义 UI 色，不进浅色双套系统） */

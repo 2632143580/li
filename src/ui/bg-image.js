@@ -30,6 +30,7 @@ export function applyBgTransform(t) {
  */
 export function mountImage(src) {
     currentBgSrc = src;
+    document.body.classList.add('bg-image-active');
     const imgPlugin = {
         meta: { name: '本地图片背景' },
         init: function (ctx, W, H, pluginState) {
@@ -66,6 +67,7 @@ export function mountImage(src) {
 
 /** 清除背景：卸载 custom_image、隐藏图层、复位 body 底色。固定/当前状态由调用方在 IDB 设置里维护。 */
 export function clearBackground() {
+    document.body.classList.remove('bg-image-active');
     const existing = BgEngine.activePlugins.find((p) => p.id === 'custom_image');
     if (existing) BgEngine.unmount('custom_image');
     DOM.bgImgLayer.style.display = 'none';

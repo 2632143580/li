@@ -257,24 +257,6 @@
     to { transform: rotate(360deg); }
 }
 
-/* 组件切换入口 = 迷你监护仪（屏框+心电尖峰，替换原三滑杆）。
-   尺寸/颜色继承 .icon-btn（22px / --white-a40），hover 提亮由 .icon-btn:hover 提供。
-   巧思：hover 时波形从左到右扫描点亮一次（dashoffset 22→0），像监护仪开机自检；
-   空闲态完全静止，无常驻动画开销（同 .settings-ring 的 hover 才动原则）。 */
-.comp-switch-btn .cs-pulse {
-    stroke-dasharray: 22;      /* 波形总长 ≈21.5，取整 22 */
-    stroke-dashoffset: 0;
-}
-
-.comp-switch-btn:hover .cs-pulse {
-    animation: cs-pulse-scan 0.8s ease-out;
-}
-
-@keyframes cs-pulse-scan {
-    from { stroke-dashoffset: 22; }   /* 从无到有，左→右点亮 */
-    to { stroke-dashoffset: 0; }
-}
-
 .danger-icon-btn {
     /* 危险按钮红从 --color-error 派生（40% 透明度），跟随主题 */
     color: color-mix(in srgb, var(--color-error) 40%, transparent);

@@ -12,7 +12,7 @@ import { ensureKeysObject, KEY_PROVIDERS } from '../../core/utils.js';
 import { saveToLocal, saveSession } from '../../core/storage.js';
 import { renumberTreeIds } from '../../core/sessions.js';
 import { serializeTree } from '../../core/tree-core.js';
-import { updateInputLayout } from '../input-renderer.js';
+import { updateInputLayout } from '../input-manager.js';
 import {
     applySettings, migrateErrorFlags,
     getLastNodeInPath, renderChat, initChatTree, updateCacheUI, resetMonitorStats

@@ -20,22 +20,14 @@
  * 注：radius / transition / black-alpha 系列保持全局默认，不在此覆盖。
  */
 
-// ---- 模板：输入框 Canvas 配色 ----
-/** 深色组输入框配色（默认暗底暖色系） @type {object} */
+// ---- 模板：输入框文字配色 ----
+/** 深色组输入框配色（漆夜金暖白文字/光标） @type {object} */
 export const DARK_INPUT = {
-    '--input-ring-normal': 'rgba(200,220,180,.15)',
-    '--input-ring-waiting': 'rgba(240, 180, 100, .25)',
-    '--input-line': 'rgba(201,127,74,.6)',
-    '--input-dot': 'rgba(212,163,115,.3)',
-    '--input-text': 'rgba(240,208,160,.95)',
-    '--input-cursor': 'rgba(240,208,160,.8)'
+    '--input-text': 'rgba(232,230,227,.95)',
+    '--input-cursor': 'rgba(232,230,227,.8)'
 };
-/** 浅色组输入框配色（浅底深色字/线） @type {object} */
+/** 浅色组输入框配色（浅底深色字） @type {object} */
 export const LIGHT_INPUT = {
-    '--input-ring-normal': 'rgba(30, 50, 80, .15)',
-    '--input-ring-waiting': 'rgba(200, 140, 60, .35)',
-    '--input-line': 'rgba(160, 100, 60, .55)',
-    '--input-dot': 'rgba(30, 50, 80, .18)',
     '--input-text': 'rgba(30, 50, 80, .95)',
     '--input-cursor': 'rgba(30, 50, 80, .8)'
 };
@@ -96,7 +88,7 @@ export const LIGHT_BUBBLE_CSS = `.chat-bubble--ai{background:rgba(0,0,0,calc(.04
  * @type {object<string, {swatch: string, tokens: object<string,string>, cssText: string}>}
  */
 export const QUICK_THEMES = {
-    // ---- 深色系 ----
+    // 漆夜金（唯一配色，也是 tokens.css :root 默认主题）
     '漆夜金': {
         swatch: '#0E1014',
         cssText: DARK_BUBBLE_CSS,
@@ -108,137 +100,6 @@ export const QUICK_THEMES = {
             '--color-accent-glow': 'rgba(232,230,227,.4)', '--color-accent-dim': 'rgba(232,230,227,.25)',
             '--color-user-bright': 'rgba(232,230,227,.9)', '--color-error': 'rgba(229,72,77,.9)',
             ...DARK_INPUT, ...buildModalTokens('#0E1014', false)
-        }
-    },
-    '暗夜紫': {
-        swatch: '#14121A',
-        cssText: DARK_BUBBLE_CSS,
-        tokens: {
-            '--color-bg': '#14121A',
-            '--color-user': 'rgba(232,230,240,.95)', '--color-ai': 'rgba(184,182,200,.95)',
-            '--color-accent': 'rgba(167,139,250,.9)', '--color-accent-soft': 'rgba(167,139,250,.15)',
-            '--color-accent-bright': 'rgba(200,180,255,.9)', '--color-accent-solid': 'rgba(167,139,250,1)',
-            '--color-accent-glow': 'rgba(167,139,250,.45)', '--color-accent-dim': 'rgba(167,139,250,.28)',
-            '--color-user-bright': 'rgba(220,208,250,.9)', '--color-error': 'rgba(229,72,77,.9)',
-            ...DARK_INPUT, ...buildModalTokens('#14121A', false)
-        }
-    },
-    '深海蓝': {
-        swatch: '#1B2A47',
-        cssText: DARK_BUBBLE_CSS,
-        tokens: {
-            '--color-bg': '#1B2A47',
-            '--color-user': 'rgba(226,238,252,.95)', '--color-ai': 'rgba(180,200,225,.95)',
-            '--color-accent': 'rgba(110,135,245,.92)', '--color-accent-soft': 'rgba(110,135,245,.15)',
-            '--color-accent-bright': 'rgba(160,180,255,.92)', '--color-accent-solid': 'rgba(110,135,245,1)',
-            '--color-accent-glow': 'rgba(110,135,245,.45)', '--color-accent-dim': 'rgba(110,135,245,.28)',
-            '--color-user-bright': 'rgba(230,210,150,.9)', '--color-error': 'rgba(229,72,77,.9)',
-            ...DARK_INPUT, ...buildModalTokens('#1B2A47', false)
-        }
-    },
-    '焦糖棕': {
-        swatch: '#3E2723',
-        cssText: DARK_BUBBLE_CSS,
-        tokens: {
-            '--color-bg': '#3E2723',
-            '--color-user': 'rgba(239,235,233,.95)', '--color-ai': 'rgba(215,204,200,.95)',
-            '--color-accent': 'rgba(255,171,145,.9)', '--color-accent-soft': 'rgba(255,171,145,.14)',
-            '--color-accent-bright': 'rgba(255,190,170,.9)', '--color-accent-solid': 'rgba(255,171,145,1)',
-            '--color-accent-glow': 'rgba(255,171,145,.4)', '--color-accent-dim': 'rgba(255,171,145,.25)',
-            '--color-user-bright': 'rgba(255,190,170,.9)', '--color-error': 'rgba(239,83,80,.9)',
-            ...DARK_INPUT, ...buildModalTokens('#3E2723', false)
-        }
-    },
-    '敦煌红': {
-        swatch: '#8B3A3A',
-        cssText: DARK_BUBBLE_CSS,
-        tokens: {
-            '--color-bg': '#8B3A3A',
-            '--color-user': 'rgba(255,239,213,.95)', '--color-ai': 'rgba(240,217,181,.95)',
-            '--color-accent': 'rgba(222,82,72,.92)', '--color-accent-soft': 'rgba(222,82,72,.15)',
-            '--color-accent-bright': 'rgba(255,130,120,.92)', '--color-accent-solid': 'rgba(222,82,72,1)',
-            '--color-accent-glow': 'rgba(222,82,72,.45)', '--color-accent-dim': 'rgba(222,82,72,.28)',
-            '--color-user-bright': 'rgba(255,239,213,.9)', '--color-error': 'rgba(255,120,100,.95)',
-            ...DARK_INPUT, ...buildModalTokens('#8B3A3A', false)
-        }
-    },
-    // ---- 浅色系 ----
-    '米兰白': {
-        swatch: '#F0F4F8',
-        cssText: LIGHT_BUBBLE_CSS,
-        tokens: {
-            '--color-bg': '#F0F4F8',
-            '--color-user': 'rgba(44,62,80,.95)', '--color-ai': 'rgba(70,90,110,.95)',
-            '--color-accent': 'rgba(216,140,92,.95)', '--color-accent-soft': 'rgba(216,140,92,.12)',
-            '--color-accent-bright': 'rgba(169,106,62,.95)', '--color-accent-solid': 'rgba(183,110,62,1)',
-            '--color-accent-glow': 'rgba(216,140,92,.35)', '--color-accent-dim': 'rgba(216,140,92,.25)',
-            '--color-user-bright': 'rgba(201,123,74,.95)', '--color-error': 'rgba(229,72,77,.95)',
-            ...LIGHT_INPUT, ...buildModalTokens('#F0F4F8', true), ...LIGHT_WHITE_ALPHA
-        }
-    },
-    '莫兰迪': {
-        swatch: '#E5E5E0',
-        cssText: LIGHT_BUBBLE_CSS,
-        tokens: {
-            '--color-bg': '#E5E5E0',
-            '--color-user': 'rgba(74,74,69,.95)', '--color-ai': 'rgba(92,92,86,.95)',
-            '--color-accent': 'rgba(138,154,135,.95)', '--color-accent-soft': 'rgba(138,154,135,.14)',
-            '--color-accent-bright': 'rgba(107,123,104,.95)', '--color-accent-solid': 'rgba(107,123,104,1)',
-            '--color-accent-glow': 'rgba(138,154,135,.35)', '--color-accent-dim': 'rgba(138,154,135,.25)',
-            '--color-user-bright': 'rgba(107,123,104,.95)', '--color-error': 'rgba(181,123,123,.95)',
-            ...LIGHT_INPUT, ...buildModalTokens('#E5E5E0', true), ...LIGHT_WHITE_ALPHA
-        }
-    },
-    '青竹翠': {
-        swatch: '#E8F5E9',
-        cssText: LIGHT_BUBBLE_CSS,
-        tokens: {
-            '--color-bg': '#E8F5E9',
-            '--color-user': 'rgba(27,94,32,.95)', '--color-ai': 'rgba(46,125,50,.95)',
-            '--color-accent': 'rgba(76,140,80,.95)', '--color-accent-soft': 'rgba(76,140,80,.12)',
-            '--color-accent-bright': 'rgba(27,94,32,.9)', '--color-accent-solid': 'rgba(46,125,50,1)',
-            '--color-accent-glow': 'rgba(76,140,80,.3)', '--color-accent-dim': 'rgba(76,140,80,.22)',
-            '--color-user-bright': 'rgba(27,94,32,.9)', '--color-error': 'rgba(211,47,47,.95)',
-            ...LIGHT_INPUT, ...buildModalTokens('#E8F5E9', true), ...LIGHT_WHITE_ALPHA
-        }
-    },
-    '燕麦色': {
-        swatch: '#EFEBE9',
-        cssText: LIGHT_BUBBLE_CSS,
-        tokens: {
-            '--color-bg': '#EFEBE9',
-            '--color-user': 'rgba(62,39,35,.95)', '--color-ai': 'rgba(78,52,46,.95)',
-            '--color-accent': 'rgba(93,64,55,.95)', '--color-accent-soft': 'rgba(93,64,55,.12)',
-            '--color-accent-bright': 'rgba(62,39,35,.9)', '--color-accent-solid': 'rgba(93,64,55,1)',
-            '--color-accent-glow': 'rgba(93,64,55,.3)', '--color-accent-dim': 'rgba(93,64,55,.22)',
-            '--color-user-bright': 'rgba(62,39,35,.9)', '--color-error': 'rgba(211,47,47,.95)',
-            ...LIGHT_INPUT, ...buildModalTokens('#EFEBE9', true), ...LIGHT_WHITE_ALPHA
-        }
-    },
-    '珊瑚粉': {
-        swatch: '#FFF0F0',
-        cssText: LIGHT_BUBBLE_CSS,
-        tokens: {
-            '--color-bg': '#FFF0F0',
-            '--color-user': 'rgba(106,27,42,.95)', '--color-ai': 'rgba(142,36,53,.95)',
-            '--color-accent': 'rgba(184,120,110,.95)', '--color-accent-soft': 'rgba(184,120,110,.12)',
-            '--color-accent-bright': 'rgba(106,27,42,.9)', '--color-accent-solid': 'rgba(184,120,110,1)',
-            '--color-accent-glow': 'rgba(184,120,110,.3)', '--color-accent-dim': 'rgba(184,120,110,.22)',
-            '--color-user-bright': 'rgba(142,36,53,.9)', '--color-error': 'rgba(211,47,47,.95)',
-            ...LIGHT_INPUT, ...buildModalTokens('#FFF0F0', true), ...LIGHT_WHITE_ALPHA
-        }
-    },
-    '雾蓝脏粉': {
-        swatch: '#8AA9B8',
-        cssText: LIGHT_BUBBLE_CSS,
-        tokens: {
-            '--color-bg': '#8AA9B8',
-            '--color-user': 'rgba(30,50,70,.95)', '--color-ai': 'rgba(40,60,80,.95)',
-            '--color-accent': 'rgba(212,165,165,.95)', '--color-accent-soft': 'rgba(212,165,165,.16)',
-            '--color-accent-bright': 'rgba(242,226,213,.95)', '--color-accent-solid': 'rgba(212,165,165,1)',
-            '--color-accent-glow': 'rgba(212,165,165,.4)', '--color-accent-dim': 'rgba(212,165,165,.28)',
-            '--color-user-bright': 'rgba(242,226,213,.95)', '--color-error': 'rgba(200,70,70,.95)',
-            ...LIGHT_INPUT, ...buildModalTokens('#8AA9B8', true), ...LIGHT_WHITE_ALPHA
         }
     }
 };
