@@ -22,7 +22,7 @@ import { buildThinkingBody } from '../core/thinking.js';
 import { saveToLocal, saveSession } from '../core/storage.js';
 import { BgEngine } from '../engines/bg-engine.js';
 import { ThemeEngine } from '../engines/theme-engine.js';
-import hooksData from '../../hooks.json'; // 宿主契约单一事实源：插件归因告警（通配/未命中钩子）从此读取
+import hooksData from '../../hooks.json' with { type: 'json' }; // 宿主契约单一事实源：插件归因告警（通配/未命中钩子）从此读取
 import { inputManager } from '../ui/input-manager.js';
 // 来自 tree.js 的纯函数 / 状态（循环引用安全：均为运行时调用 / 活绑定）
 // 仅保留本模块实际引用的名字；其余 tree.js 导出不再在此 import（避免死导入）。

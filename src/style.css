@@ -3,7 +3,9 @@
    由原单文件 14.html 的两段 <style> 顺序合并而成，层叠顺序保持不变：
      1) 首屏样式（原 <head> 内 <style>）
      2) 延迟样式（原 </script> 之后的 <style>，均为 display:none 组件）
-   合并后由 main.js 通过 `import './style.css'` 引入，Vite 构建时内联进 <head>。
+   经 index.html <link rel="stylesheet" href="./src/style.css"> 加载：
+     - Vite 构建时内联进 <head> <style> 标签（viteSingleFile 插件处理）
+     - http.server 原生 CSS @import 链由浏览器直接解析加载
    注意：原「延迟到 body 末尾以不阻塞首屏」的加载时序优化在单文件构建下不再适用，
    但两段规则的先后顺序（即层叠优先级）与原文件完全一致。
    ============================================================ */

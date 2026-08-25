@@ -27,6 +27,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Li</title>
+    <!-- CSS 经 <link> 加载：Vite 构建时内联为 <style>，http.server 原生 CSS @import 链同样可用 -->
+    <link rel="stylesheet" href="./src/style.css">
 </head>
 
 <body>
@@ -591,7 +593,7 @@
         </div>
     </div>
 
-    <script type="module" src="/src/main.js"></script>
+    <script type="module" src="./src/main.js"></script>
 </body>
 
 </html>

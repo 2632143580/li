@@ -224,7 +224,8 @@ export function applySettings() {
     // 根 content 同步为「有效系统提示词」：当前会话有覆盖则用覆盖，否则全局默认（会话级覆盖 + 全局默认双轨）
     if (state.chatTree) state.chatTree.content = getEffectiveSysPrompt();
     // 构建来源后缀：本地构建=本地，GitHub Actions 构建=github（由 vite.config.js 经 import.meta.env.VITE_BUILD_ENV 注入）
-    document.title = state.settings.aiName + ' · ' + (import.meta.env.VITE_BUILD_ENV || '本地');
+    // http.server 原生 ESM 无 import.meta.env，&& 短路后回退 '本地'，双模式兼容
+    document.title = state.settings.aiName + ' · ' + (import.meta.env && import.meta.env.VITE_BUILD_ENV || '本地');
     // --msg-font-size 已由 tokens.css 提供默认 16px（chat.css 消费），字号设置移除后不再用 JS 覆写（2026-08-16）
     applyBubbleOpacity(); // 气泡底色不透明度 token（含启动恢复/保存提交/取消回退的统一入口）
 }

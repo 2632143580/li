@@ -1,15 +1,14 @@
 /**
  * 应用入口 / 全局编排
  *
- * 职责：导入样式与全部模块，组装全局生命周期：
+ * 职责：导入全部模块，组装全局生命周期：
  *   resize() 视口尺寸刷新、init() 启动、bindEvents() 事件注册、
  *   暴露 window._bgApi（含 triggerProactive 静默主动消息接口）。
  *
  * 导出：resize, onResize, init（onResize 活绑定供事件绑定层引用）
  * 依赖：全部核心/引擎/UI/对话模块
+ * 注意：CSS 由 index.html <link> 加载（Vite 构建内联 / http.server 原生 @import 链），此处不再 import './style.css'
  */
-import './style.css';
-
 import { DOM, setViewport, W, H } from './core/dom.js';
 import { Logger } from './core/logger.js';
 import { state } from './core/store.js';
