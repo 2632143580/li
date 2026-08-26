@@ -1,0 +1,183 @@
+/* ====================== 顶部中央提示栏（系统提示词 / 人设） ======================
+   独立入口：从设置 modal 迁出的系统提示词编辑，位于左侧栏闭合处之后、右侧栏之前。
+   胶囊复用顶栏统一配方（--bg-pill / --pill-radius），面板为中央浮层；
+   全部走 tokens.css 语义 token（--white-a* / --color-accent-* / --radius-* / --transition-*），
+   深浅主题与自定义配色自动翻转，无任何硬编码颜色字面量。
+   移动端触控目标 ≥ 40px（铁律）；无 emoji、无 logo+文字、无状态装饰圆点。 */
+
+/* 定位锚点：固定在视口顶部中央；面板相对其绝对定位向下展开 */
+.prompt-bar {
+    position: fixed;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 20;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+/* 胶囊按钮（与 .top-bar / .tb-body 同款 pill 配方） */
+.pb-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 32px;
+    padding: 0 12px;
+    border-radius: var(--pill-radius);
+    background: var(--bg-pill);
+    border: var(--pill-border);
+    color: var(--white-a70);
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 12px;
+    transition: background var(--transition-normal), border-color var(--transition-normal), color var(--transition-normal);
+}
+.pb-pill:hover {
+    background: var(--bg-pill-hover);
+    border: var(--pill-border-hover);
+    color: var(--white-a85);
+}
+/* 点亮态：有效提示词非空（图标高亮 + 描边提示，非装饰圆点） */
+.pb-pill.active {
+    border-color: var(--color-accent-dim);
+    color: var(--color-accent-bright);
+}
+.pb-pill.active .pb-icon {
+    color: var(--color-accent-bright);
+}
+
+.pb-icon {
+    width: 18px;
+    height: 18px;
+    flex: none;
+    stroke: currentColor;
+}
+
+/* 状态徽：会话级 / 全局默认（信息文案，非圆点装饰） */
+.pb-badge {
+    font-size: 11px;
+    letter-spacing: 0.3px;
+    color: var(--white-a40);
+    white-space: nowrap;
+}
+.pb-pill.active .pb-badge {
+    color: var(--color-accent-bright);
+}
+
+/* ---------- 面板浮层 ---------- */
+.pb-panel {
+    position: absolute;
+    top: calc(100% + 10px);
+    left: 50%;
+    transform: translateX(-50%);
+    width: min(420px, 92vw);
+    padding: 16px;
+    border-radius: var(--radius-lg);
+    background: var(--bg-modal);
+    border: 1px solid var(--white-a10);
+    backdrop-filter: blur(20px);
+    box-shadow: 0 12px 32px var(--black-a50);
+    z-index: 30;
+    animation: fadeIn 0.18s ease;
+}
+.pb-panel[hidden] { display: none; }
+
+.pb-panel-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+}
+.pb-title {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--white-a70);
+}
+.pb-close {
+    width: 28px;
+    height: 28px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    color: var(--white-a40);
+    background: none;
+    border: none;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    font-family: inherit;
+    transition: color var(--transition-fast), background var(--transition-fast);
+}
+.pb-close:hover {
+    color: var(--white-a85);
+    background: var(--white-a06);
+}
+
+/* 编辑区（复刻原 .prompt-textarea 外观，统一 token） */
+.pb-textarea {
+    width: 100%;
+    background: var(--white-a03);
+    border: 1px solid var(--white-a06);
+    border-radius: 10px;
+    padding: 10px 14px;
+    color: var(--white-a70);
+    font-size: 13px;
+    font-family: inherit;
+    outline: none;
+    resize: vertical;
+    min-height: 90px;
+    line-height: 1.6;
+    transition: border-color 0.25s var(--ease);
+    display: block;
+}
+.pb-textarea::placeholder { color: var(--white-a30); }
+.pb-textarea:focus { border-color: var(--color-accent-dim); }
+
+/* 操作按钮组 */
+.pb-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 12px;
+}
+.pb-btn {
+    flex: 1 1 auto;
+    min-height: 36px;
+    padding: 0 14px;
+    font-size: 13px;
+    font-family: inherit;
+    color: var(--white-a70);
+    background: var(--white-a03);
+    border: 1px solid var(--white-a10);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: all 0.2s var(--ease);
+}
+.pb-btn:hover {
+    border-color: var(--white-a20);
+    color: var(--white-a85);
+    background: var(--white-a06);
+}
+/* 强调：设为全局默认 */
+.pb-btn--accent {
+    background: var(--color-accent-soft);
+    border-color: var(--color-accent-dim);
+    color: var(--color-accent-bright);
+}
+.pb-btn--accent:hover {
+    background: var(--color-accent-dim);
+    color: var(--color-accent-solid);
+}
+
+/* 移动端：触控目标 ≥ 40px */
+@media (max-width: 600px) {
+    .pb-pill { height: 40px; }
+    .pb-btn { min-height: 40px; }
+    .pb-close { width: 40px; height: 40px; }
+}
+
+/* 尊重减弱动效偏好 */
+@media (prefers-reduced-motion: reduce) {
+    .pb-panel { animation: none; }
+}

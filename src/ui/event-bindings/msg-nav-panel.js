@@ -42,6 +42,7 @@ import { loadSession, persistSession, saveSession, setSessionPinned } from '../.
 import { showToast } from '../../core/toast.js';
 import { getEffectiveSysPrompt } from '../../core/sessions.js';
 import { armClickConfirm } from './click-confirm.js';
+import { openWordCloud } from './wordcloud-panel.js';
 import { LLM_PROVIDERS } from '../../core/config.js';
 import { DEFAULT_PROVIDER } from '../../core/constants.js';
 
@@ -128,6 +129,7 @@ function setupMsgNav() {
                 <div class="mn-tabs segmented" role="group" aria-label="面板切换">
                     <button type="button" class="segmented__item" data-tab="sessions">会话</button>
                     <button type="button" class="segmented__item" data-tab="messages">消息</button>
+                    <button type="button" class="segmented__item" data-tab="words">词频</button>
                 </div>
                 <button class="mn-close" id="mn-close" aria-label="关闭">✕</button>
             </div>
@@ -143,6 +145,7 @@ function setupMsgNav() {
                 <div class="mn-sub" id="mn-sub"></div>
                 <div class="mn-list" id="mn-list"></div>
             </div>
+            <div class="mn-pane" data-pane="words" hidden></div>
         </div>
     `;
     document.body.appendChild(panel);
@@ -306,6 +309,8 @@ function setupMsgNav() {
     const sessionsList = panel.querySelector('#mn-sessions');
     const messagesPane = panel.querySelector('[data-pane="messages"]');
     const sessionsPane = panel.querySelector('[data-pane="sessions"]');
+    const wordsPane = panel.querySelector('[data-pane="words"]');
+    const wcInner = document.getElementById('wordcloud-panel-inner');  // 词云内容根节点：运行时移入 wordsPane
     const newBtn = panel.querySelector('#mn-new');
     const search = panel.querySelector('#mn-search');
     const sub = panel.querySelector('#mn-sub');
@@ -625,7 +630,7 @@ function setupMsgNav() {
         if (row) row.classList.add('active');
     }
 
-    /** 切换 tab @param {'sessions'|'messages'} t */
+    /** 切换 tab @param {'sessions'|'messages'|'words'} t */
     function setTab(t) {
         writeTab(t);
         tabs.querySelectorAll('.segmented__item').forEach((b) => {
@@ -633,6 +638,11 @@ function setupMsgNav() {
         });
         sessionsPane.hidden = t !== 'sessions';
         messagesPane.hidden = t !== 'messages';
+        wordsPane.hidden = t !== 'words';
+        if (t === 'words') {
+            mountWordCloud();  // 词云内嵌当前 sheet，不再另开面板
+            return;
+        }
         if (t === 'sessions') {
             closeCtxMenu();
             renderSessions();
@@ -646,9 +656,17 @@ function setupMsgNav() {
         }
     }
 
+    /** 把词云内容节点移入「词频」pane（当前 sheet 内），再触发渲染。节点移动而非克隆，监听器随节点保留。 */
+    function mountWordCloud() {
+        closeCtxMenu();
+        if (wcInner && wcInner.parentElement !== wordsPane) wordsPane.appendChild(wcInner);
+        openWordCloud();  // 仅渲染，不再 openModal
+    }
+
     tabs.addEventListener('click', (e) => {
         const b = e.target.closest('.segmented__item');
-        if (b) setTab(b.dataset.tab);
+        if (!b) return;
+        setTab(b.dataset.tab);
     });
 
     newBtn.addEventListener('click', () => createNew());

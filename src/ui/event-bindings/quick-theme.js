@@ -2,8 +2,8 @@
 //  快速配色（色块选择器，第 3 步）
 //  数据源 plugins/quick-themes.js；应用走 ThemeEngine 通道（与用户导入的主题插件同路）。
 //  点击内置色块 → applyQuickTheme：唯一槽位切换 + 持久化 quickTheme。星空插件已移除，背景现为纯 CSS 底色，无需在此同步/卸载动画背景。
-//  自定义配色：色块条末尾的「+」圆点 → 模态框粘贴颜色代码 → 持久化(localStorage 独立键) + 应用 + 启动恢复 + 删除（桌面右键色块 / 移动端模态框内列表按钮）。
-//  单色方案另带「撞色强度」滑块（创建表单 + 已保存列表每项各一），实时预览、按方案持久化；多色/渐变无单色跳色故不显示。
+//  自定义配色：色块条末尾的「+」圆点 → 底部抽屉粘贴颜色代码 → 持久化(localStorage 独立键) + 应用 + 启动恢复 + 删除（桌面右键色块 / 移动端抽屉内列表按钮）。
+//  单色方案另带「撞色强度」滑块（创建表单 + 已保存列表每项各一），按方案持久化；多色/渐变无单色跳色故不显示。
 // ================================================================
 
 /**
@@ -165,7 +165,7 @@ function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
  * 把粘贴的颜色代码解析成完整配色对象（swatch / cssText / tokens）。
  * - 渐变约束：渐变只能进 cssText 的 body 规则，--color-bg 仍用纯色兜底（否则输入框 Canvas / color-mix 会崩）。
  * @param {string} code - 用户粘贴的内容
- * @param {number} [accentMix=56] - 用户气泡「互补跳色」混入页面底色的百分比（0~70），由模态框滑块控制
+ * @param {number} [accentMix=56] - 用户气泡「互补跳色」混入页面底色的百分比（0~70），由抽屉滑块控制
  * @returns {{swatch:string, cssText:string, tokens:object}|null}
  */
 function buildSchemeFromCode(code, accentMix = 56) {
@@ -251,7 +251,7 @@ function buildSchemeFromCode(code, accentMix = 56) {
         for (const k in DARK_INPUT) tokens[k] = DARK_INPUT[k];
     }
 
-    // 气泡底色：单色方案把「互补跳色」混入页面底色着色用户气泡（混入比例 = accentMix，由模态框「撞色强度」滑块控制；
+    // 气泡底色：单色方案把「互补跳色」混入页面底色着色用户气泡（混入比例 = accentMix，由抽屉「撞色强度」滑块控制；
     // AI 气泡用更淡的同跳色，比例固定为 round(accentMix*0.43)，保持与用户气泡一致的撞色观感），让整页看得到撞色层次，
     // 解决「单色全红、只有按钮有强调色」的问题；多色/渐变方案沿用原白/黑微调透明气泡（外观不变）。
     // alpha 全部吃 --bubble-opacity（消息气泡不透明度滑块；user 泡混的是不透明 --color-bg，需外层再叠一层 color-mix 降 alpha）。
@@ -351,30 +351,34 @@ function refreshHighlights() {
 }
 
 // ================================================================
-//  自定义配色：模态框与交互
+//  自定义配色：抽屉与交互
 // ================================================================
 
-/** 打开自定义配色模态框 @returns {void} */
+/** 打开自定义配色底部抽屉 @returns {void} */
 function openCustomSchemeModal() {
     const m = DOM.customSchemeModal;
     if (!m) return;
     DOM.customSchemeInput.value = '';
     // 重置创建表单的撞色强度到默认（新配色独立设定，不继承上一个方案的强度）
     currentCreateMix = 56;
-    if (DOM.customSchemeMix) DOM.customSchemeMix.value = '56';
-    updateSchemePreview('');
+    if (DOM.customSchemeMix) {
+        DOM.customSchemeMix.value = '56';
+        // 新配色尚未输入，撞色强度滑块无意义（多色/渐变无单色跳色），先隐藏整行
+        const row = DOM.customSchemeMix.closest('.cs-mix-row');
+        if (row) row.style.display = 'none';
+    }
     renderCustomSchemeList();
     openModal('custom-scheme-modal');
     // 不主动 focus textarea：移动端 focus 会立即弹出软键盘遮挡面板，用户可能只想浏览已有配色。
     // 用户点击输入框时自然聚焦弹键盘（用户手势触发，Chrome 不拦截）。
 }
 
-/** 关闭自定义配色模态框 @returns {void} */
+/** 关闭自定义配色底部抽屉 @returns {void} */
 function closeCustomSchemeModal() {
     closeAllModals();
 }
 
-/** 渲染自定义配色管理列表（模态框内，移动端可触屏删除；桌面也可用，不依赖右键） @returns {void} */
+/** 渲染自定义配色管理列表（抽屉内，移动端可触屏删除；桌面也可用，不依赖右键） @returns {void} */
 function renderCustomSchemeList() {
     const list = DOM.customSchemeList;
     if (!list) return;
@@ -442,7 +446,7 @@ function onItemMixInput(id, mix) {
     if (activeCustomId === id) scheduleCustomApply(id);
 }
 
-/** rAF 节流地重新应用某方案，用于滑块拖动实时预览 @param {string} id @returns {void} */
+/** rAF 节流地重新应用某方案，用于滑块拖动即时重应用 @param {string} id @returns {void} */
 function scheduleCustomApply(id) {
     pendingApplyId = id;
     if (applyRaf) return;
@@ -454,43 +458,19 @@ function scheduleCustomApply(id) {
     });
 }
 
-/** 实时预览：把粘贴内容解析成配色并刷新缩略图（微缩模型）。
- *  @param {string} code - 粘贴的颜色代码
- *  @param {number} [mix] - 撞色强度（用户气泡互补色混入页面的百分比），缺省用 currentCreateMix
- *  @returns {void} */
-function updateSchemePreview(code, mix = currentCreateMix) {
-    const preview = DOM.customSchemePreview;
-    if (!preview) return;
-    const scheme = (code || '').trim() ? buildSchemeFromCode(code, mix) : null;
-    // 撞色强度滑块整行：仅单色输入时显示，多色/渐变/空输入时隐藏（无单色跳色概念）
-    const mixRow = DOM.customSchemeMix ? DOM.customSchemeMix.closest('.cs-mix-row') : null;
-    if (scheme) {
-        // 把整组颜色变量作为内联 CSS 变量打到缩略图容器上，使其内部 mock 用与真实 UI 同名的变量渲染。
-        // 仅作用于此容器（沙箱预览），不挂载到 <html>，故不影响整页主题。
-        for (const k in scheme.tokens) preview.style.setProperty(k, scheme.tokens[k]);
-        preview.style.background = scheme.swatch;
-        preview.classList.remove('cs-empty');
-        // 单色方案：把「撞色强度」实时反映到缩略图里的用户/AI 气泡（与真实气泡同款 color-mix 公式），
-        // 这样拖滑块时不用看数字也能直接看到跳色浓淡。多色/渐变无单色跳色，回退到缩略图默认上色。
-        const userBubble = preview.querySelector('.ct-user');
-        const aiBubble = preview.querySelector('.ct-ai');
-        if (scheme.isSingle) {
-            // 与 buildSchemeFromCode 产出的真实 cssText 同款公式（含 --bubble-opacity 消费），缩略图与实际效果一致
-            if (userBubble) userBubble.style.background = `color-mix(in srgb, color-mix(in srgb, var(--color-accent) ${mix}%, var(--color-bg)) calc(100% * var(--bubble-opacity)), transparent)`;
-            if (aiBubble) aiBubble.style.background = `color-mix(in srgb, var(--color-accent) calc(${Math.round(mix * 0.43)}% * var(--bubble-opacity)), transparent)`;
-        } else {
-            if (userBubble) userBubble.style.background = '';
-            if (aiBubble) aiBubble.style.background = '';
-        }
-        if (mixRow) mixRow.style.display = scheme.isSingle ? '' : 'none';
-    } else {
-        for (const k in preview.style) {
-            if (k.startsWith('--')) preview.style.removeProperty(k);
-        }
-        preview.style.background = '';
-        preview.classList.add('cs-empty');
-        if (mixRow) mixRow.style.display = 'none';
-    }
+/**
+ * 创建表单输入时：仅解析判断方案是否为单色，决定「撞色强度」滑块整行显隐（多色/渐变/空输入隐藏）。
+ * 不再做缩略图实时预览（已移除）。
+ * @param {string} code - 粘贴的颜色代码
+ * @returns {void}
+ */
+function syncCreateMixRow(code) {
+    const mix = DOM.customSchemeMix;
+    if (!mix) return;
+    const row = mix.closest('.cs-mix-row');
+    if (!row) return;
+    const scheme = (code || '').trim() ? buildSchemeFromCode(code, currentCreateMix) : null;
+    row.style.display = (scheme && scheme.isSingle) ? '' : 'none';
 }
 
 /** 无效输入提示：保存按钮抖动（复用 chat.css @keyframes shake；替代原生 alert） @returns {void} */
@@ -506,7 +486,7 @@ function shakeSaveButton() {
     });
 }
 
-/** 从模态框保存自定义配色并应用 @returns {void} */
+/** 从抽屉保存自定义配色并应用 @returns {void} */
 function saveCustomSchemeFromModal() {
     const code = DOM.customSchemeInput.value.trim();
     const scheme = buildSchemeFromCode(code, currentCreateMix);
@@ -569,7 +549,7 @@ export function bindQuickThemeEvents() {
     });
 
 
-    // 模态框交互
+    // 抽屉交互
     if (DOM.customSchemeModal) {
         // 点击遮罩空白处关闭
         DOM.customSchemeModal.addEventListener('click', (e) => {
@@ -577,12 +557,12 @@ export function bindQuickThemeEvents() {
         });
         DOM.customSchemeCancel.addEventListener('click', closeCustomSchemeModal);
         DOM.customSchemeSave.addEventListener('click', saveCustomSchemeFromModal);
-        DOM.customSchemeInput.addEventListener('input', () => updateSchemePreview(DOM.customSchemeInput.value));
-        // 创建表单「撞色强度」滑块：拖动即更新当前强度并实时刷新缩略图气泡（不显示数字，纯拖动预览）
+        // 输入时仅同步「撞色强度」滑块显隐（单色才显示）；不再做缩略图实时预览
+        DOM.customSchemeInput.addEventListener('input', () => syncCreateMixRow(DOM.customSchemeInput.value));
+        // 创建表单「撞色强度」滑块：拖动即更新当前强度，保存时写入方案（不显示数字，纯调节）
         if (DOM.customSchemeMix) {
             DOM.customSchemeMix.addEventListener('input', () => {
                 currentCreateMix = +DOM.customSchemeMix.value;
-                updateSchemePreview(DOM.customSchemeInput.value, currentCreateMix);
             });
         }
     }

@@ -74,17 +74,7 @@
     --modal-elevation: 0 0 14px var(--color-accent-glow), 0 0 0 1px var(--color-accent-glow);
 
 
-    /* 设置面板·星空仿真场景装饰色（固定深色，仅供 dim-visual 星空预览；非语义 UI 色，不进浅色双套系统） */
-    --scene-sky-top: #1e293b;
-    --scene-sky-bottom: #0f172a;
-    --scene-moon: #f1f5f9;
-    --scene-moon-glow: rgba(241, 245, 249, 0.4);
-    --scene-star: rgba(255, 255, 255, 0.9);
-    --scene-star-dim: rgba(255, 255, 255, 0.6);
-    --scene-ctrl-bg: rgba(15, 23, 42, 0.6);
-    --scene-ctrl-bg-hover: rgba(30, 41, 59, 0.8);
-    /* 仿真框内固定浅色文本：星空预览永远深色背景，文本须恒亮，不随浅色主题翻转（:root 定义块，lint 跳过） */
-    --scene-text: #f8fafc;
+
 }
 
 /* ====================== 状态色双套系统（深 / 浅各一值，只在此处定义一次） ======================

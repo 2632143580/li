@@ -107,71 +107,6 @@
     outline: none;
 }
 .cs-textarea:focus { border-color: var(--color-accent); }
-.cs-preview-row {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    margin-top: 12px;
-}
-/* 缩略图（微缩模型）：内嵌一个迷你聊天界面 mock，用与真实 UI 同名的 CSS 变量渲染，
-   由 updateSchemePreview 把当前方案的整组 token 作为内联变量打到本容器上（沙箱预览，不动整页）。 */
-.cs-thumb {
-    width: 100%;
-    height: 168px;
-    border-radius: 12px;
-    border: 1px solid var(--white-a20);
-    overflow: hidden;
-    position: relative;
-    display: flex;
-    flex-direction: column;
-    background-size: cover;
-    background-position: center;
-    font-size: 10px;
-    line-height: 1.4;
-}
-.cs-thumb.cs-empty { background: var(--white-a06); }
-.cs-thumb.cs-empty .ct-top,
-.cs-thumb.cs-empty .ct-body,
-.cs-thumb.cs-empty .ct-input { display: none; }
-.ct-top {
-    display: flex;
-    gap: 5px;
-    padding: 8px 10px;
-    background: color-mix(in srgb, var(--color-bg) 78%, transparent);
-    border-bottom: 1px solid var(--white-a10);
-}
-.ct-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--color-accent); }
-.ct-body { flex: 1; padding: 8px 10px; display: flex; flex-direction: column; gap: 6px; overflow: hidden; }
-.ct-bubble { max-width: 78%; padding: 5px 8px; border-radius: 8px; }
-.ct-ai { align-self: flex-start; background: var(--white-a08); color: var(--color-ai); border: 1px solid var(--white-a10); }
-.ct-user { align-self: flex-end; background: var(--color-accent-solid); color: var(--white-a90); }
-.ct-modal {
-    align-self: center;
-    width: 72%;
-    padding: 7px 9px;
-    border-radius: 8px;
-    background: var(--bg-modal);
-    /* 简约化（用户拍板）：去投影 */
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-}
-.ct-modal-bar { height: 4px; border-radius: 2px; background: var(--color-accent); }
-.ct-modal-title { color: var(--white-a90); font-weight: 600; }
-.ct-input {
-    padding: 7px 10px;
-    background: color-mix(in srgb, var(--color-bg) 85%, transparent);
-    border-top: 1px solid var(--white-a10);
-    color: var(--white-a40);
-    display: flex;
-    align-items: center;
-    gap: 5px;
-}
-.ct-caret { width: 2px; height: 12px; background: var(--color-accent); border-radius: 1px; }
-.cs-name-preview {
-    font-size: 13px;
-    color: var(--white-a70);
-}
 .cs-actions {
     display: flex;
     gap: 10px;
@@ -234,7 +169,7 @@
     color: var(--white-a90);
 }
 
-/* 撞色强度滑块（仅单色方案出现）：纯拖动预览，不显示数字（用户反馈「数字看不好」） */
+/* 撞色强度滑块（仅单色方案出现）：纯拖动设定，不显示数字（用户反馈「数字看不好」） */
 .cs-mix-row {
     display: flex;
     align-items: center;
@@ -256,4 +191,4 @@
 }
 .cs-item-mix .slider { width: 100%; }
 
-/* ====================== 配色调试面板（临时调试用） ====================== */
+

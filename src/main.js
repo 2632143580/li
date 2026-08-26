@@ -50,6 +50,9 @@ export function resize() {
 
     setViewport(vw, vh);
 
+    // 实时维护 --app-vh（= 当前可见视口高度），供底部 sheet 高度使用，避免移动端地址栏/键盘导致静态 90vh 不稳
+    document.documentElement.style.setProperty('--app-vh', vh + 'px');
+
     const showBg = state.settings.bgCanvas !== false;
     DOM.bg.style.display = showBg ? '' : 'none';
 

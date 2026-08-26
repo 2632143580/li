@@ -48,8 +48,6 @@ export function bindGlobalEvents() {
             DOM.bgModalClose.click();
         } else if (DOM.customSchemeModal && DOM.customSchemeModal.style.display === 'flex') {
             closeAllModals();
-        } else if (DOM.wordcloudDialog && DOM.wordcloudDialog.style.display === 'flex') {
-            DOM.wordcloudClose.click();
         } else if (DOM.cropModal && DOM.cropModal.style.display === 'flex') {
             DOM.cropCancel.click();
         } else if (DOM.voiceModal && DOM.voiceModal.style.display === 'flex') {

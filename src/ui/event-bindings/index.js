@@ -37,6 +37,7 @@ import './quick-theme.js';
 import './wordcloud-panel.js';
 import './topbar.js';
 import './msg-nav-panel.js';
+import './prompt-bar.js';
 
 // ================================================================
 //  事件绑定聚合

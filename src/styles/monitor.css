@@ -48,17 +48,6 @@
     filter: drop-shadow(0 0 5px var(--status-cache));
 }
 
-/* ====================== 通用面板标题（监控已删，词云等面板仍在用，勿删） ====================== */
-.monitor-title {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    font-size: 14px;
-    font-weight: 600;
-    color: var(--white-a90);
-    margin-bottom: 4px;
-}
-
 /* ====================== 全局关闭叉（多个面板共用） ====================== */
 .modal-x {
     cursor: pointer;

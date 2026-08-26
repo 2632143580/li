@@ -228,6 +228,8 @@ export function applySettings() {
     document.title = state.settings.aiName + ' · ' + (import.meta.env && import.meta.env.VITE_BUILD_ENV || '本地');
     // --msg-font-size 已由 tokens.css 提供默认 16px（chat.css 消费），字号设置移除后不再用 JS 覆写（2026-08-16）
     applyBubbleOpacity(); // 气泡底色不透明度 token（含启动恢复/保存提交/取消回退的统一入口）
+    // 有效系统提示词已随上面同步到根 content，此处广播变更事件（prompt-bar 据此刷新状态徽/点亮态）
+    bus.emit(EVENTS.SYS_PROMPT_CHANGE, getEffectiveSysPrompt());
 }
 
 /** 模型变更通知：设置页「思考强度」分段需随模型预设刷新（树.js 不 import settings.js，走 DOM 事件解耦避免循环依赖） */

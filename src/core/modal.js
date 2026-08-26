@@ -12,7 +12,6 @@ import { Logger } from './logger.js';
 /** 参与互斥的主面板 id 清单（按需追加新面板，旧代码零改动） @type {string[]} */
 const MODAL_IDS = [
     'modal',              // 设置面板
-    'wordcloud-dialog',   // 词云
     'bg-modal',           // 背景管理
     'custom-scheme-modal',// 自定义配色
     'voice-modal',        // 语音设置（句句发语音）

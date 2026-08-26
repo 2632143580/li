@@ -11,7 +11,7 @@ import { closeAllModals } from '../../core/modal.js';
 import { ensureKeysObject, KEY_PROVIDERS } from '../../core/utils.js';
 import { saveToLocal, saveSession } from '../../core/storage.js';
 import { renumberTreeIds } from '../../core/sessions.js';
-import { serializeTree } from '../../core/tree-core.js';
+import { serializeTree, ensureNodeDefaults } from '../../core/tree-core.js';
 import { updateInputLayout } from '../input-manager.js';
 import {
     applySettings, migrateErrorFlags,
@@ -47,11 +47,14 @@ export function bindDataExchangeEvents() {
         delete masked.keys;       // 按服务商密钥
         delete masked.model;      // LLM 模型（现拉，非硬编码）
         delete masked.ttsCloud;   // 云端 TTS 整体（baseUrl / model / apiKey / voice）
+        // 序列化：保留换行但不带缩进空格。
+        // 缩进空格量随聊天树深度平方增长（曾致导出 518KB），故用 \t 缩进生成带换行的 JSON 后删掉所有 \t，
+        // 仅留换行（1 字节/个，线性、几乎不占空间）——可读且体积回落到裸数据量，JSON.parse 仍兼容。
         const dataStr = JSON.stringify({
             settings: masked,
             // 白名单序列化（P4-10）：与 persistSession 落盘同口径，剔除节点运行时标记
             chatTree: serializeTree(state.chatTree)
-        }, null, 2);
+        }, null, '\t').replace(/\t/g, '');
         const blob = new Blob([dataStr], { type: "application/json" });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -90,7 +93,8 @@ export function bindDataExchangeEvents() {
                     // 整树重编号：用全局 msgIdCounter 统一分配 id，杜绝导入树与现有会话 id 撞车（否则 domCache 串台 / 后台回调写错气泡）
                     renumberTreeIds(importedData.chatTree);
                     state.chatTree = importedData.chatTree;
-                    migrateErrorFlags(state.chatTree);
+                    ensureNodeDefaults(state.chatTree); // 补回序列化省略的默认值（selectedChildIndex/reasoning/children/isError）
+                    migrateErrorFlags(state.chatTree);  // 精确推导 isError 标记
                 }
                 applySettings();
                 updateInputLayout();

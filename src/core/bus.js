@@ -25,7 +25,9 @@ export const EVENTS = Object.freeze({
     /** API/发送层 → 背景触发器：AI 流式回复完成，载荷 = 完整 AI 文本 string（需求：回复显示完成后扫描触发） */
     ASSISTANT_DONE: 'assistant:done',
     /** 引擎 → UI：禁止词引擎扫描 AI 回复命中词库，载荷 = 命中词条目数组 Array<{word:string, count:number}>（UI 据此弹提示条） */
-    MODERATOR_HIT: 'moderator:hit'
+    MODERATOR_HIT: 'moderator:hit',
+    /** prompt-bar → 全链路：有效系统提示词变更（全局默认或会话级覆盖更新），载荷 = 有效提示词 string */
+    SYS_PROMPT_CHANGE: 'sysprompt:change'
 });
 
 /**

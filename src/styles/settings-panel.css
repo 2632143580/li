@@ -1,5 +1,5 @@
 /* ====================== 设置面板（方法1：新视觉 + 项目 token 化） ======================
- * 颜色全部走 tokens.css 的 var()；星空场景装饰色提为 --scene-* token（在 :root 定义，lint 跳过）。
+ * 颜色全部走 tokens.css 的 var()，不再内联硬编码色。
  * 仅对「会被其他弹窗共用的通用类」(#modal .modal-content / .modal-fab) 加 #modal 作用域，
  *   避免覆盖词云/语音/插件管理等弹窗的 .modal-content / .modal-fab。
  * 其余新设计专属类（.section / .llm-* / .dim-* / .size-* 等）全局唯一，无需作用域。
@@ -59,7 +59,6 @@
 #modal .icon-btn--primary { background: var(--color-accent-soft); border-color: var(--color-accent-dim); color: var(--color-accent-bright); }
 #modal .icon-btn--primary:hover { background: var(--color-accent); color: #fff; }
 
-/* ---------- 1. 名字 + 提示词 ---------- */
 .section { margin-bottom: 24px; }
 .section:last-child { margin-bottom: 0; }
 .section-title {
@@ -72,62 +71,9 @@
 }
 .section-divider { border: none; border-top: 1px solid var(--white-a06); margin: 20px 0; }
 
-.name-input {
-    width: 100%;
-    font-size: 20px;
-    font-weight: 600;
-    text-align: center;
-    background: transparent;
-    border: none;
-    border-bottom: 1.5px solid var(--white-a08);
-    padding: 8px 0 10px;
-    color: var(--color-user);
-    outline: none;
-    font-family: inherit;
-    transition: border-color 0.25s var(--ease);
-}
-.name-input:focus { border-color: var(--color-accent-dim); }
-
-.prompt-area { margin-top: 14px; }
-.prompt-label {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    font-size: 11px;
-    color: var(--white-a20);
-    margin-bottom: 6px;
-    letter-spacing: 0.5px;
-}
-.mini-btn {
-    background: none;
-    border: 1px solid var(--white-a06);
-    color: var(--white-a20);
-    font-size: 10px;
-    padding: 2px 10px;
-    border-radius: var(--radius-sm);
-    cursor: pointer;
-    transition: all 0.2s var(--ease);
-    font-family: inherit;
-}
-.mini-btn:hover { border-color: var(--white-a20); color: var(--white-a40); }
 .llm-actions { display: flex; align-items: center; gap: 8px; }
 
-.prompt-textarea {
-    width: 100%;
-    background: var(--white-a03);
-    border: 1px solid var(--white-a06);
-    border-radius: 10px;
-    padding: 10px 14px;
-    color: var(--white-a70);
-    font-size: 13px;
-    font-family: inherit;
-    outline: none;
-    resize: vertical;
-    min-height: 60px;
-    transition: border-color 0.25s var(--ease);
-    display: block;
-    line-height: 1.6;
-}
+
 
 /* ---------- 2. LLM 配置 ---------- */
 .llm-container { position: relative; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
@@ -253,31 +199,7 @@
 #set-model-options .custom-option.selected { color: var(--color-accent-bright); background: var(--color-accent-soft); }
 #set-model-options .custom-option.divider { display: none; }
 
-/* ---------- 3. 遮罩浓度（仿真框预览） ---------- */
-.dim-visual { position: relative; width: 100%; height: 200px; border-radius: 16px; margin-bottom: 12px; border: 1px solid var(--white-a06); }
-.dim-scene, .dim-overlay { position: absolute; inset: 0; border-radius: 16px; overflow: hidden; }
-.dim-scene { background: linear-gradient(to bottom, var(--scene-sky-top), var(--scene-sky-bottom)); z-index: 0; }
-.dim-moon { position: absolute; top: 24px; right: 32px; width: 32px; height: 32px; border-radius: 50%; background: var(--scene-moon); box-shadow: 0 0 16px var(--scene-moon-glow); }
-.dim-stars {
-    position: absolute; inset: 0;
-    background-image:
-        radial-gradient(1px 1px at 20px 30px, var(--scene-star), transparent),
-        radial-gradient(1px 1px at 40px 70px, var(--scene-star-dim), transparent),
-        radial-gradient(1px 1px at 50px 160px, var(--scene-star), transparent),
-        radial-gradient(1px 1px at 90px 40px, var(--scene-star-dim), transparent),
-        radial-gradient(1px 1px at 130px 80px, var(--scene-star), transparent);
-    background-size: 200px 200px; background-repeat: repeat;
-}
-.dim-val-big {
-    position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-    font-size: 64px; font-weight: 700; color: var(--scene-text);
-    text-shadow: 0 2px 12px var(--black-a50); z-index: 2; pointer-events: none;
-    letter-spacing: 4px; font-family: 'Georgia', serif; white-space: nowrap;
-}
-/* 仿真遮罩层（覆盖在聊天内容之上、低于数值；仅展示用，项目真实遮罩由 set-bgDim 驱动 bg-dim-layer）。
-   transition 已移除（控制变量实测：0.1s 过渡追不上滑块 60Hz 输入 → 每个 input 重启过渡 → 持续 CSS 帧驱动，
-   是「拖遮罩滑块 GPU 77%」的真正来源）。现随滑块瞬时变化，零持续动画。 */
-.dim-overlay { background: var(--color-bg); opacity: 0.4; pointer-events: none; z-index: 1; }
+/* ---------- 3. 遮罩浓度（滑块） ---------- */
 
 /* 滑块（星型 thumb，强调色取自 token） */
 .dim-slider { -webkit-appearance: none; appearance: none; width: 100%; height: 3px; background: var(--white-a08); border-radius: 2px; outline: none; }
@@ -299,8 +221,6 @@
 }
 @media (max-width: 520px) {
     #modal .modal-content { padding: 0 16px 16px; max-width: 100%; border-radius: 16px; }
-    .dim-visual { height: 180px; }
-    .dim-val-big { font-size: 48px; }
 }
 
 /* ===== 思考与思维链（用户 2026-08-22：两开关自语音设置移入 + 思考强度分段） ===== */

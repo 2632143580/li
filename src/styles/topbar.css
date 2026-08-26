@@ -47,6 +47,15 @@
     border: var(--pill-border-hover);
 }
 
+/* #4（用户 2026-08-27）：消息导航图标点击区加宽到 2 倍（44px = 2×22px 基准）。
+   图标本体仍 22px 居中（裸 <svg> 默认 preserveAspectRatio 居中、不拉伸），多余 22px 为纯点击面积，
+   纯增大触控目标、零新增元素、不引入原生控件；移动端触控目标≥40px 亦满足。
+   对应代码名：#btn-msg-nav / DOM.btnMsgNav / openModal('msg-nav') 的触发图标。 */
+#btn-msg-nav {
+    width: 44px;
+    height: 22px;
+}
+
 .top-bar-left {
     position: fixed;
     top: 20px;

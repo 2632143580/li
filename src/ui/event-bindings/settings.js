@@ -26,13 +26,6 @@ import { renderChat } from '../render/tree-render.js';
 import { matchThinkingPreset } from '../../core/thinking.js';
 import { armClickConfirm } from './click-confirm.js';
 
-/**
- * 系统提示词「当前编辑值」：会话级覆盖的暂存。
- * 文本输入框改的是「当前会话」的覆盖值（null = 继承全局默认）；「设为全局默认」才写到 state.settings.sysPrompt。
- * @type {string}
- */
-let pendingSysPrompt = '';
-
 /** 设置页当前正在编辑的服务商（分段控件切换即改；URL/Key/模型输入与保存都面向它） @type {string} */
 let curProvider = DEFAULT_PROVIDER;
 
@@ -68,8 +61,6 @@ function renderThinkingUI() {
     ).join('');
 }
 
-/** 仿真框专用元素（仅供视觉预览，非项目数据） */
-const dimSimOverlay = DOM.bgDimSim;
 const tagUrl = document.getElementById('tag-url');
 const tagKey = document.getElementById('tag-key');
 const bubbleUrl = document.getElementById('bubbleUrl');
@@ -105,7 +96,6 @@ export function bindSettingsEvents() {
         DOM.setBgDimVal.textContent = Math.round(tempSettings.bgDimOpacity * 100) + '%';
         DOM.setBubbleOpacity.value = Math.round((tempSettings.bubbleOpacity ?? 1) * 100); // 0-1 转为 0-100（?? 1 容错老档缺键）
         DOM.setBubbleOpacityVal.textContent = Math.round((tempSettings.bubbleOpacity ?? 1) * 100) + '%';
-        DOM.setAiName.value = tempSettings.aiName;
         // 思维链两开关（用户 2026-08-22 自语音设置移入）：暂存进 tempSettings，点「保存」才生效（与遮罩浓度同口径）
         if (DOM.setShowReasoning) DOM.setShowReasoning.checked = !!tempSettings.showReasoning;
         if (DOM.setReasoningAutoExpand) DOM.setReasoningAutoExpand.checked = !!tempSettings.reasoningAutoExpand;
@@ -115,9 +105,6 @@ export function bindSettingsEvents() {
             auto: !!state.settings.reasoningAutoExpand,
         };
         renderThinkingUI(); // 思考强度分段按当前模型预设渲染
-        // 系统提示词输入框显示「当前会话有效值」：有会话级覆盖则显示覆盖，否则显示全局默认
-        pendingSysPrompt = (state.sessionSysPrompt != null) ? state.sessionSysPrompt : state.settings.sysPrompt;
-        DOM.setSysPrompt.value = pendingSysPrompt;
         populateModelSelect(tempSettings.availableModels, tempSettings.providers[curProvider].model);
         checkProviderMatch();
         syncSim();
@@ -127,14 +114,10 @@ export function bindSettingsEvents() {
 
     // 确认
     DOM.modalClose.addEventListener('click', () => {
-        // sysPrompt 不走 tempSettings 合并（它由「当前会话级覆盖」管理，见下方单独处理），先剔除避免污染全局默认
-        delete tempSettings.sysPrompt;
         delete tempSettings.__curProvider;
         Object.assign(state.settings, tempSettings);
         state.settings.keys = { ...tempSettings.keys };
         state.settings.providers = JSON.parse(JSON.stringify(tempSettings.providers));
-        // 写入当前会话的系统提示词覆盖值（null 已由上面清理，这里恒写为字符串覆盖；清空覆盖请改用「设为全局默认」）
-        state.sessionSysPrompt = pendingSysPrompt;
         applySettings(); // 内部把根 content 同步为有效系统提示词（覆盖优先）
         updateInputLayout();
         // 思维链两开关（自语音设置移入）+ 心电图显示开关：保存才生效；与打开时快照对比，任一变更都重渲染聊天区
@@ -194,17 +177,11 @@ export function bindSettingsEvents() {
         syncTagStates(); // 实时反映虚线框/实心框
     });
 
-    // AI 名字
-    DOM.setAiName.addEventListener('input', () => {
-        tempSettings.aiName = DOM.setAiName.value;
-    });
-
-    // 背景遮罩浓度：拖动仅更新暂存值 + 仿真框预览；点「保存」才提交真实遮罩层 bg-dim-layer（用户要求"保存后才生效"）
+    // 背景遮罩浓度：拖动仅更新暂存值；点「保存」才提交真实遮罩层 bg-dim-layer（用户要求"保存后才生效"）
     DOM.setBgDim.addEventListener('input', () => {
         const val = safeParseInt(DOM.setBgDim.value, 40);
         DOM.setBgDimVal.textContent = val + '%';
         tempSettings.bgDimOpacity = val / 100; // 转为 0-1 暂存（未提交）
-        if (dimSimOverlay) dimSimOverlay.style.opacity = val / 100; // 仅仿真框实时预览
     });
 
     // 消息气泡不透明度：拖动仅更新暂存值 + 百分比文字（无仿真框，真实气泡背景在设置面板遮罩之下不可预览）；
@@ -317,33 +294,6 @@ export function bindSettingsEvents() {
         }
     });
 
-    // 系统提示词：原地 Textarea 输入（不再进入全屏编辑器）。改的是「当前会话」的覆盖值暂存，不直接写全局默认
-    DOM.setSysPrompt.addEventListener('input', () => {
-        pendingSysPrompt = DOM.setSysPrompt.value;
-    });
-    // 「设为全局默认」：把当前文本框值提升为全局默认，并清除当前会话覆盖（使其继承新默认）；其它会话不受影响
-    const sysPromptGlobal = document.getElementById('sys-prompt-global');
-    if (sysPromptGlobal) sysPromptGlobal.addEventListener('click', () => {
-        pendingSysPrompt = DOM.setSysPrompt.value;
-        state.settings.sysPrompt = pendingSysPrompt;
-        state.sessionSysPrompt = null; // 当前会话改回继承全局默认
-        applySettings();
-        saveToLocal('已设为全局默认');
-    });
-    DOM.sysPromptImport.addEventListener('click', () => DOM.fileImportPrompt.click());
-    DOM.fileImportPrompt.addEventListener('change', (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
-        const reader = new FileReader();
-        reader.onload = (event) => {
-            const text = event.target.result;
-            DOM.setSysPrompt.value = text;
-            tempSettings.sysPrompt = text;
-        };
-        reader.readAsText(file);
-        e.target.value = '';
-    });
-
     // API Key 显示/隐藏（图标按钮：仅切换 type，不写文案以免清空 SVG）
     DOM.apiKeyToggle.addEventListener('click', () => {
         DOM.setApiKey.type = DOM.setApiKey.type === 'password' ? 'text' : 'password';
@@ -411,9 +361,8 @@ export function bindSettingsEvents() {
     // 气泡内元素点击不冒泡关闭
     document.querySelectorAll('.llm-bubble, .float-bubble').forEach(el => el.addEventListener('click', e => e.stopPropagation()));
 
-    // 仿真框同步（打开时调用）
+    // 打开时同步遮罩浓度数值显示
     function syncSim() {
-        if (dimSimOverlay) dimSimOverlay.style.opacity = tempSettings.bgDimOpacity;
         DOM.setBgDimVal.textContent = Math.round(tempSettings.bgDimOpacity * 100) + '%';
     }
 }

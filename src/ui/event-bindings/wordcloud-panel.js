@@ -24,7 +24,6 @@
  */
 
 import { DOM } from '../../core/dom.js';
-import { openModal, closeAllModals } from '../../core/modal.js';
 import { getCurrentPath } from '../../chat/tree.js';
 import { analyzeWordFreq, setActiveSegmenter, getActiveSegmenter } from '../../core/wordcloud-analyzer.js';
 
@@ -138,14 +137,15 @@ const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
  * @returns {{user:string, ai:string, both:string}}
  */
 function readRoleColors() {
-    const dialog = DOM.wordcloudDialog;
+    // 词云已内嵌消息导航「词频」pane，从导航面板表面读取主题 token（面板未创建时回落默认）
+    const surface = document.getElementById('msg-nav');
     // 读主题 accent token，作为饱和/明度手感来源
-    const accentStr = dialog ? getComputedStyle(dialog).getPropertyValue('--color-accent').trim() : '';
+    const accentStr = surface ? getComputedStyle(surface).getPropertyValue('--color-accent').trim() : '';
     const accentRgb = parseRgb(accentStr || 'rgb(120,160,220)', [120, 160, 220]);
     const [, accentS] = rgbToHsl(accentRgb);
 
     // 面板明暗：读模态框背景亮度，决定文字色明度带（暗面板→亮字，亮面板→暗字）
-    const bgRgb = parseRgb(dialog ? getComputedStyle(dialog).backgroundColor : '', [20, 20, 28]);
+    const bgRgb = parseRgb(surface ? getComputedStyle(surface).backgroundColor : '', [20, 20, 28]);
     const Lt = relativeLuminance(bgRgb) < 0.35 ? 0.70 : 0.42;
     const St = clamp(accentS, 0.50, 0.85);   // 饱和度沿用主题基调，夹在安全区间
 
@@ -690,42 +690,20 @@ async function applySegmentMode(mode) {
  * 用户铁律（打开一律轻量）已改为：若 Cache Storage 已留存专业词库（首次下载后），
  * 直接启用专业分词（省下载、近秒开）；首次无缓存仍轻量起步，避免一开面板就触发 3.8MB 下载。
  */
-async function openWordCloud() {
+export async function openWordCloud() {
     quickWords = loadQuickWords();
     renderQuick();
     if (DOM.wordcloudQuery) DOM.wordcloudQuery.value = '';
-    openModal('wordcloud-dialog');
     const cached = await hasCachedJieba();
     applySegmentMode(cached ? 'jieba' : 'light');
 }
 
-/** 关闭面板：隐藏并清空查询残留（快捷词保留；分词模式每次打开按缓存重新决定）。 */
-function closeWordCloud() {
-    closeAllModals();
-    if (DOM.wordcloudQuery) DOM.wordcloudQuery.value = '';
-    if (DOM.wordcloudQueryResult) DOM.wordcloudQueryResult.innerHTML = '';
-    queryWord = '';
-}
-
-/** 绑定词云面板的全部交互事件（仅在模块初始化时调用一次）。 */
+/** 绑定词云面板的全部交互事件（仅在模块初始化时调用一次）。词云已内嵌消息导航的「词频」pane，
+ * 关闭由面板整体（遮罩点击 / ✕ / Esc）统一处理，此处只绑内容交互；节点移动后监听器仍随节点保留。 */
 import { registerUI } from '../../core/registry.js';
 registerUI('wordcloud', bindWordCloudEvents);
 
 export function bindWordCloudEvents() {
-    // 元素缺失时静默跳过，避免阻断其他绑定
-    if (!DOM.btnWordcloud || !DOM.wordcloudDialog) return;
-
-    DOM.btnWordcloud.addEventListener('click', openWordCloud);
-    DOM.wordcloudDialog.addEventListener('click', (e) => {
-        if (e.target === DOM.wordcloudDialog) closeWordCloud();
-    });
-    if (DOM.wordcloudClose) DOM.wordcloudClose.addEventListener('click', closeWordCloud);
-
-    // Escape 关闭（各面板自行处理自己的 Escape）
-    document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape' && DOM.wordcloudDialog.style.display === 'flex') closeWordCloud();
-    });
-
     // 指定词查询：输入防抖 150ms 实时刷新 + Enter 立即查询
     if (DOM.wordcloudQuery) {
         let debounce = 0;
@@ -758,5 +736,4 @@ export function bindWordCloudEvents() {
     if (DOM.wordcloudSegJieba) DOM.wordcloudSegJieba.addEventListener('click', () => {
         if (segmentMode !== 'jieba') applySegmentMode('jieba');
     });
-
 }

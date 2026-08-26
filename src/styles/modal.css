@@ -84,15 +84,16 @@ body.modal-open *:not(.modal-overlay):not(.modal-overlay *):not(#fs-editor):not(
      四字以上中文词或长英文单词一律被截成「词…」。
      修法：改为弹性宽度（基准 88px 可伸缩、上限 42%），超长时仍以省略号收尾但
      JS 侧已为每行补 title 属性，完整词可悬停查看，不丢信息。 */
-#wordcloud-dialog { z-index: 110; }
 .wc-panel {
-    width: 720px;
-    max-width: 94vw;
-    padding: 18px 20px;
+    /* 词云内容已内嵌消息导航「词频」pane：撑满该 pane，内部滚动交给 .wc-list */
     display: flex;
     flex-direction: column;
-    overflow-y: hidden;          /* 内部滚动统一交给 .wc-list，面板本身不滚 */
-    min-width: 0;                /* 允许内部 flex 子项正常收缩，避免子内容把面板撑宽 */
+    flex: 1 1 auto;
+    min-height: 0;
+    width: 100%;
+    min-width: 0;
+    padding: 12px 14px 16px;
+    overflow: hidden;            /* 面板本身不滚，滚动统一交给 .wc-list */
 }
 
 /* —— 工具栏：指定词查询 + 分词模式（v3：一键直达分段按钮，非下拉、无二次点击） —— */
@@ -370,8 +371,9 @@ body.modal-open *:not(.modal-overlay):not(.modal-overlay *):not(#fs-editor):not(
    无需逐面板补写，杜绝遗漏 max-height 的隐性耦合。只动高度，不碰各面板 ID 级专属样式。 */
 .modal-overlay.sheet > .modal-content,
 .modal-overlay.sheet > .sheet-body {
-    height: 90vh;
-    max-height: 90vh;
+    /* --app-vh 由 JS 按 visualViewport 实时维护（resize 重算），比静态 90vh 在移动端更稳 */
+    height: calc(var(--app-vh, 100vh) * 0.9);
+    max-height: calc(var(--app-vh, 100vh) * 0.9);
 }
 
 /* 通用表面：JS 动态创建的 消息导航 / 日志 用 .sheet-body 包裹（内部列表各自滚动，表面自身不滚）。
@@ -395,7 +397,7 @@ body.modal-open *:not(.modal-overlay):not(.modal-overlay *):not(#fs-editor):not(
 /* 顶部抓手中缝：所有表面统一（静态面板用各自 .modal-content 作为表面） */
 .modal-overlay.sheet > .sheet-body::before,
 #modal.modal-overlay.sheet > .modal-content::before,
-#wordcloud-dialog.modal-overlay.sheet > .modal-content::before,
+#custom-scheme-modal.modal-overlay.sheet > .modal-content::before,
 #voice-modal.modal-overlay.sheet > .modal-content::before {
     content: "";
     display: block;
@@ -408,9 +410,9 @@ body.modal-open *:not(.modal-overlay):not(.modal-overlay *):not(#fs-editor):not(
 }
 
 /* 静态面板表面覆盖：高 specificity 覆盖各自既有居中/尺寸样式，统一为底部抽屉
- * （不动 overflow：设置/语音/词云各自 .modal-content 的 overflow-y:auto / hidden 仍生效） */
+ * （不动 overflow：设置/语音各自 .modal-content 的 overflow-y:auto 仍生效） */
 #modal.modal-overlay.sheet > .modal-content,
-#wordcloud-dialog.modal-overlay.sheet > .modal-content,
+#custom-scheme-modal.modal-overlay.sheet > .modal-content,
 #voice-modal.modal-overlay.sheet > .modal-content {
     background: var(--bg-modal);
     color: var(--white-a80);
@@ -440,6 +442,7 @@ body.modal-open *:not(.modal-overlay):not(.modal-overlay *):not(#fs-editor):not(
     border-radius: 6px; cursor: pointer; font: inherit;
 }
 #msg-nav .mn-close:hover { color: var(--white-a95); }
+
 #msg-nav .mn-search {
     margin: 8px 12px 4px; padding: 7px 10px;
     border: 1px solid var(--white-a15); background: var(--white-a06);

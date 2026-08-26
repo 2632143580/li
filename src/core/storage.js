@@ -14,7 +14,7 @@ import { state } from './store.js';
 import { DEFAULT_SETTINGS, STORAGE_KEY, SESSION_KEY_PREFIX } from './constants.js';
 import { ensureKeysObject, KEY_PROVIDERS } from './utils.js';
 import { DOM } from './dom.js';
-import { migrateErrorFlags, getLastNodeInPath, serializeTree } from './tree-core.js';
+import { migrateErrorFlags, getLastNodeInPath, serializeTree, ensureNodeDefaults } from './tree-core.js';
 import { genSessionId, getEffectiveSysPrompt, freshStats, buildIndexEntry, lastMessageTime, migrateV3ToV4 } from './sessions.js';
 
 /** 防抖保存定时器句柄 @type {number|null} */
@@ -186,6 +186,7 @@ export function loadSession(id) {
     if (p) return { tree: p.tree, stats: p.stats, sysPrompt: p.sysPrompt, llmConfig: p.llmConfig || null, draft: p.draft || '' };
     const raw = readSessionRaw(id);
     if (!raw) return null;
+    ensureNodeDefaults(raw.chatTree); // 补回序列化省略的默认值（覆盖切换会话路径，与 boot 一致）
     return {
         tree: raw.chatTree,
         stats: raw.stats || freshStats(),
