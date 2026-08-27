@@ -11,7 +11,7 @@
  *      - 非法 .txt 插件（含 import/export）→ 抛出清晰中文引导，不再裸报
  *        "Cannot use import statement outside a module"
  */
-import { splitSentences, splitWaifuSegments, stripActions } from '../src/core/text-split.js';
+import { splitSentences, splitWaifuSegments } from '../src/core/text-split.js';
 
 // ── 模拟应用内插件加载器（与 src/chat/api.js 的 import 分支一致）──
 function loadPlugin(codeString) {
@@ -90,7 +90,8 @@ test('混合：单句问候 + 真实多句 各自正确', () => {
     if (splitSentences('吃了吗？没吃的话我陪你。').length !== 2) throw new Error('多句应 2 段');
 });
 
-// ===== 一·五、splitWaifuSegments / stripActions（动作分离）边界 =====
+// ===== 一·五、splitWaifuSegments（动作分离）边界 =====
+// 注：stripActions 已随 38f02d2 移除（职责迁往 voice-tiles.js buildVoiceItems），相关用例一并删除。
 const deepEq = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 test('动作分离：半角括号 → text/action 交替', () => {
     const r = splitWaifuSegments('你好呀(轻笑)今天天气不错。');
@@ -140,19 +141,6 @@ test('动作分离：空串契约', () => {
 test('动作分离：action 内容 trim（括号内空白不入段）', () => {
     const r = splitWaifuSegments('嗯( 偷偷看你 )嗯。');
     if (r[1].text !== '偷偷看你') throw new Error('实际 ' + JSON.stringify(r));
-});
-test('stripActions：括号+内容整体剔除（语音不读动作）', () => {
-    const r = stripActions('你好(轻笑)今天天气不错。真的。');
-    if (r !== '你好今天天气不错。真的。') throw new Error('实际 ' + JSON.stringify(r));
-});
-test('stripActions：全角/嵌套/未闭合一致性', () => {
-    if (stripActions('（跑过来）哥哥！') !== '哥哥！') throw new Error('全角剔除失败');
-    if (stripActions('a(b(c)b)d') !== 'ad') throw new Error('嵌套剔除失败');
-    if (stripActions('你好(轻笑') !== '你好(轻笑') throw new Error('未闭合应原样保留');
-    if (stripActions('') !== '') throw new Error('空串契约失败');
-});
-test('stripActions：全 action 输入返回空串（语音模式无语音条）', () => {
-    if (stripActions('(轻笑)(低头)') !== '') throw new Error('实际 ' + stripActions('(轻笑)(低头)'));
 });
 
 // ===== 二、插件场景（.txt 非模块加载器）=====
