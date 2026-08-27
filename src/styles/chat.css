@@ -189,15 +189,15 @@ body.bg-image-active .chat-bubble--user {
 
 /* ====================== 思维链折叠块（自定义按钮，非原生 details；无左竖线） ====================== */
 .reasoning {
-    margin: 2px 0 8px;                     /* 无卡片 / 无背景 / 无边框：纯排版分隔，不抢正文 */
+    margin: 2px 0 6px;                     /* 无卡片 / 无背景 / 无边框：纯排版分隔，不抢正文 */
 }
 .reasoning-toggle {
     display: flex;
     align-items: center;
     gap: 8px;
     width: 100%;
-    min-height: 34px;                      /* 移动端触控达标 */
-    padding: 3px 2px;
+    min-height: 30px;                      /* 移动端触控达标；较旧 34px 收紧，缩减爱心到思维链文字的纵向高度 */
+    padding: 2px;
     border: none;
     background: transparent;
     color: var(--white-a75);
@@ -228,7 +228,7 @@ body.bg-image-active .chat-bubble--user {
 }
 .reasoning.collapsed .rk-chev { transform: rotate(45deg); }   /* 收起：指下 */
 .reasoning-body {
-    padding: 4px 2px 2px 28px;             /* 缩进对齐到爱心图标起点（love 20 + gap 8），纯排版 */
+    padding: 2px 2px 2px 28px;             /* 缩进对齐到爱心图标起点（love 20 + gap 8），纯排版；顶部 4px→2px 收紧 */
     font-size: 0.82rem;
     line-height: 1.62;
     color: var(--white-a55);               /* 三级淡色：思考≠正文 */
@@ -236,3 +236,26 @@ body.bg-image-active .chat-bubble--user {
     word-break: break-word;
 }
 .reasoning.collapsed .reasoning-body { display: none; }
+/* 思维链「生成中」：限高 + 循环滚动（待办 Phase2）。
+   达到限高前随文本自然撑开；撑到 140px 后在该高度内滚动，最新行恒贴底可见；
+   生成完成（.thinking 移除）后高度释放为自然高度。隐藏滚动条保持极简。 */
+.reasoning.thinking .reasoning-body {
+    max-height: 140px;
+    overflow-y: auto;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+    -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 14px);
+            mask-image: linear-gradient(to bottom, transparent 0, #000 14px);
+}
+.reasoning.thinking .reasoning-body::-webkit-scrollbar { display: none; }
+
+/* 消息正文「流式生成中」：限高 + 滚动（待办 Phase2 第三点：消息也一股脑不停撑开）。
+   仅 currentEndNode 且 waiting 时挂 .streaming-text（renderContent 切换）；生成完成后类移除、高度释放。
+   限高以内文本自然撑开，超出后在该高度内滚动并自动贴底，避免整条消息无限拉长把对话顶飞。 */
+.msg.streaming-text > .bubble > .bubble-content {
+    max-height: 46vh;
+    overflow-y: auto;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+}
+.msg.streaming-text > .bubble > .bubble-content::-webkit-scrollbar { display: none; }

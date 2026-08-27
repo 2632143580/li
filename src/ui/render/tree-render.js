@@ -91,6 +91,9 @@ function getRenderKind(node) {
  */
 export function renderContent(contentEl, node) {
     const isStreaming = (node === state.currentEndNode && state.waiting);
+    // 流式生成中给消息 wrapper 挂 .streaming-text（CSS 限高+滚动），完成/重建时移除释放高度（待办 Phase2）
+    const _wrap = contentEl.closest('.msg') || contentEl.parentElement;
+    if (_wrap) _wrap.classList.toggle('streaming-text', isStreaming);
 
     const kind = getRenderKind(node);
 
@@ -440,6 +443,11 @@ function renderReasoningBlock(node, wrapper) {
     toggle.insertAdjacentHTML('afterbegin', buildLoveSvg());
     toggle.insertAdjacentHTML('beforeend', '<span class="rk-chev"></span>');
     block.querySelector('.reasoning-body').textContent = node.reasoning;
+    // 生成中（.thinking）：思维链超出 140px 限高后自动滚底，最新行恒可见（待办 Phase2「循环滚动」）
+    if (isThinking) {
+        const _rb = block.querySelector('.reasoning-body');
+        _rb.scrollTop = _rb.scrollHeight;
+    }
     // 折叠态：流式生成中强制展开；否则用用户手动选择，��消息默认跟随「自动展开」开关
     const collapsed = isThinking ? false
         : (typeof node._reasoningCollapsed === 'boolean' ? node._reasoningCollapsed : !state.settings.reasoningAutoExpand);
