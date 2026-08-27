@@ -21,7 +21,6 @@ const LOVE_ECG_PATH = 'M 22 45 L 32 45 L 38 25 L 45 65 L 50 45 L 78 45';
  */
 export function buildLoveSvg() {
     return '<svg class="rk-love-ico" viewBox="0 0 100 100" aria-hidden="true" focusable="false">'
-        + '<rect class="rk-love-bg" width="100" height="100" />'
         + '<path class="rk-love-heart" d="' + LOVE_HEART_PATH + '" />'
         + '<path class="rk-love-ecg" d="' + LOVE_ECG_PATH + '" fill="none" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" />'
         + '</svg>';

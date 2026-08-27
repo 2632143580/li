@@ -113,7 +113,7 @@
     min-width: 168px;
     background: var(--bg-select);
     /* 简约化（用户拍板）：去描边与投影 */
-    border-radius: 10px;
+    border-radius: var(--radius-md);
     padding: 8px 10px;
     animation: ctxPopIn 0.15s ease;
 }
@@ -151,7 +151,7 @@
     color: var(--white-a90);
     background: var(--bg-input);
     border: 1px solid var(--white-a20);
-    border-radius: 6px;
+    border-radius: var(--radius-sm);
     padding: 4px 8px;
     outline: none;
     font-variant-numeric: tabular-nums;
@@ -169,7 +169,7 @@
     color: var(--white-a90);
     background: var(--color-accent);
     border: none;
-    border-radius: 6px;
+    border-radius: var(--radius-sm);
     padding: 4px 10px;
     cursor: pointer;
     transition: filter var(--transition-fast, 0.15s);

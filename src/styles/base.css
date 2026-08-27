@@ -18,7 +18,7 @@ body {
     height: 100%;
     overflow: hidden;
     background: var(--color-bg);
-    font-family: 'Georgia', 'KaiTi', '楷体', 'PingFang SC', 'Microsoft YaHei', serif;
+    font-family: var(--font-persona);   /* FIX-1：全局字体人格（文楷屏显版 + 楷体兜底链） */
     touch-action: manipulation;
 }
 

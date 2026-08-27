@@ -75,9 +75,11 @@
    原三处各自 color-mix 硬编码 100%，但 monitor-bar:hover 走 85% 而其他两个不变，
    造成透明度不一致。统一为变量后，改一处全局生效。 */
 :root {
-    /* 三方胶囊底色统一走 white-a08（2026-08-28 对齐模拟稿观感：比 bg 92% 更「浮」一档） */
-    --bg-pill: var(--white-a08);
-    --bg-pill-hover: var(--white-a12);
+    /* 三方胶囊底色（2026-08-28 校准）：纯 white-a08 太透——左栏浮在消息流上时内容
+       全部透出，视觉上与工具按钮「重叠」（用户实测抓到）。改 bg 86% 打底保证遮蔽力，
+       观感仍是深色胶囊；hover 提亮到 78% */
+    --bg-pill: color-mix(in srgb, var(--color-bg) 86%, transparent);
+    --bg-pill-hover: color-mix(in srgb, var(--color-bg) 78%, transparent);
     --pill-border: 1px solid var(--white-a10);
     --pill-border-hover: 1px solid var(--white-a20);
     /* 全圆角胶囊（FIX-9 圆角 token 收口：10px 圆角矩形 → 999px 真胶囊） */
@@ -150,7 +152,7 @@
     align-items: flex-start;
     gap: 10px;
     padding: 10px;
-    border-radius: var(--pill-radius);
+    border-radius: var(--radius-lg);   /* 面板状容器用面板圆角——999px 会裁切内部内容（实测抓到） */
     background: var(--bg-pill);
     border: var(--pill-border);
     animation: fadeIn 0.18s ease;

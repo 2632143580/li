@@ -159,7 +159,7 @@
     background: transparent;
     color: var(--white-a50);
     font-size: 12px;
-    border-radius: 6px;
+    border-radius: var(--radius-sm);
     cursor: pointer;
     transition: all var(--transition-fast);
     font-family: inherit;

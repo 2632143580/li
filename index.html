@@ -27,6 +27,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Li</title>
+    <!-- FIX-1 字体人格（对齐模拟稿）：霞鹜文楷屏显版 webfont（CDN 按需，font-display:swap）；
+         CDN 失败时回退链仍完整：Kaiti SC → STKaiti → KaiTi → serif（见 tokens --font-persona） -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lxgw-wenkai-screen-webfont/style.css">
     <!-- CSS 经 <link> 加载：Vite 构建时内联为 <style>，http.server 原生 CSS @import 链同样可用 -->
     <link rel="stylesheet" href="./src/style.css">
 </head>

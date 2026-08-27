@@ -165,7 +165,7 @@
 .llm-bubble__actions { display: flex; gap: 6px; margin-top: 12px; justify-content: flex-end; }
 .llm-bubble__btn {
     background: var(--white-a03); border: 1px solid var(--white-a06);
-    border-radius: 6px; padding: 5px 16px; color: var(--white-a30);
+    border-radius: var(--radius-sm); padding: 5px 16px; color: var(--white-a30);
     font-size: 11px; cursor: pointer; transition: all 0.15s var(--ease); font-family: inherit;
 }
 .llm-bubble__btn:hover { background: var(--white-a06); color: var(--white-a50); }

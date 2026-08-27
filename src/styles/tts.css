@@ -139,7 +139,7 @@
     color: var(--white-a80);
     background: transparent;
     border: none;
-    border-radius: 6px;
+    border-radius: var(--radius-sm);
     padding: 8px 10px;
     cursor: pointer;
 }
@@ -289,7 +289,7 @@
 .vcache-bar {
     position: relative;
     height: 6px;
-    border-radius: 999px;
+    border-radius: var(--pill-radius);
     background: var(--white-a10);
     overflow: hidden;
 }
@@ -297,7 +297,7 @@
     position: absolute;
     left: 0; top: 0; bottom: 0;
     width: 0;
-    border-radius: 999px;
+    border-radius: var(--pill-radius);
     background: linear-gradient(90deg, var(--color-accent), var(--color-accent-solid));
     transition: width .5s var(--transition-smooth);
 }
@@ -377,7 +377,7 @@
     color: var(--white-a80);
     background: transparent;
     border: none;
-    border-radius: 6px;
+    border-radius: var(--radius-sm);
     padding: 7px 8px;
     cursor: pointer;
     white-space: nowrap;
@@ -397,7 +397,7 @@
     color: var(--white-a75);
     background: var(--white-a05);
     border: 1px solid var(--white-a14);
-    border-radius: 999px;
+    border-radius: var(--pill-radius);
     padding: 5px 13px;
     cursor: pointer;
     transition: background var(--transition-fast), color var(--transition-fast), border-color var(--transition-fast);

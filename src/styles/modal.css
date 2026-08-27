@@ -219,7 +219,7 @@ body.modal-open *:not(.modal-overlay):not(.modal-overlay *):not(#fs-editor):not(
     color: var(--white-a90);
     background: var(--white-a06);
     border: 1px solid var(--white-a10);
-    border-radius: 999px;
+    border-radius: var(--pill-radius);
     padding: 4px 10px;
     cursor: pointer;
     transition: background var(--transition-fast, 0.15s), border-color var(--transition-fast, 0.15s);
@@ -273,7 +273,7 @@ body.modal-open *:not(.modal-overlay):not(.modal-overlay *):not(#fs-editor):not(
     border: none;
     border-bottom: 2px solid transparent;
     cursor: pointer;
-    border-radius: 6px 6px 0 0;
+    border-radius: var(--radius-sm) 6px 0 0;
     transition: color var(--transition-fast, 0.15s), border-color var(--transition-fast, 0.15s), background var(--transition-fast, 0.15s);
 }
 .wc-tab:hover { color: var(--white-a90); background: var(--white-a06); }
@@ -302,7 +302,7 @@ body.modal-open *:not(.modal-overlay):not(.modal-overlay *):not(#fs-editor):not(
     font-size: 13px;
     min-width: 0;                 /* flex 子项默认不小于内容宽，不置 0 长词会撑破行 */
     cursor: pointer;              /* 点词 = 直接查询（用户直达，免输入） */
-    border-radius: 6px;
+    border-radius: var(--radius-sm);
     transition: background var(--transition-fast, 0.15s);
 }
 .wc-row:hover { background: var(--white-a06); }
@@ -404,7 +404,7 @@ body.modal-open *:not(.modal-overlay):not(.modal-overlay *):not(#fs-editor):not(
     width: 38px;
     height: 4px;
     margin: 8px auto 0;
-    border-radius: 999px;
+    border-radius: var(--pill-radius);
     background: var(--white-a20);
     flex: none;
 }
@@ -439,7 +439,7 @@ body.modal-open *:not(.modal-overlay):not(.modal-overlay *):not(#fs-editor):not(
 #msg-nav .mn-close {
     padding: 3px 9px; border: 1px solid var(--white-a15);
     background: var(--white-a06); color: var(--white-a80);
-    border-radius: 6px; cursor: pointer; font: inherit;
+    border-radius: var(--radius-sm); cursor: pointer; font: inherit;
 }
 #msg-nav .mn-close:hover { color: var(--white-a95); }
 
@@ -494,7 +494,7 @@ body.modal-open *:not(.modal-overlay):not(.modal-overlay *):not(#fs-editor):not(
 /* 新建会话入口：零新增图标逻辑，整条可点；icon 用内联 SVG（避免引入未使用的 symbol） */
 #msg-nav .mn-new {
     display: flex; align-items: center; gap: 8px; margin: 10px 12px 4px;
-    padding: 9px 12px; border: 1px dashed var(--white-a20); border-radius: 10px;
+    padding: 9px 12px; border: 1px dashed var(--white-a20); border-radius: var(--radius-md);
     background: var(--white-a04); color: var(--color-accent-bright, var(--color-accent));
     font: inherit; font-size: 13px; cursor: pointer; transition: background .2s var(--ease);
 }
@@ -581,7 +581,7 @@ body.modal-open *:not(.modal-overlay):not(.modal-overlay *):not(#fs-editor):not(
 #msg-nav .mn-sp-input {
     width: 100%; min-height: 88px; box-sizing: border-box; resize: none;
     background: var(--bg-input); color: var(--white-a90);
-    border: 1px solid var(--white-a20); border-radius: 6px;
+    border: 1px solid var(--white-a20); border-radius: var(--radius-sm);
     padding: 8px 10px; font: inherit; font-size: 13px; line-height: 1.7;
     outline: none;
 }
@@ -590,14 +590,14 @@ body.modal-open *:not(.modal-overlay):not(.modal-overlay *):not(#fs-editor):not(
 #msg-nav .mn-sp-actions { display: flex; justify-content: flex-end; gap: 8px; }
 #msg-nav .mn-sp-cancel {
     font: inherit; font-size: 12px; color: var(--white-a60);
-    background: var(--white-a06); border: none; border-radius: 6px;
+    background: var(--white-a06); border: none; border-radius: var(--radius-sm);
     padding: 7px 14px; cursor: pointer; transition: color .2s var(--ease), background .2s var(--ease);
 }
 #msg-nav .mn-sp-cancel:hover { color: var(--white-a90); background: var(--white-a10); }
 #msg-nav .mn-sp-save {
     font: inherit; font-size: 12px; font-weight: 600;
     color: var(--white-a90); background: var(--color-accent);
-    border: none; border-radius: 6px; padding: 7px 16px;
+    border: none; border-radius: var(--radius-sm); padding: 7px 16px;
     cursor: pointer; transition: filter var(--transition-fast, 0.15s);
 }
 #msg-nav .mn-sp-save:hover { filter: brightness(1.15); }
@@ -613,7 +613,7 @@ body.modal-open *:not(.modal-overlay):not(.modal-overlay *):not(#fs-editor):not(
 #msg-nav .mn-ctx {
     position: fixed; z-index: 61; display: none;
     min-width: 156px; padding: 5px;
-    background: var(--bg-modal); border-radius: 10px;
+    background: var(--bg-modal); border-radius: var(--radius-md);
     box-shadow: 0 8px 24px rgba(0,0,0,.35);
     animation: ctxIn .14s var(--ease);
     transform-origin: top left;
@@ -645,7 +645,7 @@ body.modal-open *:not(.modal-overlay):not(.modal-overlay *):not(#fs-editor):not(
 /* 重命名输入框：替换标题，stopPropagation 拦 Escape 防关面板 */
 #msg-nav .mn-rename {
     flex: 1; min-width: 0; box-sizing: border-box; padding: 2px 6px;
-    border: 1px solid var(--color-accent); border-radius: 6px;
+    border: 1px solid var(--color-accent); border-radius: var(--radius-sm);
     background: var(--white-a08); color: var(--white-a95); font: inherit; font-size: 13.5px; outline: none;
 }
 

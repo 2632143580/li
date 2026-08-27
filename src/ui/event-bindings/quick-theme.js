@@ -332,7 +332,6 @@ function renderQuickThemePalette() {
     const add = document.createElement('div');
     add.className = 'qt-dot qt-add';
     add.dataset.add = '1';
-    add.textContent = '+';
     palette.appendChild(add);
 
     refreshHighlights();
@@ -496,7 +495,8 @@ function saveCustomSchemeFromModal() {
         return;
     }
     scheme.id = 'cs_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
-    scheme.name = '自定义 ' + (customSchemes.length + 1);
+    // T09-3：名字直接用色值（多色取首色，长码截断），不再叫「自定义 1/2/…」
+    scheme.name = (scheme.colors && scheme.colors[0] ? scheme.colors[0] : code).slice(0, 18);
     scheme.code = code;                       // 持久化原始代码，供列表滑块就地重算 cssText
     scheme.mix = currentCreateMix;            // 持久化撞色强度，供列表滑块恢复该方案同款强度
     customSchemes.push(scheme);

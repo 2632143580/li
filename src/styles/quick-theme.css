@@ -7,11 +7,14 @@
     align-items: center;
     gap: 6px;
     padding: 3px 6px;
-    border-radius: 100px;
+    border-radius: var(--pill-radius);
     background: color-mix(in srgb, var(--color-bg) 50%, transparent);
     border: 1px solid var(--white-a08);
-    /* 不限制 max-width：色块按内容展开，避免末尾「+」被掐断。
-       仅在自定义色块极多、整行真正溢出时才滚动（滚动条已隐藏，正常情况不触发）。 */
+    /* 2026-08-28 修复「色块被压缩只露 2 个 + sticky 加号叠压」：宽度显式 max-content，
+       10 色块全展开全部可见（用户铁律：色块选择器必须全部可见）；
+       移动端以视口宽兜底，真溢出才滚动（滚动条已隐藏）。 */
+    width: max-content;
+    max-width: calc(100vw - 24px);
     overflow-x: auto;
     overflow-y: visible;
     scrollbar-width: none;
@@ -50,12 +53,10 @@
     box-shadow: 0 0 0 2px var(--white-a90), 0 0 0 4px var(--color-accent);
 }
 
-/* 自定义配色：添加「+」圆点（虚线边框 + 居中加号，永不激活）。
-   sticky 钉在色块条可视右缘：即便整行溢出滚动，「+」也永远可见、点得到。 */
+/* 自定义配色：添加入口圆点（虚线边框空圆，T09-4：不再显示「+」加号图标）。
+   2026-08-28：原 sticky 钉右缘方案随「palette 全展开」移除——全部色块可见后
+   不存在被遮挡问题，sticky 反而在视觉上叠压相邻色块（用户实测抓到）。 */
 .qt-dot.qt-add {
-    position: sticky;
-    right: 0;
-    z-index: 2;
     color: var(--white-a60);
     font-size: 15px;
     font-weight: 600;
@@ -97,7 +98,7 @@
     resize: vertical;
     box-sizing: border-box;
     padding: 10px 12px;
-    border-radius: 10px;
+    border-radius: var(--radius-md);
     border: 1px solid var(--white-a10);
     background: var(--bg-input, rgba(0, 0, 0, .2));
     color: var(--color-user);

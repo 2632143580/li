@@ -21,6 +21,9 @@
     --radius-sm: 8px;
     --radius-md: 14px;
     --radius-lg: 18px;
+    /* FIX-1 字体人格（对齐模拟稿）：霞鹜文楷屏显版在前（index.html 引 CDN，swap 按需加载），
+       系统楷体逐级兜底，末位 serif——断网/CDN 失败链路完整 */
+    --font-persona: 'LXGW WenKai Screen', 'Kaiti SC', 'STKaiti', 'KaiTi', 'Noto Serif CJK SC', Georgia, 'Times New Roman', serif;
     --transition-fast: 0.2s ease;
     --transition-normal: 0.3s ease;
     --transition-smooth: 0.4s cubic-bezier(0.22, 1, 0.36, 1);
@@ -59,7 +62,6 @@
 
     /* 爱心图标（love-icon.js）主题令牌：委托现有双套令牌，自动随深浅主题翻转；
        组件只引用此处，不改即随主题变。heart=主题色、line=底块同色镂空刻进爱心（深浅皆可见） */
-    --rk-love-surface: var(--color-bg);
     --rk-love-heart: var(--color-accent-solid);
     --rk-love-line: var(--color-bg);
 
