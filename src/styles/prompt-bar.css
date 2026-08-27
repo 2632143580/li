@@ -75,15 +75,10 @@
     background: var(--bg-modal);
     box-shadow: var(--modal-elevation);
     z-index: 30;
-    animation: pbIn 0.22s var(--transition-smooth) both;
+    /* 用户要求：提示词面板「立马弹出」，去掉入场动画（无延迟）；减弱动效偏好下同样无动画 */
+    animation: none;
 }
 .pb-panel[hidden] { display: none; }
-
-/* 入场：淡入 + 轻微上滑收位；逐帧保持 X 偏移（见上） */
-@keyframes pbIn {
-    from { opacity: 0; transform: translateX(-50%) translateY(8px); }
-    to { opacity: 1; transform: translateX(-50%) translateY(0); }
-}
 
 /* 头行：标题左 · 主操作右上角（T06：叉已移除，Esc/点外关闭） */
 .pb-panel-head {
@@ -96,7 +91,7 @@
 .pb-title {
     font-size: 13px;
     font-weight: 500;
-    color: var(--white-a70);
+    color: var(--white-a80);
 }
 
 /* 主操作组：右上角缩小版（模拟稿定值 3px 9px / 11px 文字） */
@@ -141,17 +136,17 @@
     border: 1px solid var(--white-a06);
     border-radius: var(--radius-md);
     padding: 9px 11px;
-    color: var(--white-a70);
+    color: var(--white-a90);
     font-size: 13px;
     font-family: inherit;
     outline: none;
     resize: vertical;
-    min-height: 90px;
+    min-height: 88px;
     line-height: 1.7;
     transition: border-color 0.25s var(--ease);
     display: block;
 }
-.pb-textarea::placeholder { color: var(--white-a30); }
+.pb-textarea::placeholder { color: var(--white-a45); }
 .pb-textarea:focus { border-color: var(--color-accent-dim); }
 
 /* 次级操作行：两组轻量文字钮 —— 左「提示词文件」右「全量存档」（2026-08-27 导入/导出全部自 tb-body 迁入） */
@@ -161,9 +156,7 @@
     justify-content: space-between;
     flex-wrap: wrap;
     gap: 2px 8px;
-    margin-top: 10px;
-    padding-top: 6px;
-    border-top: 1px solid var(--white-a06);
+    margin-top: 8px;          /* 模拟稿定值：文本域到脚栏按钮的距离收紧 */
 }
 .pb-foot-group {
     display: inline-flex;
@@ -175,7 +168,7 @@
     padding: 0 10px;
     font-size: 12px;
     font-family: inherit;
-    color: var(--white-a40);
+    color: var(--white-a50);
     background: none;
     border: none;
     border-radius: var(--radius-sm);
@@ -197,9 +190,4 @@
 @media (max-width: 600px) {
     .pb-btn { padding: 5px 10px; }
     .pb-foot-btn { min-height: 40px; }
-}
-
-/* 尊重减弱动效偏好 */
-@media (prefers-reduced-motion: reduce) {
-    .pb-panel { animation: none; }
 }

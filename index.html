@@ -136,6 +136,9 @@
     <!-- 底部胶囊输入条（2026-08-28 对齐模拟稿 .input-bar）：内部仍是 hiddenInput（IME/回车/文本同步全链路复用）+ 新增发送按钮 -->
     <div class="input-bar" id="input-bar">
         <input id="hiddenInput" name="no-autofill" type="text" autocomplete="off" spellcheck="false" maxlength="500" placeholder="输入消息…" />
+        <button class="ib-icon" id="fs-trigger-btn" type="button" aria-label="全屏编辑">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"></path></svg>
+        </button>
         <button class="ib-send" id="btn-send" type="button" aria-label="发送">
             <svg viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
         </button>
@@ -273,11 +276,6 @@
 
     <!-- 当前背景常驻指示器（需求十九：固定位置显示背景名/来源） -->
     <div id="bg-current-indicator"></div>
-
-    <!-- 全屏编辑器入口按钮（stroke 由 CSS 按 --white-aXX 主题阶控制，深浅主题自动翻转） -->
-    <svg id="fs-trigger-btn" viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"></path>
-    </svg>
 
     <!-- 插件/背景管理模态框 -->
     <div id="bg-modal" class="modal-overlay">

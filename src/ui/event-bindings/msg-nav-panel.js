@@ -46,6 +46,7 @@ import { createNode } from '../../core/tree-core.js';
 import { initChatTree } from '../../chat/tree.js';
 import { clearAutoQueue } from '../../engines/tts-engine.js';
 import { updateCacheUI, resetMonitorStats } from '../render/tree-render.js';
+import { moderator } from '../../engines/moderator-engine.js'; // 禁词引擎：消息预览禁词下划线（待办 Phase5）
 
 registerUI('msg-nav', setupMsgNav);
 
@@ -59,6 +60,10 @@ const PREVIEW_CH = 120;
 const LONG_PRESS_MS = 600;
 /** 角色色点：与词云分色一致（user 暖橙 / ai 冷蓝） @type {Object<string,string>} */
 const ROLE_DOT = { user: '#ff9f43', assistant: '#4dabf7' };
+/** 待办 Phase5：禁词常驻下划线——每次渲染前在 renderMessages 刷新（词库可能被改），供 highlight 复用 @type {string[]} */
+let bannedWords = [];
+/** @type {Set<string>} */
+let bannedSet = new Set();
 
 /** 读上次 tab（默认 'sessions'） @returns {'sessions'|'messages'} */
 function readTab() {
@@ -360,7 +365,8 @@ function setupMsgNav() {
      */
     function highlight(text, q) {
         const terms = hotWords.slice();
-        if (q) for (const w of q.toLowerCase().split(/\s+/)) if (w && !hotWordSet.has(w)) terms.push(w);
+        if (q) for (const w of q.toLowerCase().split(/\s+/)) if (w && !hotWordSet.has(w) && !bannedSet.has(w)) terms.push(w);
+        for (const w of bannedWords) if (w && !hotWordSet.has(w)) terms.push(w); // 禁词常驻下划线（不与高频词重复）
         terms.sort((a, b) => b.length - a.length);
         const lower = text.toLowerCase();
         let html = '';
@@ -369,9 +375,9 @@ function setupMsgNav() {
             let m = null;
             for (const w of terms) { if (w && lower.startsWith(w, i)) { m = w; break; } }
             if (m) {
-                html += hotWordSet.has(m)
-                    ? `<mark class="htw">${escapeHtml(text.slice(i, i + m.length))}</mark>`
-                    : `<mark class="hq">${escapeHtml(text.slice(i, i + m.length))}</mark>`;
+                // 禁词优先红下划线（hmod），其次高频词（htw），再次查找词（hq）
+                const cls = bannedSet.has(m) ? 'hmod' : hotWordSet.has(m) ? 'htw' : 'hq';
+                html += `<mark class="${cls}">${escapeHtml(text.slice(i, i + m.length))}</mark>`;
                 i += m.length;
             } else {
                 html += escapeHtml(text[i]);

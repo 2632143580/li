@@ -285,6 +285,9 @@ body.modal-open *:not(.modal-overlay):not(.modal-overlay *):not(#fs-editor):not(
 /* 空组 tab：颜色淡化（提示该组暂无词）但**保持可点**——点开显示「（无）」让用户自己确认，
    不做 pointer-events:none（否则「点不动」会误以为 bug） */
 .wc-tab[aria-disabled='true'] { color: var(--white-a30); }
+/* 禁词 tab（待办 Phase5）：激活态与词用警示红，与三角色分组视觉分离 */
+.wc-tab[data-group='banned'].active { color: var(--status-error, #ff5a5a); border-bottom-color: var(--status-error, #ff5a5a); }
+.wc-group[data-group='banned'] .wc-word { color: var(--status-error, #ff5a5a); }
 /* —— 分组面板：默认隐藏，仅 .active 组显示 —— */
 .wc-panels { display: flex; flex-direction: column; }
 .wc-group { display: none; }
