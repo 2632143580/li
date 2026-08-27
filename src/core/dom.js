@@ -54,7 +54,7 @@ export const DOM = {};
         'crop-modal', 'crop-frame', 'crop-preview', 'crop-zoom', 'crop-zoom-val', 'crop-fit', 'crop-reset', 'crop-cancel', 'crop-confirm',
         'file-import-all', 'file-import-bg-image', 'bg-current-indicator',
         // 顶部中央提示栏（系统提示词 / 人设）：胶囊 + 面板 + 编辑控件
-        'prompt-bar', 'prompt-toggle', 'prompt-badge', 'prompt-panel', 'prompt-close',
+        'prompt-bar', 'prompt-toggle', 'prompt-badge', 'prompt-panel',
         'prompt-textarea', 'prompt-apply', 'prompt-global', 'prompt-import', 'prompt-export', 'prompt-file',
         // 监控信息栏：消息灯 + 缓存灯 + 上下文占用圆环（点击弹编辑气泡改上限）；监控区即展开开关
         'top-bar-left', 'monitor-bar',

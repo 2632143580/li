@@ -174,19 +174,16 @@
             <span class="pb-badge" id="prompt-badge">全局默认</span>
         </button>
         <div class="pb-panel" id="prompt-panel" hidden>
+            <!-- T06（模拟稿形态）：无关闭叉（Esc/点外关闭）；主操作缩小并移至标题行右侧 -->
             <div class="pb-panel-head">
                 <span class="pb-title">系统提示词</span>
-                <button class="pb-close" id="prompt-close" type="button" aria-label="关闭">
-                    <svg viewBox="0 0 24 24"><path d="M6 6 L18 18 M18 6 L6 18"/></svg>
-                </button>
-            </div>
-            <!-- 主操作置顶（2026-08-27）：应用/全局是面板核心动作，置于 textarea 之上符合操作动线 -->
-            <div class="pb-actions">
-                <button class="pb-btn" id="prompt-apply" type="button">应用到本会话</button>
-                <button class="pb-btn pb-btn--accent" id="prompt-global" type="button">设为全局默认</button>
+                <div class="pb-actions">
+                    <button class="pb-btn" id="prompt-apply" type="button">应用到本会话</button>
+                    <button class="pb-btn pb-btn--accent" id="prompt-global" type="button">设为全局默认</button>
+                </div>
             </div>
             <textarea class="pb-textarea" id="prompt-textarea" rows="5" placeholder="输入系统提示词 / 人设，定义角色与行为…"></textarea>
-            <!-- 轻量行分两组：提示词文件传输 ｜ 全量数据备份；原 tb-body 的导入/导出全部迁入 -->
+            <!-- 轻量行分两组：提示词文件传输 ｜ 全量数据备份 -->
             <div class="pb-foot">
                 <span class="pb-foot-group">
                     <button class="pb-foot-btn" id="prompt-import" type="button">导入文件</button>

@@ -130,8 +130,7 @@ export function bindPromptBarEvents() {
         else closePanel();
     });
 
-    // 关闭按钮
-    if (DOM.promptClose) DOM.promptClose.addEventListener('click', closePanel);
+    // T06：关闭叉已移除 —— Esc 与「点面板外部关闭」两条路径保留
 
     // 编辑区输入：实时写入 pending（不提交，提交仅经「应用 / 全局」按钮）
     if (DOM.promptTextarea) DOM.promptTextarea.addEventListener('input', () => {
