@@ -13,18 +13,21 @@
 
 import { DOM } from '../../core/dom.js';
 import { registerUI } from '../../core/registry.js';
+import { closeBubbles } from '../bubbles.js';
 
 /** 折叠状态的持久化键（'1' = 收起，'0'/缺失 = 展开）。 @type {string} */
 const STORAGE_KEY = 'li.topbarLeftCollapsed';
 
 /**
  * 切换折叠态：collapsed 类驱动 CSS 显隐，同步持久化。
+ * 展开时调 closeBubbles('tb-body')——与其他气泡弹窗（#ctx-edit-pop / #prompt-panel）互斥。
  * @param {boolean} collapsed true=收起(仅监控) / false=展开(显示全部按钮)
  * @returns {void}
  */
 function setCollapsed(collapsed) {
     const bar = DOM.topBarLeft;
     if (!bar) return;
+    if (!collapsed) closeBubbles('tb-body');
     bar.classList.toggle('collapsed', collapsed);
     try { localStorage.setItem(STORAGE_KEY, collapsed ? '1' : '0'); } catch (_) { /* 隐私模式静默 */ }
 }

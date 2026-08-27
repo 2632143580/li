@@ -8,13 +8,13 @@
  *   - 新建：当前会话无任何 user 消息则复用不新建（防空会话堆积）；否则建新树、入索引、落盘。
  *   - 删除：先 abort 其后台流 → 删键与索引 → 删到最后一个自动新建空会话（永远≥1）。
  *
- * 依赖：core/state、core/sessions（纯数据）、core/storage（落盘）、chat/tree（initChatTree 等）、
+ * 依赖：core/state、core/session-data（纯数据）、core/storage（落盘）、chat/tree（initChatTree 等）、
  *       ui/render/tree-render、ui/voice-tiles、engines/tts-engine、ui/input-manager、core/modal。
  * 导出：switchTo / createNew / removeSession / renameSession / listSessions
  */
 
 import { state } from '../core/store.js';
-import { genSessionId, getEffectiveSysPrompt, freshStats, buildIndexEntry } from '../core/sessions.js';
+import { genSessionId, getEffectiveSysPrompt, freshStats, buildIndexEntry } from '../core/session-data.js';
 import { loadSession, saveSession, deleteSession, setSessionTitle, flushSave } from '../core/storage.js';
 import { initChatTree, applySettings, getLastNodeInPath, renderChat, updateMonitorUI } from './tree.js';
 import { cancelPendingStream } from '../ui/render/tree-render.js';

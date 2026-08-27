@@ -10,7 +10,7 @@ import { DEFAULT_SETTINGS } from '../../core/constants.js';
 import { closeAllModals } from '../../core/modal.js';
 import { ensureKeysObject, KEY_PROVIDERS } from '../../core/utils.js';
 import { saveToLocal, saveSession } from '../../core/storage.js';
-import { renumberTreeIds } from '../../core/sessions.js';
+import { renumberTreeIds } from '../../core/session-data.js';
 import { serializeTree, ensureNodeDefaults } from '../../core/tree-core.js';
 import { updateInputLayout } from '../input-manager.js';
 import {
