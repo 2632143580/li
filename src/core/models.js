@@ -26,8 +26,8 @@ function buildModelsUrl(apiUrl) {
 }
 
 /**
- * 拉取并缓存某服务商的模型清单（治本核心：让「会话芯片快切」也能自动配套合法 model，
- * 杜绝 handleQuickLlmSwitch 在清单为空时落 model:'' 而把空串送进 API → DeepSeek 报 "passed ."）。
+ * 拉取并缓存某服务商的模型清单（治本核心：让会话级 LLM 配置也能自动配套合法 model，
+ * 杜绝在清单为空时落 model:'' 而把空串送进 API → DeepSeek 报 "passed ."）。
  *
  * URL / key 解析口径与请求层 api.js 对齐：显式覆盖（设置页未保存的暂存值）>
  * settings 持久配置 > LLM_PROVIDERS 死常量兜底。此前用死常量 URL——用户改过服务商端点后，

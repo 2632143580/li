@@ -36,14 +36,11 @@ import { analyzeWordFreq, getActiveSegmenter } from '../../core/wordcloud-analyz
 import { registerUI } from '../../core/registry.js';
 import { openModal, closeAllModals } from '../../core/modal.js';
 import { getProviderByUrl } from '../../core/utils.js';
-import { Logger } from '../../core/logger.js';
-import { fetchModelsForProvider, getProviderModels } from '../../core/models.js';
-import { loadSession, persistSession, saveSession, setSessionPinned, saveToLocal } from '../../core/storage.js';
+import { loadSession, persistSession, setSessionPinned, saveToLocal } from '../../core/storage.js';
 import { showToast } from '../../core/toast.js';
 import { getEffectiveSysPrompt } from '../../core/sessions.js';
 import { armClickConfirm } from './click-confirm.js';
 import { openWordCloud } from './wordcloud-panel.js';
-import { LLM_PROVIDERS } from '../../core/config.js';
 import { DEFAULT_PROVIDER, WELCOME } from '../../core/constants.js';
 import { createNode } from '../../core/tree-core.js';
 import { initChatTree } from '../../chat/tree.js';
@@ -62,8 +59,6 @@ const PREVIEW_CH = 120;
 const LONG_PRESS_MS = 600;
 /** 角色色点：与词云分色一致（user 暖橙 / ai 冷蓝） @type {Object<string,string>} */
 const ROLE_DOT = { user: '#ff9f43', assistant: '#4dabf7' };
-
-// 快速切换可用的服务商常量：端点与默认模型已集中到 core/config.js 的 LLM_PROVIDERS（死常量，不序列化）。
 
 /** 读上次 tab（默认 'sessions'） @returns {'sessions'|'messages'} */
 function readTab() {
@@ -154,8 +149,8 @@ function setupMsgNav() {
     `;
     document.body.appendChild(panel);
 
-    /** 当前展开 SP 编辑器的会话 id（null = 全部收起）。展开态唯一事实源，重渲染据此恢复 @type {string|null} */
-    let spEditId = null;
+    /** 当前打开的「提示词预览气泡」实例（null = 无）。点击会话行 SP pill 弹出，点外/切会话收起 @type {HTMLElement|null} */
+    let spBubbleEl = null;
     /** 长按操作菜单是否打开 @type {boolean} */
     let ctxMenuOpen = false;
 
@@ -286,66 +281,48 @@ function setupMsgNav() {
     }
 
     /**
-     * 展开/收起某行的 SP 编辑器（点 SP 预览触发）。
-     * 经 renderSessions 统一重渲染保证「同时至多一行展开」，杜绝多行同开的漂移态。 @param {string} id
+     * 关闭「提示词预览气泡」（点 SP pill 之外 / 切会话 / 重渲染前调用）。 @returns {void}
      */
-    function toggleSpEditor(id) {
-        spEditId = (spEditId === id) ? null : id; // 再点同一行 = 收起
-        renderSessions();
-    }
-
-    /** 收起 SP 编辑器（取消 / Esc / 保存完成后调用） */
-    function collapseSpEditor() {
-        spEditId = null;
-        renderSessions();
+    function closeSpBubble() {
+        if (spBubbleEl) { spBubbleEl.remove(); spBubbleEl = null; }
     }
 
     /**
-     * 为已展开的行内编辑器填初值并绑定事件（renderSessions 重建 DOM 后调用）。
-     * 预填：会话级覆盖优先，无覆盖以全局默认作编辑起点（留空保存 = 恢复全局默认）。
-     * 无气泡/盒子包裹：编辑器仅 textarea + 操作行 + 一行极淡提示，视觉上不是浮层。 @param {HTMLElement} ed 编辑器根节点
+     * 点会话行 SP pill：弹出气泡预览该会话提示词前几行（只读——编辑已移交顶部提示词 bar）。
+     * 无会话级覆盖时显示「全局默认」并预览全局 sysPrompt。气泡锚定 pill 下方、点外即收。
+     * @param {string} id 会话 id @param {HTMLElement} anchor SP pill 元素
      */
-    function fillSpEditor(ed) {
-        const id = ed.dataset.id;
+    function showSpBubble(id, anchor) {
+        closeSpBubble();
         const sess = loadSession(id);
-        if (!sess) { spEditId = null; return; }
-        const ta = ed.querySelector('.mn-sp-input');
-        const hasOverride = sess.sysPrompt != null && sess.sysPrompt !== '';
-        ta.value = hasOverride ? sess.sysPrompt : state.settings.sysPrompt;
-        // 键盘：Esc 只收编辑器（拦冒泡防 global.js 连面板一起关）；Ctrl/Cmd+Enter 保存（多行 textarea 裸 Enter 应换行）
-        ta.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape') { e.stopPropagation(); collapseSpEditor(); }
-            else if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') { e.preventDefault(); saveSp(id, ta.value); }
-        });
-        ed.querySelector('.mn-sp-cancel').addEventListener('click', (e) => { e.stopPropagation(); collapseSpEditor(); });
-        ed.querySelector('.mn-sp-save').addEventListener('click', (e) => { e.stopPropagation(); saveSp(id, ta.value); });
-    }
-
-    /**
-     * 保存会话 SP：空 = 恢复继承全局；当前会话走运行时 + state 落盘，后台会话写存档并同步 pending 快照。
-     * @param {string} id 会话 id @param {string} rawVal textarea 原始值
-     */
-    function saveSp(id, rawVal) {
-        const next = rawVal.trim() ? rawVal.trim() : null;
-        if (id === state.activeSessionId) {
-            // 当前会话：直接改运行时（含对话树根 content 同步），用 state 当前态落盘——避免防抖窗口内旧存档覆盖新树
-            state.sessionSysPrompt = next;
-            if (state.chatTree) state.chatTree.content = getEffectiveSysPrompt();
-            saveSession(id);
-        } else {
-            // 后台会话：先同步 pending 快照（否则流式完成落盘会用旧 sysPrompt 覆盖新设置），再写存档
-            const p = state.pending.get(id);
-            if (p) {
-                p.sysPrompt = next;
-                saveSession(id, { tree: p.tree, stats: p.stats, sysPrompt: next, draft: p.draft || '', llmConfig: p.llmConfig || null });
-            } else {
-                const sess = loadSession(id);
-                if (sess) { sess.sysPrompt = next; persistSession(id, sess); }
-            }
-        }
-        spEditId = null;
-        renderSessions();
-        showToast(next ? '已保存会话提示词' : '已恢复全局默认', 'success');
+        const hasSp = sess && sess.sysPrompt != null && sess.sysPrompt !== '';
+        const full = hasSp ? sess.sysPrompt : state.settings.sysPrompt;
+        const lines = (full || '').replace(/\r\n/g, '\n').split('\n').slice(0, 6).join('\n');
+        const preview = lines.length > 220 ? lines.slice(0, 220) + '…' : lines;
+        const bubble = document.createElement('div');
+        bubble.className = 'mn-sp-pop';
+        bubble.innerHTML =
+            '<div class="mn-sp-pop-title">' + (hasSp ? '会话提示词' : '全局默认提示词') + '</div>' +
+            '<pre class="mn-sp-pop-body">' + (escapeHtml(preview) || '（空）') + '</pre>';
+        const rect = anchor.getBoundingClientRect();
+        const maxW = 280;
+        bubble.style.position = 'fixed';
+        bubble.style.left = Math.min(rect.left, window.innerWidth - maxW - 12) + 'px';
+        bubble.style.top = (rect.bottom + 8) + 'px';
+        bubble.style.maxWidth = maxW + 'px';
+        bubble.style.zIndex = '1000';
+        document.body.appendChild(bubble);
+        spBubbleEl = bubble;
+        // 当前 click 已作用在 pill 上，延后一拍再挂关闭监听，避免立刻把自己关掉
+        setTimeout(() => {
+            const onDoc = (e) => {
+                if (spBubbleEl && !spBubbleEl.contains(e.target)) {
+                    closeSpBubble();
+                    document.removeEventListener('click', onDoc);
+                }
+            };
+            document.addEventListener('click', onDoc);
+        }, 0);
     }
 
     // 遮罩点击关闭
@@ -407,9 +384,9 @@ function setupMsgNav() {
     /** 渲染会话列表 @returns {void} */
     function renderSessions() {
         closeCtxMenu(); // 重建列表前确保菜单已收（重渲染不会动菜单 DOM，但状态须干净）
+        closeSpBubble(); // 重渲染（切会话/列表变动）时同步收起提示词预览气泡（待办 Phase4）
         const sessions = listSessions();
         if (!sessions.length) {
-            spEditId = null; // 空列表无行可展开，清理展开态
             sessionsList.innerHTML = '<div class="mn-empty">还没有会话</div>';
             return;
         }
@@ -433,23 +410,13 @@ function setupMsgNav() {
                     ${pin}
                     <span class="mn-session-title">${escapeHtml(s.title)}</span>
                     ${dots}
-                    <button type="button" class="mn-llm-chip${providerClass}" data-id="${escapeHtml(s.id)}" data-provider="${providerKey}">${escapeHtml(modelName)}</button>
+                    <span class="mn-llm-chip${providerClass}" data-id="${escapeHtml(s.id)}">${escapeHtml(modelName)}</span>
                 </div>
                 <div class="mn-row-meta">
                     <span class="mn-time">${relTime(s.updatedAt)}</span>
                     <span class="mn-sep">·</span>
                     <span class="mn-count">${s.msgCount} 条</span>
                     ${metaRight}
-                </div>
-                <div class="mn-sp-editor${spEditId === s.id ? ' open' : ''}" data-id="${escapeHtml(s.id)}">
-                    <div class="mn-sp-inner">
-                        <div class="mn-sp-tip">留空保存 = 采用全局默认提示词</div>
-                        <textarea class="mn-sp-input" rows="4" spellcheck="false"></textarea>
-                        <div class="mn-sp-actions">
-                            <button type="button" class="mn-sp-cancel">取消</button>
-                            <button type="button" class="mn-sp-save">保存</button>
-                        </div>
-                    </div>
                 </div>
             </div>`;
         }).join('');
@@ -470,8 +437,8 @@ function setupMsgNav() {
             row.addEventListener('pointerdown', (e) => {
                 if (e.button && e.button !== 0) return; // 右键交给原生 contextmenu
                 if (ctxMenuOpen) return;
-                // SP 编辑区 / 输入框内按下：不触发整行长按菜单（修复「编辑区长按误弹气泡」）
-                if (e.target.closest('input, textarea, [contenteditable], .mn-sp-editor')) return;
+                // SP 预览气泡 / 输入框内按下：不触发整行长按菜单
+                if (e.target.closest('input, textarea, [contenteditable], .mn-sp-pop')) return;
                 startX = lastX = e.clientX; startY = lastY = e.clientY;
                 longFired = false; // 每次按下重置：即便上次长按后 click 未派发也不会卡在 true
                 clearTimeout(pressTimer);
@@ -500,7 +467,7 @@ function setupMsgNav() {
             // 原生长按/右键：直接开菜单（移动端最可靠的触发通道）。preventDefault 掐掉系统选择/复制菜单
             row.addEventListener('contextmenu', (e) => {
                 // 编辑区 / 输入框内：放行系统菜单（不拦、不弹自定义菜单）
-                if (e.target.closest('input, textarea, [contenteditable], .mn-sp-editor')) return;
+                if (e.target.closest('input, textarea, [contenteditable], .mn-sp-pop')) return;
                 e.preventDefault();
                 if (ctxMenuOpen) return;
                 longFired = true;
@@ -514,77 +481,22 @@ function setupMsgNav() {
             });
         });
 
-        // LLM 芯片交互：click 触发快切；pointerdown 阻止冒泡——行长按打开菜单(600ms)绑定在 row 上，
-        // chip 上按下不得误触发菜单（chip 与 row 是嵌套关系，事件会冒泡到 row）
-        sessionsList.querySelectorAll('.mn-llm-chip').forEach((chip) => {
-            chip.addEventListener('pointerdown', (e) => e.stopPropagation());
-            chip.addEventListener('contextmenu', (e) => e.stopPropagation()); // 长按芯片不弹整行菜单
-            chip.addEventListener('click', (e) => {
-                e.stopPropagation();
-                handleQuickLlmSwitch(chip.dataset.id, chip.dataset.provider);
-            });
-        });
+        // LLM 芯片：待办 Phase4 改为只读显示（模型切换已移交设置页），不再绑定交互；
+        // 保留 .mn-llm-chip 视觉（含 provider-* 配色），仅作信息呈现。
 
-        // SP 预览按钮：click 行内展开编辑器；pointerdown / contextmenu 同样拦截，防长按误触菜单
+        // SP pill：click 弹出「提示词预览气泡」（只读前几行；编辑已移交顶部提示词 bar）。
+        // pointerdown / contextmenu 拦截，防长按误触整行菜单
         sessionsList.querySelectorAll('.mn-sp').forEach((btn) => {
             btn.addEventListener('pointerdown', (e) => e.stopPropagation());
             btn.addEventListener('contextmenu', (e) => e.stopPropagation());
             btn.addEventListener('click', (e) => {
                 e.stopPropagation();
-                toggleSpEditor(btn.dataset.id);
+                showSpBubble(btn.dataset.id, btn);
             });
         });
-
-        // 已展开的行：重渲染后恢复初值与事件（展开态唯一事实源 spEditId；行已不在列表则清态）
-        if (spEditId) {
-            const ed = sessionsList.querySelector('.mn-sp-editor.open');
-            if (ed) fillSpEditor(ed); else spEditId = null;
-        }
     }
 
-    /**
-     * 快速切换会话 LLM（chip 点击）：只有两个模型，在 智谱↔DeepSeek 间两态互切（无「全局」第三态）。
-     * key 复用全局 settings.keys 槽（不存会话，避免密钥明文随会话复制）；
-     * 只写会话级配置（当前会话写 state + 落盘，后台会话写存档），永不触碰全局 settings。
-     * 切换先行、清单拉取后台化：此前 await 拉取（最长 10s 超时）卡在写配置之前，网络慢时点 chip 3s+ 无反馈；
-     * 现在先写配置 + toast 秒回，未缓存才后台拉（已缓存跳过），失败以 warn toast 可见（不再静默 console）。
-     * @param {string} id 会话 id @param {string} providerKey chip 当前模型标识（'zhipu'|'deepseek'，与渲染同源）
-     */
-    async function handleQuickLlmSwitch(id, providerKey) {
-        // 两态互切：当前是智谱→切 DeepSeek，反之→智谱；点一下即设显式会话级覆盖，无「继承全局」中间态
-        const cur = providerKey === 'deepseek' ? 'deepseek' : 'zhipu';
-        const next = cur === 'zhipu' ? 'deepseek' : 'zhipu';
 
-        // 写会话级配置：只指定服务商；model 取该服务商在设置页调好的默认模型（零写死、不取清单首）。
-        const nextCfg = { provider: next, model: state.settings.providers[next].model || '' };
-
-        if (id === state.activeSessionId) {
-            // 当前会话：写运行时（请求层立即生效）+ saveSession 落盘（内部 updateIndexFromRaw 同步索引 → chip 立即更新、刷新不丢）
-            state.sessionLlmConfig = nextCfg;
-            saveSession(id);
-        } else {
-            // 后台会话：同步 pending 快照（流式完成落盘用新配置）或静默写存档；persistSession 内部同步索引
-            const p = state.pending.get(id);
-            if (p) {
-                p.llmConfig = nextCfg;
-                saveSession(id, { tree: p.tree, stats: p.stats, sysPrompt: p.sysPrompt, draft: p.draft || '', llmConfig: nextCfg });
-            } else {
-                const sess = loadSession(id);
-                if (sess) { sess.llmConfig = nextCfg; persistSession(id, sess); }
-            }
-        }
-        renderSessions();
-        showToast('已切换至 ' + LLM_PROVIDERS[next].name, 'success');
-
-        // 清单拉取后台化：目的仅是填充缓存 + 验证 key（model 不取自清单，故不影响切换本身）。
-        // 已缓存跳过（切换本身用不到清单，重复拉纯浪费请求）；未缓存才后台拉，失败用 toast 告知。
-        if (!getProviderModels(next).length) {
-            fetchModelsForProvider(next).catch((err) => {
-                Logger.warn('[MsgNav] 切到 ' + LLM_PROVIDERS[next].name + ' 后台拉取模型清单失败', err);
-                showToast(LLM_PROVIDERS[next].name + ' 模型清单拉取失败，可稍后在设置页重试', 'warn');
-            });
-        }
-    }
 
     /**
      * 开始重命名：把标题替换为 input，聚焦并全选。

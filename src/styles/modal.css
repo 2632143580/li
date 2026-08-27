@@ -564,44 +564,40 @@ body.modal-open *:not(.modal-overlay):not(.modal-overlay *):not(#fs-editor):not(
 #msg-nav .mn-llm-chip.provider-zhipu { background: rgba(89,102,242,.16); color: #9aa3ff; border-color: rgba(89,102,242,.35); }
 #msg-nav .mn-llm-chip.provider-deepseek { background: rgba(68,193,150,.16); color: #7fd9b8; border-color: rgba(68,193,150,.35); }
 #msg-nav .mn-llm-chip.provider-custom { background: var(--white-a10); color: var(--white-a60); border-color: var(--white-a20); }
-/* —— 行内 SP 编辑器：点 SP 预览在该行下方展开（无气泡/盒子包裹，仅一条细分割线 + textarea + 操作行）——
-   行内展开在文档流内永远可见、无定位计算、宽度自适应，移动端天然适配。
-   展开用 max-height（overflow:hidden 夹住）：全浏览器/老 Android WebView 都支持，
-   不依赖 grid-template-rows 0fr→1fr 动画（该特性在部分 WebView 不被支持，会导致编辑器高度恒为 0） */
-#msg-nav .mn-sp-editor { max-height: 0; overflow: hidden; transition: max-height .24s var(--ease); }
-#msg-nav .mn-sp-editor.open { max-height: 400px; }
-#msg-nav .mn-sp-inner {
-    margin-top: 6px; padding-top: 8px; display: flex; flex-direction: column; gap: 8px;
-    border-top: 1px solid var(--white-a08); /* 用细分割线区隔，而非浮层盒子 */
-    opacity: 0; transition: opacity .18s var(--ease) .06s;
+/* —— 会话行 SP 提示词预览气泡：点 SP pill 弹出、只读预览前几行（编辑已移交顶部提示词 bar）——
+   锚定 pill 下方、点外即收；沿用全局 token，毛玻璃移除与模态一致。气泡挂在 document.body，故不套 #msg-nav 作用域 */
+.mn-sp-pop {
+    background: var(--bg-modal);
+    color: var(--white-a90);
+    border: 1px solid var(--white-a12);
+    border-radius: var(--radius-md);
+    box-shadow: 0 12px 32px rgba(0, 0, 0, .42);
+    padding: 10px 12px;
+    font-size: 12px;
+    line-height: 1.6;
+    animation: mn-sp-pop-in .16s var(--ease);
 }
-#msg-nav .mn-sp-editor.open .mn-sp-inner { opacity: 1; }
-/* 极淡提示：留空保存 = 采用全局默认 */
-#msg-nav .mn-sp-tip { font-size: 10px; color: var(--white-a40); }
-#msg-nav .mn-sp-input {
-    width: 100%; min-height: 88px; box-sizing: border-box; resize: none;
-    background: var(--bg-input); color: var(--white-a90);
-    border: 1px solid var(--white-a20); border-radius: var(--radius-sm);
-    padding: 8px 10px; font: inherit; font-size: 13px; line-height: 1.7;
-    outline: none;
+.mn-sp-pop-title {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--color-accent);
+    margin-bottom: 6px;
+    letter-spacing: .03em;
 }
-#msg-nav .mn-sp-input:focus { border-color: var(--color-accent); }
-/* 操作行：右对齐 取消(ghost) + 保存(accent)；按钮高度 ≥32px 适配移动端触控 */
-#msg-nav .mn-sp-actions { display: flex; justify-content: flex-end; gap: 8px; }
-#msg-nav .mn-sp-cancel {
-    font: inherit; font-size: 12px; color: var(--white-a60);
-    background: var(--white-a06); border: none; border-radius: var(--radius-sm);
-    padding: 7px 14px; cursor: pointer; transition: color .2s var(--ease), background .2s var(--ease);
+.mn-sp-pop-body {
+    margin: 0;
+    white-space: pre-wrap;
+    word-break: break-word;
+    max-height: 168px;
+    overflow-y: auto;
+    font: inherit;
+    scrollbar-width: none;
 }
-#msg-nav .mn-sp-cancel:hover { color: var(--white-a90); background: var(--white-a10); }
-#msg-nav .mn-sp-save {
-    font: inherit; font-size: 12px; font-weight: 600;
-    color: var(--white-a90); background: var(--color-accent);
-    border: none; border-radius: var(--radius-sm); padding: 7px 16px;
-    cursor: pointer; transition: filter var(--transition-fast, 0.15s);
+.mn-sp-pop-body::-webkit-scrollbar { display: none; }
+@keyframes mn-sp-pop-in {
+    from { opacity: 0; transform: translateY(-4px); }
+    to { opacity: 1; transform: translateY(0); }
 }
-#msg-nav .mn-sp-save:hover { filter: brightness(1.15); }
-#msg-nav .mn-sp-save:active { filter: brightness(0.95); }
 
 /* —— 长按操作菜单（气泡弹窗）：外罩 scrim + 锚定被按行的浮层 ——
    取代旧「armed + 删除确认」两段式：一句话说清意图、零计时窗口、移动端无右键也能用。
