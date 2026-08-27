@@ -34,6 +34,7 @@ export const DOM = {};
         'fs-editor', 'fs-textarea', 'fs-title', 'fs-confirm', 'fs-cancel',
         'fs-trigger-btn', 'fs-align-btn',
         'btn-msg-nav', 'btn-import-all', 'btn-export-all',
+        'input-bar', 'btn-send',
         'btn-tts-toggle',
         // 语音设置模态框（云端唯一语音源：系统语音/语速/概率预设已移除）
         'voice-modal', 'voice-modal-close', 'voice-modal-cancel',

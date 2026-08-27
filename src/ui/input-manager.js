@@ -7,27 +7,33 @@
  * 导出：inputManager, openFSEditor, alignIcons, currentAlign, bindFsEditorEvents, updateInputLayout
  * 依赖：core/dom, engines/bg-engine, chat/tree（sendMessage）
  */
-import { DOM, W, H } from '../core/dom.js';
+import { DOM } from '../core/dom.js';
 import { openModal, closeAllModals } from '../core/modal.js';
 import { BgEngine } from '../engines/bg-engine.js';
 import { sendMessage } from '../chat/tree.js';
 
 /**
- * 更新输入框位置和尺寸（随视口变化）。
- * 原 Canvas 输入渲染器（呼吸圆环+输入线）已移除，此函数仅负责 #hiddenInput 的 DOM 定位。
+ * 更新输入区布局（随视口变化）。
+ * 2026-08-28 起输入框换为底部胶囊 .input-bar（纯 CSS 定位），此函数不再承担定位，
+ * 保留空实现以维持既有调用点（resize 链路）签名兼容。
  * @returns {void}
  */
 export function updateInputLayout() {
-    const startX = 40;
-    const y = H - 45;
-    const maxLen = W - 40 - 60;
-    DOM.hiddenInput.style.left = startX + "px";
-    DOM.hiddenInput.style.top = (y - 15) + "px";
-    DOM.hiddenInput.style.width = maxLen + "px";
-    DOM.hiddenInput.style.height = "30px";
-    DOM.hiddenInput.style.fontSize = '16px'; // 字号设置已移除（2026-08-16），固定默认 16px
-    DOM.hiddenInput.style.fontFamily = "Georgia, 'KaiTi', serif";
-    DOM.hiddenInput.style.paddingLeft = "12px";
+    /* 布局已由 .input-bar CSS 全权负责（fixed bottom:14px 居中，见 topbar.css） */
+}
+
+/**
+ * 提交输入：发送按钮与 Enter 共用的唯一出口。
+ * 取 hiddenInput 当前值，trim 非空即发送并清空（含 IME 组合态残留数据）。
+ * @returns {void}
+ */
+function submitInput() {
+    const t = DOM.hiddenInput.value.trim();
+    if (!t) return;
+    DOM.hiddenInput.value = "";
+    inputManager.text = "";
+    inputManager.compData = "";
+    sendMessage(t);
 }
 
 /** 输入管理器单例 @type {object} */
@@ -69,16 +75,13 @@ export const inputManager = {
             BgEngine.triggerKeydown(e);
             if (e.key === "Enter" && !e.isComposing) {
                 e.preventDefault();
-                const t = this.text.trim();
-                if (t) {
-                    DOM.hiddenInput.value = "";
-                    this.text = "";
-                    this.compData = "";
-                    sendMessage(t);
-                }
+                submitInput();
             }
             if (e.key === "Escape") DOM.hiddenInput.blur();
         });
+
+        // 发送按钮：与 Enter 同一 submitInput 出口（2026-08-28 输入条新增）
+        if (DOM.btnSend) DOM.btnSend.addEventListener('click', () => submitInput());
     }
 };
 

@@ -31,7 +31,7 @@ body.modal-open #chat { overflow: hidden !important; }
   输入画布的亮色图形透过 40% 透明度仍可见。其他面板 sheet-body 高、恰好盖住底部输入区没暴露此问题；
   消息导航或组件切换内容少时 sheet-body 矮，底部输入图形从遮罩下方透出。
    根治：模态打开时直接隐藏 Canvas 输入层和隐藏输入框，关闭后随 class 移除自动恢复。 */
-body.modal-open #hiddenInput { visibility: hidden; }
+body.modal-open .input-bar { visibility: hidden; }
 
 /* 模态框打开时暂停背后的全部 CSS 动画（背后被全屏 overlay 遮住不可见，暂停零视觉损失）：
    否则背后任一动画（TTS 光晕 / 语音波形等）持续产生帧 → 即使 overlay 已无毛玻璃，合成器仍被钉在 60fps。

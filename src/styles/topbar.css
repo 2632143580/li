@@ -1,18 +1,72 @@
-/* ====================== 隐藏输入框 ====================== */
-#hiddenInput {
+/* ====================== 底部胶囊输入条（2026-08-28 对齐模拟稿 .input-bar） ======================
+   容器承载外观，内部 #hiddenInput 保留既有 IME/回车/文本同步全链路（零逻辑改动）；
+   右侧 .ib-send 发送按钮与 Enter 走同一 submitInput 出口。 */
+.input-bar {
     position: fixed;
+    bottom: 14px;
+    left: 50%;
+    transform: translateX(-50%);
     z-index: 10;
-    background: transparent;
+    width: min(560px, calc(100vw - 24px));
+    height: 44px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 0 8px 0 16px;
+    background: var(--bg-input);
+    border: 1px solid var(--white-a10);
+    border-radius: var(--pill-radius);
+    box-sizing: border-box;
+    transition: border-color var(--transition-fast);
+}
+.input-bar:focus-within { border-color: var(--color-accent-dim); }
+
+#hiddenInput {
+    position: static;              /* 旧绝对定位废弃：交由 .input-bar 容器 flex 排布 */
+    flex: 1;
+    min-width: 0;
+    height: 100%;
+    background: none;
     color: var(--input-text);
     caret-color: var(--input-cursor);
     border: none;
     outline: none;
     resize: none;
     padding: 0;
-    padding-left: 12px;
-    text-indent: 0;
-    line-height: 30px;
     letter-spacing: normal;
+    line-height: normal;
+    font-size: 14px;               /* 模拟稿 .ph 定值 */
+}
+#hiddenInput::placeholder { color: var(--white-a40); }
+
+/* 发送按钮：纸飞机（模拟稿 svg 原样）；与 Enter 共用 submitInput 出口 */
+.ib-send {
+    width: 34px;
+    height: 34px;
+    flex: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    color: var(--white-a50);
+    background: none;
+    border: none;
+    border-radius: 50%;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+    transition: color var(--transition-fast), transform var(--transition-fast);
+}
+.ib-send:hover { color: var(--white-a90); transform: scale(1.08); }
+.ib-send:active { transform: scale(0.9); }
+.ib-send svg {
+    width: 18px;
+    height: 18px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.6;
+    stroke-linecap: round;
+    stroke-linejoin: round;
 }
 
 /* ====================== 顶栏 ====================== */
