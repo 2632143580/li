@@ -18,7 +18,7 @@ import { Logger } from '../core/logger.js';
 import { state } from '../core/store.js';
 import { API_TIMEOUT_MS, DEFAULT_PROVIDER } from '../core/constants.js';
 import { getProviderByUrl } from '../core/utils.js';
-import { buildThinkingBody } from '../core/thinking.js';
+import { buildThinkingBody } from '../core/thinking-presets.js';
 import { saveToLocal, saveSession } from '../core/storage.js';
 import { BgEngine } from '../engines/bg-engine.js';
 import { ThemeEngine } from '../engines/theme-engine.js';
@@ -104,7 +104,7 @@ export async function streamChat(messages, onChunk, onDone, onError, sessionId, 
         // 思考参数（用户 2026-08-22 要求设置页可选思考强度）：按生效模型匹配预设注入
         // thinking.type / reasoning_effort；DeepSeek V4-Pro/Flash: low|high|max（默认 high）、
         // GLM-4.5 Air: enabled(动态,默认)|disabled、GLM-4.6V: low|high|max；其余模型保留原有
-        // 兜底（v4/reasoner/r1/thinking 系显式开思考）。预设与参数口径见 core/thinking.js 文档。
+        // 兜底（v4/reasoner/r1/thinking 系显式开思考）。预设与参数口径见 core/thinking-presets.js 文档。
         Object.assign(reqBody, buildThinkingBody(model, state.settings.providers[provider].reasoningEffort));
 
         const resp = await fetch(apiUrl, {

@@ -28,7 +28,7 @@ import { splitSentences } from '../core/text-split.js';
 import { Logger } from '../core/logger.js';
 import { state } from '../core/store.js';
 import { WELCOME, ERROR_PREFIX, DEFAULT_PROVIDER } from '../core/constants.js';
-import { getEffectiveSysPrompt, touchIndex } from '../core/sessions.js';
+import { getEffectiveSysPrompt, touchIndex } from '../core/session-data.js';
 import { BgEngine } from '../engines/bg-engine.js';
 // 输入相关事件（openFSEditor / bindFsEditorEvents）已迁至 ui/event-bindings，本模块不再直接引用。
 // 来自事件绑定层 event-bindings 的「设置暂存」活绑定（stage3 解耦：bind* 事件注册已迁到 ui/event-bindings）。
@@ -101,7 +101,7 @@ export function initChatTree() {
 /**
  * 兜底：确保 state.currentEndNode 始终指向有效节点。
  * 异常/坏档/初始化竞态下 currentEndNode 可能为 null（state.js 初值即 null），
- * 而 sendMessage / triggerProactive 都会对 currentEndNode.children 直接解引用——
+ * 而 sendMessage 会对 currentEndNode.children 直接解引用——
  * null 即抛 TypeError 把整条发消息链路打死。
  * 恢复策略（不丢已有对话）：存在对话树时回落到当前路径末节点（getLastNodeInPath），
  * 连树都没有才重建欢迎树（initChatTree 会渲染并落 welcome 节点）。
@@ -147,9 +147,6 @@ export function sendMessage(text) {
     // 改走事件总线：本模块不再直接 import api.js 的 executeStreamRequest，循环依赖削掉一条边。
     // 载荷带齐发送所需的全部数据（消息体 + AI 节点引用 + 所属会话 id），api.js 订阅后照常执行流式请求。
     bus.emit(EVENTS.STREAM_REQUEST, { apiMessages, aiNode, sessionId: state.activeSessionId });
-    // 返回用户节点 id：供外部调用方（companion-say 主动说话）定位本次插入的消息节点。
-    // 无外部调用方时返回值无副作用，不影响现有行为。
-    return userNode.id;
 }
 
 /** 重新生成 AI 回复 @param {object} node @param {object} parentNode */

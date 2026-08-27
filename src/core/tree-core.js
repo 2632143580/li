@@ -19,7 +19,7 @@
 
 import { state } from './store.js';
 import { ERROR_PREFIX } from './constants.js';
-import { getEffectiveSysPrompt } from './sessions.js';
+import { getEffectiveSysPrompt } from './session-data.js';
 
 /**
  * 创建新消息节点

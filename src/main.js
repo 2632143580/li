@@ -2,8 +2,7 @@
  * 应用入口 / 全局编排
  *
  * 职责：导入全部模块，组装全局生命周期：
- *   resize() 视口尺寸刷新、init() 启动、bindEvents() 事件注册、
- *   暴露 window._bgApi（含 triggerProactive 静默主动消息接口）。
+ *   resize() 视口尺寸刷新、init() 启动、bindEvents() 事件注册。
  *
  * 导出：resize, onResize, init（onResize 活绑定供事件绑定层引用）
  * 依赖：全部核心/引擎/UI/对话模块
@@ -14,27 +13,22 @@ import { Logger } from './core/logger.js';
 import { state } from './core/store.js';
 import { DEFAULT_PROVIDER } from './core/constants.js';
 import { loadFromLocal, createFirstSession, saveSession } from './core/storage.js';
-import { syncAvailableModels } from './core/models.js';
+import { syncAvailableModels } from './core/models-cache.js';
 import { BgEngine } from './engines/bg-engine.js';
 import { ThemeEngine } from './engines/theme-engine.js';
 import { initTTS } from './engines/tts-engine.js'; // 语音引擎：加载音色列表（无副作用）
 import { inputManager, updateInputLayout } from './ui/input-manager.js';
-// tree.js 的全局可见函数
+// tree.js 启动期函数
 import {
     applySettings, initChatTree, renderChat,
-    buildApiMessages, sendMessage, createNode, getCurrentPath, updateMsgContent, ingestUsage, setNodeError, updateMonitorUI,
-    ensureCurrentEndNode
+    updateMsgContent, ingestUsage, setNodeError, updateMonitorUI
 } from './chat/tree.js';
 // 全局事件注册聚合（bindEvents）已迁至 ui/event-bindings（stage3）
 import { bindEvents, applyQuickTheme } from './ui/event-bindings/index.js';
-// 来自 api.js 的流式请求能力（triggerProactive 复用）
-import { streamChat } from './chat/api.js';
-import { bus, EVENTS } from './core/bus.js';
 import { initBgTriggers } from './ui/bg-trigger.js';
 // 禁止词引擎 UI：副作用导入即完成引擎加载 + 事件订阅 + DOM 创建（AI 回复命中词库时弹提示条）
 import './ui/moderator-ui.js';
 import { moderator } from './engines/moderator-engine.js'; // 禁止词引擎单例（加载后由 main hydrate）
-import { initCompanionSay } from './companion-say.js'; // 外部"主动说话"入口（App 注入用）
 
 /** rAF 节流句柄（resize 的视觉视口/窗口监听防抖） @type {number|null} */
 let resizeRafId = null;
@@ -118,59 +112,6 @@ export function init() {
     updateMonitorUI(); // 初始化信息栏状态灯（载入已保存的监控数据）
 
     Logger.info('[Init] 初始化完成');
-    window._bgApi = {
-        sendMessage: sendMessage,
-        createNode: createNode,
-        getCurrentPath: getCurrentPath,
-
-        // 静默主动消息接口：不记录用户节点，直接让 AI 回复
-        triggerProactive: function (instruction) {
-            if (state.waiting) return;
-            state.waiting = true;
-
-            // 1. 构建上下文（包含历史对话）
-            const parent = ensureCurrentEndNode();
-            const apiMessages = buildApiMessages(parent);
-            const sid = state.activeSessionId; // 会话归属：主动消息落到当前激活会话
-
-            // 2. 在 API 请求层面注入指令，但不写入 DOM 树（system 角色权重更高，且不会和 user 混淆）
-            apiMessages.push({
-                role: 'system',
-                content: instruction
-            });
-
-            // 3. 直接创建 AI 节点（跳过 User 节点创建）
-            const aiNode = createNode("assistant", "");
-
-            // 挂载到树末端
-            parent.children.push(aiNode);
-            parent.selectedChildIndex = parent.children.length - 1;
-            state.currentEndNode = aiNode;
-
-            renderChat(); // 立即渲染空节点
-
-            // 4. 发送请求（携带会话 id，落到正确会话键）
-            updateMonitorUI();
-            streamChat(apiMessages,
-                (full) => updateMsgContent(aiNode, full),
-                (full, usage) => {
-                    updateMsgContent(aiNode, full);
-                    ingestUsage(usage); // 合并 usage 到监控统计并刷新 UI
-                    BgEngine.triggerMessage('assistant', full);
-                    bus.emit(EVENTS.ASSISTANT_DONE, full); // 广播 AI 完成文本，供背景触发器按触发词切换
-                    saveSession(sid);
-                },
-                (err) => {
-                    setNodeError(aiNode, err.message);
-                    saveSession(sid);
-                },
-                sid
-            );
-        }
-    };
-
-    // 外部"主动说话"入口（App 注入：插入消息 → li 用网页配置回复 → 回调回传）
-    initCompanionSay();
 }
 
 // ================================================================

@@ -8,6 +8,7 @@ import { Logger } from '../../core/logger.js';
 import { state } from '../../core/store.js';
 import { saveToLocal } from '../../core/storage.js';
 import { closeAllModals } from '../../core/modal.js';
+import { closeBubbles } from '../bubbles.js';
 import { updateMonitorUI } from '../render/tree-render.js';
 
 /** 监控信息栏：圆环点击开编辑气泡 + 点外/Esc 关闭 */
@@ -36,8 +37,10 @@ export function bindMonitorEvents() {
 }
 
 /** 打开编辑气泡：回填当前上限(k)与已用值、定位到圆环下方。不自动聚焦——移动端聚焦会弹起软键盘（规范 §6 侵入行为）。
- *  先 closeAllModals()：与主面板互斥（用户 2026-08-21 反馈：气泡与最大上下文窗口曾能同时打开）。 */
+ *  互斥链：closeBubbles('ctx-edit') 关掉其他气泡弹窗（tb-body / prompt-panel），
+ *  closeAllModals() 关掉 sheet 模态抽屉——两类互斥独立工作。 */
 function openCtxEdit() {
+    closeBubbles('ctx-edit');
     closeAllModals();
     DOM.ctxEditInput.value = (state.settings.maxWindow / 1000).toFixed(1);
     // 右上角显示当前已用 token（k，1 位小数；无数据显 '--'）

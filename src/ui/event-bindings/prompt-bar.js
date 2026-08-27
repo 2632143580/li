@@ -17,9 +17,10 @@ import { DOM } from '../../core/dom.js';
 import { registerUI } from '../../core/registry.js';
 import { state } from '../../core/store.js';
 import { saveToLocal, saveSession } from '../../core/storage.js';
-import { getEffectiveSysPrompt } from '../../core/sessions.js';
+import { getEffectiveSysPrompt } from '../../core/session-data.js';
 import { applySettings } from '../../chat/tree.js';
 import { bus, EVENTS } from '../../core/bus.js';
+import { closeBubbles } from '../bubbles.js';
 
 /** 面板内「未提交」的编辑值（关闭 / 取消则丢弃，不回写 state）。 @type {string} */
 let pendingPrompt = '';
@@ -42,8 +43,9 @@ function syncBadge() {
     if (DOM.promptToggle) DOM.promptToggle.classList.toggle('active', getEffectiveSysPrompt().trim() !== '');
 }
 
-/** 打开面板：载入当前生效值（重开即显示已提交值），聚焦编辑区。 @returns {void} */
+/** 打开面板：先与其它气泡弹窗互斥（关 #ctx-edit-pop / 折叠 tb-body），再载入当前生效值并聚焦。 @returns {void} */
 function openPanel() {
+    closeBubbles('prompt-panel');
     pendingPrompt = getEffectiveSysPrompt();
     if (DOM.promptTextarea) DOM.promptTextarea.value = pendingPrompt;
     if (DOM.promptPanel) DOM.promptPanel.hidden = false;

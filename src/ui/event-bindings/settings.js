@@ -12,7 +12,7 @@ import { openModal, closeAllModals } from '../../core/modal.js';
 import { Logger } from '../../core/logger.js';
 import { state } from '../../core/store.js';
 import { saveToLocal, saveSession } from '../../core/storage.js';
-import { fetchModelsForProvider, syncAvailableModels } from '../../core/models.js';
+import { fetchModelsForProvider, syncAvailableModels } from '../../core/models-cache.js';
 import { showToast } from '../../core/toast.js';
 import { safeParseInt, ensureKeysObject } from '../../core/utils.js';
 import { DEFAULT_SETTINGS, DEFAULT_PROVIDER } from '../../core/constants.js';
@@ -23,7 +23,7 @@ import {
     showModelOptions, hideModelOptions
 } from '../../chat/tree.js';
 import { renderChat } from '../render/tree-render.js';
-import { matchThinkingPreset } from '../../core/thinking.js';
+import { matchThinkingPreset } from '../../core/thinking-presets.js';
 import { armClickConfirm } from './click-confirm.js';
 
 /** 设置页当前正在编辑的服务商（分段控件切换即改；URL/Key/模型输入与保存都面向它） @type {string} */
@@ -39,7 +39,7 @@ let bubbleOpacityPreviewBackup = 1;
 let reasoningSnapshot = { show: true, auto: true };
 
 /**
- * 渲染「思考强度」分段（用户 2026-08-22 要求）：按 tempSettings.providers[curProvider].model 匹配预设（core/thinking.js）。
+ * 渲染「思考强度」分段（用户 2026-08-22 要求）：按 tempSettings.providers[curProvider].model 匹配预设（core/thinking-presets.js）。
  * 无预设模型隐藏整行；有效值不在选项内时回落预设默认（换模型后旧档位自动归位）。
  * @returns {void}
  */
@@ -259,7 +259,7 @@ export function bindSettingsEvents() {
         if (DOM.btnFetchModels.classList.contains('spinning')) return;
         DOM.btnFetchModels.classList.add('spinning');
         try {
-            // 复用 core/models.js 单一实现（URL 变换 / 10s 超时 / modelCache 持久化全部内聚，消除本处重复 fetch）；
+            // 复用 core/models-cache.js 单一实现（URL 变换 / 10s 超时 / modelCache 持久化全部内聚，消除本处重复 fetch）；
             // 设置页暂存的 url/key 经 overrides 传入——与 api.js 请求层同口径（暂存值 > 已保存配置 > 死常量兜底）
             const modelIds = await fetchModelsForProvider(curProvider, {
                 apiKey: tempSettings.keys[curProvider],

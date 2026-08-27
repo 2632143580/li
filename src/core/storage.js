@@ -15,7 +15,7 @@ import { DEFAULT_SETTINGS, STORAGE_KEY, SESSION_KEY_PREFIX } from './constants.j
 import { ensureKeysObject, KEY_PROVIDERS } from './utils.js';
 import { DOM } from './dom.js';
 import { migrateErrorFlags, getLastNodeInPath, serializeTree, ensureNodeDefaults } from './tree-core.js';
-import { genSessionId, getEffectiveSysPrompt, freshStats, buildIndexEntry, lastMessageTime, migrateV3ToV4 } from './sessions.js';
+import { genSessionId, getEffectiveSysPrompt, freshStats, buildIndexEntry, lastMessageTime, migrateV3ToV4 } from './session-data.js';
 
 /** 防抖保存定时器句柄 @type {number|null} */
 let saveTimer = null;

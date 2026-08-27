@@ -38,7 +38,7 @@ import { openModal, closeAllModals } from '../../core/modal.js';
 import { getProviderByUrl } from '../../core/utils.js';
 import { loadSession, persistSession, setSessionPinned, saveToLocal } from '../../core/storage.js';
 import { showToast } from '../../core/toast.js';
-import { getEffectiveSysPrompt } from '../../core/sessions.js';
+import { getEffectiveSysPrompt } from '../../core/session-data.js';
 import { armClickConfirm } from './click-confirm.js';
 import { openWordCloud } from './wordcloud-panel.js';
 import { DEFAULT_PROVIDER, WELCOME } from '../../core/constants.js';
