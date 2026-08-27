@@ -476,6 +476,12 @@ body.modal-open *:not(.modal-overlay):not(.modal-overlay *):not(#fs-editor):not(
     color: var(--color-accent); background: color-mix(in srgb, var(--color-accent) 26%, transparent);
     font-weight: 600; border-radius: 2px;
 }
+/* 禁词下划线预览（待办 Phase5）：复用 moderator 触发色 --status-error，红色警示下划线，与高频词/查找词区分 */
+#msg-nav .hmod {
+    color: var(--status-error, #ff5a5a); background: color-mix(in srgb, var(--status-error, #ff5a5a) 14%, transparent);
+    text-decoration: underline; text-decoration-color: var(--status-error, #ff5a5a);
+    text-underline-offset: 2px; text-decoration-thickness: 1.5px; border-radius: 2px;
+}
 #msg-nav .mn-empty { padding: 20px 12px; color: var(--white-a45); text-align: center; }
 @keyframes navFlash {
     0% { box-shadow: 0 0 0 2px var(--color-accent); }

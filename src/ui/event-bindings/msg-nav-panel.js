@@ -554,6 +554,10 @@ function setupMsgNav() {
         const path = getCurrentPath(state.chatTree) || [];
         const msgs = path.filter((n) => n.role !== 'system');
 
+        // 待办 Phase5：禁词常驻下划线——每次渲染前刷新（词库可能被改），复用 moderator.words[].count
+        bannedWords = moderator.words.map((w) => w.word.toLowerCase());
+        bannedSet = new Set(bannedWords);
+
         sub.textContent = `共 ${msgs.length} 条 · 高频词已融入预览（下划线）`;
         const filtered = ql ? msgs.filter((n) => (n.content || '').toLowerCase().includes(ql)) : msgs;
         if (!filtered.length) {
