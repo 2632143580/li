@@ -401,7 +401,9 @@ body.modal-open *:not(.modal-overlay):not(.modal-overlay *):not(#fs-editor):not(
 .modal-overlay.sheet > .sheet-body::before,
 #modal.modal-overlay.sheet > .modal-content::before,
 #custom-scheme-modal.modal-overlay.sheet > .modal-content::before,
-#voice-modal.modal-overlay.sheet > .modal-content::before {
+#voice-modal.modal-overlay.sheet > .modal-content::before,
+#bg-modal.modal-overlay.sheet > .modal-content::before,
+#crop-modal.modal-overlay.sheet > .modal-content::before {
     content: "";
     display: block;
     width: 38px;
@@ -416,7 +418,9 @@ body.modal-open *:not(.modal-overlay):not(.modal-overlay *):not(#fs-editor):not(
  * （不动 overflow：设置/语音各自 .modal-content 的 overflow-y:auto 仍生效） */
 #modal.modal-overlay.sheet > .modal-content,
 #custom-scheme-modal.modal-overlay.sheet > .modal-content,
-#voice-modal.modal-overlay.sheet > .modal-content {
+#voice-modal.modal-overlay.sheet > .modal-content,
+#bg-modal.modal-overlay.sheet > .modal-content,
+#crop-modal.modal-overlay.sheet > .modal-content {
     background: var(--bg-modal);
     color: var(--white-a80);
     border-radius: var(--radius-lg) var(--radius-lg) 0 0;
@@ -430,6 +434,12 @@ body.modal-open *:not(.modal-overlay):not(.modal-overlay *):not(#fs-editor):not(
 @keyframes sheetIn {
     from { transform: translateY(100%); }
     to { transform: translateY(0); }
+}
+
+/* 自定义配色面板：内容少（提示 + 输入 + 已保存列表，列表自带 180px 内滚），单独 50% 高，不随统一 90vh */
+#custom-scheme-modal.modal-overlay.sheet > .modal-content {
+    height: calc(var(--app-vh, 100vh) * 0.5);
+    max-height: calc(var(--app-vh, 100vh) * 0.5);
 }
 
 /* ====================== 消息导航面板（#msg-nav） ======================
@@ -446,15 +456,16 @@ body.modal-open *:not(.modal-overlay):not(.modal-overlay *):not(#fs-editor):not(
 }
 #msg-nav .mn-close:hover { color: var(--white-a95); }
 
+/* 与词频搜索框 .wc-query-input 统一视觉（背景/边框/圆角/字号/placeholder），布局保留自身 margin/width */
 #msg-nav .mn-search {
-    margin: 8px 12px 4px; padding: 7px 10px;
-    border: 1px solid var(--white-a15); background: var(--white-a06);
-    color: var(--white-a90); border-radius: 8px;
-    font: inherit; outline: none; box-sizing: border-box;
+    margin: 8px 12px 4px; padding: 6px 10px;
+    border: 1px solid var(--white-a20); background: var(--bg-input);
+    color: var(--white-a90); border-radius: var(--radius-md);
+    font: inherit; font-size: 13px; outline: none; box-sizing: border-box;
     width: calc(100% - 24px);
 }
 #msg-nav .mn-search:focus { border-color: var(--color-accent); }
-#msg-nav .mn-search::placeholder { color: var(--white-a40); }
+#msg-nav .mn-search::placeholder { color: var(--white-a35); }
 #msg-nav .mn-sub { padding: 2px 12px 6px; color: var(--white-a45); font-size: 11px; }
 #msg-nav .mn-list { overflow: auto; flex: 1; padding: 2px 0 6px; overscroll-behavior: contain; }
 #msg-nav .mn-row {
@@ -541,72 +552,33 @@ body.modal-open *:not(.modal-overlay):not(.modal-overlay *):not(#fs-editor):not(
 #msg-nav .mn-sep { flex: none; color: var(--white-a30); font-size: 11px; }
 /* 消息数：等宽小字不加 badge（数字本身就是信息，加壳是噪音） */
 #msg-nav .mn-count { flex: none; color: var(--white-a30); font: 11px/1 ui-monospace, SFMono-Regular, Menlo, monospace; font-variant-numeric: tabular-nums; }
-/* SP 入口：去胶囊，纯文本行内可点（整条行内展开编辑器）。
+/* SP 只读预览：纯文本行内显示（无点击效果——SP 编辑已移交顶部提示词 bar）。
    左侧 SP 微标签作语义前缀，右侧预览/「默认」；有会话级覆盖时整段 accent 微光（一眼识别「此会话有独立提示词」）。
-   max-width 防长 SP 挤掉时间；负 margin 扩热区不占布局（移动端触控友好） */
+   max-width 防长 SP 挤掉时间 */
 #msg-nav .mn-sp {
-    flex: none; max-width: 60%; min-width: 0; margin-left: auto; margin-right: -4px;
-    display: inline-flex; align-items: center; gap: 4px; padding: 2px 0;
+    flex: none; max-width: 60%; min-width: 0; margin-left: auto;
+    display: inline-flex; align-items: center; gap: 4px;
     font: inherit; font-size: 11px; line-height: 1.4;
-    color: var(--white-a50); background: none; border: none; cursor: pointer;
-    transition: color .2s var(--ease);
+    color: var(--white-a50);
 }
-#msg-nav .mn-sp:hover { color: var(--white-a90); }
-#msg-nav .mn-sp:active { transform: scale(0.96); }
 #msg-nav .mn-sp-text { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* SP 微标签：有覆盖 = accent 微光（一眼识别），继承全局 = 灰；纯文本不加壳，仅作语义前缀 */
 #msg-nav .mn-sp-tag {
     flex: none; font-size: 9px; font-weight: 700; letter-spacing: .05em;
     color: var(--white-a30); background: none; padding: 0;
-    transition: color .2s var(--ease);
 }
 #msg-nav .mn-sp.has-sp { color: var(--color-accent-bright, var(--color-accent)); }
 #msg-nav .mn-sp.has-sp .mn-sp-tag { color: var(--color-accent-bright, var(--color-accent)); }
-/* LLM 芯片：小号胶囊，点按缩放反馈；只有两模型配色区分（紫=智谱 / 绿=DeepSeek），无「全局」第三态 */
+/* LLM 芯片：小号胶囊纯显示（模型切换在设置页）；只有两模型配色区分（紫=智谱 / 绿=DeepSeek），无「全局」第三态 */
 #msg-nav .mn-llm-chip {
     flex: none; padding: 1px 8px; font-size: 10px; line-height: 1.5;
     border-radius: 9px; border: 1px solid transparent;
     background: var(--white-a06); color: var(--white-a40);
-    cursor: pointer; font-weight: 600; transition: transform .1s var(--ease);
+    font-weight: 600;
 }
-#msg-nav .mn-llm-chip:active { transform: scale(0.94); }
 #msg-nav .mn-llm-chip.provider-zhipu { background: rgba(89,102,242,.16); color: #9aa3ff; border-color: rgba(89,102,242,.35); }
 #msg-nav .mn-llm-chip.provider-deepseek { background: rgba(68,193,150,.16); color: #7fd9b8; border-color: rgba(68,193,150,.35); }
 #msg-nav .mn-llm-chip.provider-custom { background: var(--white-a10); color: var(--white-a60); border-color: var(--white-a20); }
-/* —— 会话行 SP 提示词预览气泡：点 SP pill 弹出、只读预览前几行（编辑已移交顶部提示词 bar）——
-   锚定 pill 下方、点外即收；沿用全局 token，毛玻璃移除与模态一致。气泡挂在 document.body，故不套 #msg-nav 作用域 */
-.mn-sp-pop {
-    background: var(--bg-modal);
-    color: var(--white-a90);
-    border: 1px solid var(--white-a12);
-    border-radius: var(--radius-md);
-    box-shadow: 0 12px 32px rgba(0, 0, 0, .42);
-    padding: 10px 12px;
-    font-size: 12px;
-    line-height: 1.6;
-    animation: mn-sp-pop-in .16s var(--ease);
-}
-.mn-sp-pop-title {
-    font-size: 11px;
-    font-weight: 600;
-    color: var(--color-accent);
-    margin-bottom: 6px;
-    letter-spacing: .03em;
-}
-.mn-sp-pop-body {
-    margin: 0;
-    white-space: pre-wrap;
-    word-break: break-word;
-    max-height: 168px;
-    overflow-y: auto;
-    font: inherit;
-    scrollbar-width: none;
-}
-.mn-sp-pop-body::-webkit-scrollbar { display: none; }
-@keyframes mn-sp-pop-in {
-    from { opacity: 0; transform: translateY(-4px); }
-    to { opacity: 1; transform: translateY(0); }
-}
 
 /* —— 长按操作菜单（气泡弹窗）：外罩 scrim + 锚定被按行的浮层 ——
    取代旧「armed + 删除确认」两段式：一句话说清意图、零计时窗口、移动端无右键也能用。

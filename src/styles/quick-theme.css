@@ -12,9 +12,10 @@
     border: 1px solid var(--white-a08);
     /* 2026-08-28 修复「色块被压缩只露 2 个 + sticky 加号叠压」：宽度显式 max-content，
        10 色块全展开全部可见（用户铁律：色块选择器必须全部可见）；
-       移动端以视口宽兜底，真溢出才滚动（滚动条已隐藏）。 */
+       位于 .tb-body 弹性行内：宽屏按 max-content 全展开，窄屏 flex 收缩（min-width:0）后内部滚动兜底（滚动条已隐藏） */
     width: max-content;
-    max-width: calc(100vw - 24px);
+    flex: 0 1 auto;
+    min-width: 0;
     overflow-x: auto;
     overflow-y: visible;
     scrollbar-width: none;
@@ -169,27 +170,5 @@
     background: var(--color-error);
     color: var(--white-a90);
 }
-
-/* 撞色强度滑块（仅单色方案出现）：纯拖动设定，不显示数字（用户反馈「数字看不好」） */
-.cs-mix-row {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    margin-top: 10px;
-}
-.cs-mix-label {
-    font-size: 13px;
-    color: var(--white-a70);
-    flex-shrink: 0;
-    white-space: nowrap;
-}
-.cs-mix-row .slider { flex: 1; }
-/* 列表项内嵌的撞色强度滑块：固定宽度，避免挤压名称与删除按钮 */
-.cs-item-mix {
-    flex: 0 0 96px;
-    display: flex;
-    align-items: center;
-}
-.cs-item-mix .slider { width: 100%; }
 
 

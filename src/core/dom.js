@@ -25,7 +25,6 @@ export const DOM = {};
         'provider-tabs', 'provider-hint', 'btn-fetch-models',
         'quick-theme-palette',
         'custom-scheme-modal', 'custom-scheme-input', 'custom-scheme-list',
-        'custom-scheme-mix',
         'custom-scheme-cancel', 'custom-scheme-save',
         'wordcloud-list',
         'wordcloud-query', 'wordcloud-query-result', 'wordcloud-quick', 'wordcloud-status',

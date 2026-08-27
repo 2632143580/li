@@ -6,7 +6,7 @@
     gap: 12px;
     min-height: var(--topbar-h);   /* 顶栏三方统一高度（topbar.css 定义） */
     box-sizing: border-box;
-    padding: 0 12px;               /* 真胶囊（--pill-radius:999px）下上下 padding 让位给行高居中 */
+    padding: 0 14px;               /* 真胶囊（--pill-radius:999px）下上下 padding 让位给行高居中；14px 与 pb-pill/top-bar 一致 */
     border-radius: var(--pill-radius);
     cursor: pointer;               /* 监控区即左栏展开/收起开关（原箭头已移除）；圆环点击另弹编辑气泡 */
     background: var(--bg-pill);

@@ -30,18 +30,6 @@ body.bg-image-active .chat-bubble--user {
     background: color-mix(in srgb, var(--color-bg) calc(38% * var(--bubble-opacity)), transparent);
 }
 
-/* 底部渐变遮罩，柔化输入区过渡。用 var(--color-bg) 合成，深/浅主题自适应（原硬编码 rgba(8,11,20) 在浅色主题下残留深色） */
-#bottom-mask {
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    width: 100%;
-    height: 80px;
-    background: linear-gradient(to bottom, transparent 0%, color-mix(in srgb, var(--color-bg) 75%, transparent) 55%, var(--color-bg) 100%);
-    z-index: 2;
-    pointer-events: none;
-}
-
 /* UI Canvas（输入框绘制层）已移除：呼吸圆环/输入线动画 2026-08-25 整体删除，输入由 #hiddenInput DOM 层承载 */
 
 /* ====================== 消息样式 ====================== */

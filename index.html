@@ -132,7 +132,6 @@
     <!-- 背景插件 DOM 专属层：承载 DOM 背景插件，由 BgEngine 管理，不遮挡 UI -->
     <div id="bg-dom-layer" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none; overflow: hidden;"></div>
     <div id="chat"></div>
-    <div id="bottom-mask"></div>
     <!-- 底部胶囊输入条（2026-08-28 对齐模拟稿 .input-bar）：内部仍是 hiddenInput（IME/回车/文本同步全链路复用）+ 新增发送按钮 -->
     <div class="input-bar" id="input-bar">
         <input id="hiddenInput" name="no-autofill" type="text" autocomplete="off" spellcheck="false" maxlength="500" placeholder="输入消息…" />
@@ -171,11 +170,9 @@
         <!-- 收起时隐藏的工具区：竖向展开（背景插件入口 + 色块选择器）。
              2026-08-27 按用户布局收敛：清空对话迁会话长按菜单、导入/导出全部迁提示词面板 -->
         <div class="tb-body">
-        <!-- 背景插件入口（原一排图标钮仅存此项；色块条独立下方） -->
-        <div class="tb-row">
+            <!-- 单行排版：背景插件入口居左 + 色块选择器弹性伸缩（窄屏色块条内滚兜底） -->
             <svg id="btn-bg-plugin" class="icon-btn"><use href="#i-puzzle"/></svg>
-        </div>
-            <!-- 快速配色色块条：独立一排，点击即时换肤（数据源 plugins/quick-themes.js） -->
+            <!-- 快速配色色块条：点击即时换肤（数据源 plugins/quick-themes.js） -->
             <div id="quick-theme-palette" class="qt-palette"></div>
         </div>
     </div>
@@ -250,11 +247,6 @@
                     • 多个色值自动成渐变：<code>#ff6b6b, #4ecdc4</code> —— 渐变铺背景，强调取其中饱和度最高色<br>
                     • 或直接粘贴：<code>linear-gradient(135deg, #ff6b6b, #4ecdc4)</code></p>
                 <textarea id="custom-scheme-input" class="cs-textarea" placeholder="例如：#ff6b6b, #4ecdc4"></textarea>
-                <!-- 撞色强度：仅单色方案生效（多色/渐变无单色跳色，JS 自动隐藏整行）；不显示数字，拖动即设定，保存后生效 -->
-                <div class="cs-mix-row">
-                    <span class="cs-mix-label">撞色强度</span>
-                    <input type="range" id="custom-scheme-mix" class="slider" min="0" max="70" step="1" value="56">
-                </div>
             </div>
             <div class="setting-group">
                 <div class="group-title">已保存的自定义配色</div>
@@ -278,14 +270,12 @@
     <div id="bg-current-indicator"></div>
 
     <!-- 插件/背景管理模态框 -->
-    <div id="bg-modal" class="modal-overlay">
+    <div id="bg-modal" class="modal-overlay sheet">
         <div class="modal-content">
             <div class="setting-group">
-                <div class="group-title">背景插件栈</div>
                 <div id="plugin-list-container"></div>
             </div>
             <div class="setting-group">
-                <div class="group-title">主题插件栈</div>
                 <div id="theme-list-container"></div>
             </div>
             <div class="setting-group bg-mgmt">
@@ -321,7 +311,7 @@
     </div>
 
     <!-- 背景图片·缩放移动编辑：拖动平移、滑块/滚轮缩放，框内所见即最终背景 -->
-    <div id="crop-modal" class="modal-overlay" style="display:none;">
+    <div id="crop-modal" class="modal-overlay sheet" style="display:none;">
         <div class="modal-content" style="max-width: 720px;">
             <div class="setting-group">
                 <div class="group-title">调整背景图片（先缩放再拖动裁剪；「完整」已显示整图，无需拖动）</div>

@@ -65,11 +65,12 @@ let bannedWords = [];
 /** @type {Set<string>} */
 let bannedSet = new Set();
 
-/** 读上次 tab（默认 'sessions'） @returns {'sessions'|'messages'} */
+/** 读上次 tab（默认 'sessions'） @returns {'sessions'|'messages'|'words'} */
 function readTab() {
-    try { return localStorage.getItem(TAB_KEY) === 'messages' ? 'messages' : 'sessions'; } catch (_) { return 'sessions'; }
+    // 三 tab 全量校验：'words' 也持久化（旧版只认 'messages'，词频 tab 记不住）
+    try { const v = localStorage.getItem(TAB_KEY); return (v === 'messages' || v === 'words') ? v : 'sessions'; } catch (_) { return 'sessions'; }
 }
-/** 写上次 tab @param {'sessions'|'messages'} t */
+/** 写上次 tab @param {'sessions'|'messages'|'words'} t */
 function writeTab(t) {
     try { localStorage.setItem(TAB_KEY, t); } catch (_) { /* 忽略 */ }
 }
@@ -154,8 +155,6 @@ function setupMsgNav() {
     `;
     document.body.appendChild(panel);
 
-    /** 当前打开的「提示词预览气泡」实例（null = 无）。点击会话行 SP pill 弹出，点外/切会话收起 @type {HTMLElement|null} */
-    let spBubbleEl = null;
     /** 长按操作菜单是否打开 @type {boolean} */
     let ctxMenuOpen = false;
 
@@ -285,51 +284,6 @@ function setupMsgNav() {
         showToast(next ? '已置顶' : '已取消置顶', 'success');
     }
 
-    /**
-     * 关闭「提示词预览气泡」（点 SP pill 之外 / 切会话 / 重渲染前调用）。 @returns {void}
-     */
-    function closeSpBubble() {
-        if (spBubbleEl) { spBubbleEl.remove(); spBubbleEl = null; }
-    }
-
-    /**
-     * 点会话行 SP pill：弹出气泡预览该会话提示词前几行（只读——编辑已移交顶部提示词 bar）。
-     * 无会话级覆盖时显示「全局默认」并预览全局 sysPrompt。气泡锚定 pill 下方、点外即收。
-     * @param {string} id 会话 id @param {HTMLElement} anchor SP pill 元素
-     */
-    function showSpBubble(id, anchor) {
-        closeSpBubble();
-        const sess = loadSession(id);
-        const hasSp = sess && sess.sysPrompt != null && sess.sysPrompt !== '';
-        const full = hasSp ? sess.sysPrompt : state.settings.sysPrompt;
-        const lines = (full || '').replace(/\r\n/g, '\n').split('\n').slice(0, 6).join('\n');
-        const preview = lines.length > 220 ? lines.slice(0, 220) + '…' : lines;
-        const bubble = document.createElement('div');
-        bubble.className = 'mn-sp-pop';
-        bubble.innerHTML =
-            '<div class="mn-sp-pop-title">' + (hasSp ? '会话提示词' : '全局默认提示词') + '</div>' +
-            '<pre class="mn-sp-pop-body">' + (escapeHtml(preview) || '（空）') + '</pre>';
-        const rect = anchor.getBoundingClientRect();
-        const maxW = 280;
-        bubble.style.position = 'fixed';
-        bubble.style.left = Math.min(rect.left, window.innerWidth - maxW - 12) + 'px';
-        bubble.style.top = (rect.bottom + 8) + 'px';
-        bubble.style.maxWidth = maxW + 'px';
-        bubble.style.zIndex = '1000';
-        document.body.appendChild(bubble);
-        spBubbleEl = bubble;
-        // 当前 click 已作用在 pill 上，延后一拍再挂关闭监听，避免立刻把自己关掉
-        setTimeout(() => {
-            const onDoc = (e) => {
-                if (spBubbleEl && !spBubbleEl.contains(e.target)) {
-                    closeSpBubble();
-                    document.removeEventListener('click', onDoc);
-                }
-            };
-            document.addEventListener('click', onDoc);
-        }, 0);
-    }
-
     // 遮罩点击关闭
     panel.addEventListener('click', (e) => { if (e.target === panel) closeAllModals(); });
 
@@ -390,7 +344,6 @@ function setupMsgNav() {
     /** 渲染会话列表 @returns {void} */
     function renderSessions() {
         closeCtxMenu(); // 重建列表前确保菜单已收（重渲染不会动菜单 DOM，但状态须干净）
-        closeSpBubble(); // 重渲染（切会话/列表变动）时同步收起提示词预览气泡（待办 Phase4）
         const sessions = listSessions();
         if (!sessions.length) {
             sessionsList.innerHTML = '<div class="mn-empty">还没有会话</div>';
@@ -409,14 +362,14 @@ function setupMsgNav() {
             // SP 预览：会话级覆盖去空白截 16 字；无覆盖 = 「默认」（继承全局）。accent = 有会话级覆盖
             const hasSp = s.sysPrompt != null && s.sysPrompt !== '';
             const spText = hasSp ? s.sysPrompt.replace(/\s+/g, ' ').trim().slice(0, 16) + '…' : '默认';
-            // 行2 右侧的 SP 入口：清晰可点的小 pill（展开行内编辑器），accent 表「有独立提示词」
-            const metaRight = `<button type="button" class="mn-sp${hasSp ? ' has-sp' : ''}" data-id="${escapeHtml(s.id)}"><i class="mn-sp-tag">SP</i><span class="mn-sp-text">${escapeHtml(spText)}</span></button>`;
+            // 行2 右侧的 SP 只读预览（纯显示，无点击效果），accent 表「有独立提示词」
+            const metaRight = `<span class="mn-sp${hasSp ? ' has-sp' : ''}"><i class="mn-sp-tag">SP</i><span class="mn-sp-text">${escapeHtml(spText)}</span></span>`;
             return `<div class="mn-session${active ? ' active' : ''}" data-id="${escapeHtml(s.id)}">
                 <div class="mn-row-top">
                     ${pin}
                     <span class="mn-session-title">${escapeHtml(s.title)}</span>
                     ${dots}
-                    <span class="mn-llm-chip${providerClass}" data-id="${escapeHtml(s.id)}">${escapeHtml(modelName)}</span>
+                    <span class="mn-llm-chip${providerClass}">${escapeHtml(modelName)}</span>
                 </div>
                 <div class="mn-row-meta">
                     <span class="mn-time">${relTime(s.updatedAt)}</span>
@@ -444,7 +397,7 @@ function setupMsgNav() {
                 if (e.button && e.button !== 0) return; // 右键交给原生 contextmenu
                 if (ctxMenuOpen) return;
                 // SP 预览气泡 / 输入框内按下：不触发整行长按菜单
-                if (e.target.closest('input, textarea, [contenteditable], .mn-sp-pop')) return;
+                if (e.target.closest('input, textarea, [contenteditable]')) return;
                 startX = lastX = e.clientX; startY = lastY = e.clientY;
                 longFired = false; // 每次按下重置：即便上次长按后 click 未派发也不会卡在 true
                 clearTimeout(pressTimer);
@@ -473,7 +426,7 @@ function setupMsgNav() {
             // 原生长按/右键：直接开菜单（移动端最可靠的触发通道）。preventDefault 掐掉系统选择/复制菜单
             row.addEventListener('contextmenu', (e) => {
                 // 编辑区 / 输入框内：放行系统菜单（不拦、不弹自定义菜单）
-                if (e.target.closest('input, textarea, [contenteditable], .mn-sp-pop')) return;
+                if (e.target.closest('input, textarea, [contenteditable]')) return;
                 e.preventDefault();
                 if (ctxMenuOpen) return;
                 longFired = true;
@@ -487,19 +440,7 @@ function setupMsgNav() {
             });
         });
 
-        // LLM 芯片：待办 Phase4 改为只读显示（模型切换已移交设置页），不再绑定交互；
-        // 保留 .mn-llm-chip 视觉（含 provider-* 配色），仅作信息呈现。
-
-        // SP pill：click 弹出「提示词预览气泡」（只读前几行；编辑已移交顶部提示词 bar）。
-        // pointerdown / contextmenu 拦截，防长按误触整行菜单
-        sessionsList.querySelectorAll('.mn-sp').forEach((btn) => {
-            btn.addEventListener('pointerdown', (e) => e.stopPropagation());
-            btn.addEventListener('contextmenu', (e) => e.stopPropagation());
-            btn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                showSpBubble(btn.dataset.id, btn);
-            });
-        });
+        // LLM 芯片与 SP 预览均为纯显示（模型切换在设置页、SP 编辑在顶部提示词 bar），无交互绑定。
     }
 
 
