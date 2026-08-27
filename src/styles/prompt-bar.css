@@ -21,11 +21,13 @@
     align-items: center;
 }
 
-/* 胶囊按钮（与 .top-bar / .tb-body 同款 pill 配方）；点亮态仅以描边 + 徽文色表达 */
+/* 胶囊按钮（与 .top-bar / .monitor-bar 同款 pill 配方 + 同高 --topbar-h）；
+   点亮态仅以描边 + 徽文色表达 */
 .pb-pill {
     display: inline-flex;
     align-items: center;
-    height: 32px;
+    height: var(--topbar-h);
+    box-sizing: border-box;
     padding: 0 12px;
     border-radius: var(--pill-radius);
     background: var(--bg-pill);
@@ -140,11 +142,11 @@
 .pb-textarea::placeholder { color: var(--white-a30); }
 .pb-textarea:focus { border-color: var(--color-accent-dim); }
 
-/* 主操作组：两枚等宽主按钮 */
+/* 主操作组：置顶（2026-08-27），两枚等宽主按钮；核心动作贴标题，textarea 在其下承接编辑 */
 .pb-actions {
     display: flex;
     gap: 8px;
-    margin-top: 12px;
+    margin-bottom: 12px;
 }
 .pb-btn {
     flex: 1 1 auto;
@@ -175,15 +177,21 @@
     color: var(--color-accent-solid);
 }
 
-/* 次级操作行：导入 / 导出为轻量文字钮，主次分明 */
+/* 次级操作行：两组轻量文字钮 —— 左「提示词文件」右「全量存档」（2026-08-27 导入/导出全部自 tb-body 迁入） */
 .pb-foot {
     display: flex;
     align-items: center;
-    justify-content: center;
-    gap: 4px;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 2px 8px;
     margin-top: 10px;
-    padding-top: 10px;
+    padding-top: 6px;
     border-top: 1px solid var(--white-a06);
+}
+.pb-foot-group {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
 }
 .pb-foot-btn {
     min-height: 32px;
@@ -207,9 +215,8 @@
     background: var(--white-a10);
 }
 
-/* 移动端：触控目标 ≥ 40px */
+/* 移动端：触控目标 ≥ 40px（胶囊高度由 --topbar-h 变量统一，见 topbar.css） */
 @media (max-width: 600px) {
-    .pb-pill { height: 40px; }
     .pb-btn { min-height: 40px; }
     .pb-foot-btn { min-height: 40px; }
     .pb-close { width: 40px; height: 40px; }

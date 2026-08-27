@@ -33,7 +33,7 @@ export const DOM = {};
         'bg-modal', 'btn-bg-plugin', 'bg-modal-close', 'plugin-list-container', 'theme-list-container',
         'fs-editor', 'fs-textarea', 'fs-title', 'fs-confirm', 'fs-cancel',
         'fs-trigger-btn', 'fs-align-btn',
-        'btn-msg-nav', 'btn-clear-chat', 'btn-import-all', 'btn-export-all',
+        'btn-msg-nav', 'btn-import-all', 'btn-export-all',
         'btn-tts-toggle',
         // 语音设置模态框（云端唯一语音源：系统语音/语速/概率预设已移除）
         'voice-modal', 'voice-modal-close', 'voice-modal-cancel',

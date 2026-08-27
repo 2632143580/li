@@ -26,6 +26,15 @@
     --pill-border: 1px solid var(--white-a10);
     --pill-border-hover: 1px solid var(--white-a20);
     --pill-radius: 10px;
+    /* 顶栏三方统一视觉高度（2026-08-27）：左 monitor-bar / 中 pb-pill / 右 top-bar 同高对齐。
+       取 36px = monitor-bar 自然高（26px 圆环 + 4×2 padding + 2×1 border），以最高一方为基准，
+       另两方 min-height 补齐；内容变化不破坏基线 */
+    --topbar-h: 36px;
+}
+
+/* 移动端：触控目标 ≥ 40px（铁律）。只动一处变量，三方胶囊同高跟上 */
+@media (max-width: 600px) {
+    :root { --topbar-h: 40px; }
 }
 
 .top-bar {
@@ -36,6 +45,8 @@
     display: flex;
     align-items: center;
     gap: 15px;
+    min-height: var(--topbar-h);   /* 统一高度：内容不足时以变量兜底 */
+    box-sizing: border-box;
     padding: 4px 10px;
     border-radius: var(--pill-radius);
     background: var(--bg-pill);

@@ -95,8 +95,10 @@ function onFileChange(e) {
 /**
  * 导出提示词为 .txt 文件：所见即所得（编辑区当前值），空则回退当前生效值。
  * Blob + 临时 <a download> 触发下载，URL 用完即回收。
- * 注意：临时 <a> 的程序化点击必须掐断冒泡 —— 否则冒到 document 命中
- * 「点面板外部关闭」监听器，导出瞬间面板会被顺带关闭。
+ * 注意 ①：revokeObjectURL 必须 setTimeout 延迟 —— 移动端浏览器下载启动是异步的，
+ *   同步 revoke 会令 href 提前失效导致手机无法导出（与 data-exchange 同一配方）。
+ * 注意 ②：临时 <a> 的程序化点击必须掐断冒泡 —— 否则冒到 document 命中
+ *   「点面板外部关闭」监听器，导出瞬间面板会被顺带关闭。
  * @returns {void}
  */
 function exportFile() {
@@ -109,8 +111,8 @@ function exportFile() {
     a.addEventListener('click', (e) => e.stopPropagation());
     document.body.appendChild(a);
     a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 100);
     saveToLocal('已导出提示词');
 }
 

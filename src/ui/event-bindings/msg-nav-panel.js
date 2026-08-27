@@ -38,13 +38,17 @@ import { openModal, closeAllModals } from '../../core/modal.js';
 import { getProviderByUrl } from '../../core/utils.js';
 import { Logger } from '../../core/logger.js';
 import { fetchModelsForProvider, getProviderModels } from '../../core/models.js';
-import { loadSession, persistSession, saveSession, setSessionPinned } from '../../core/storage.js';
+import { loadSession, persistSession, saveSession, setSessionPinned, saveToLocal } from '../../core/storage.js';
 import { showToast } from '../../core/toast.js';
 import { getEffectiveSysPrompt } from '../../core/sessions.js';
 import { armClickConfirm } from './click-confirm.js';
 import { openWordCloud } from './wordcloud-panel.js';
 import { LLM_PROVIDERS } from '../../core/config.js';
-import { DEFAULT_PROVIDER } from '../../core/constants.js';
+import { DEFAULT_PROVIDER, WELCOME } from '../../core/constants.js';
+import { createNode } from '../../core/tree-core.js';
+import { initChatTree } from '../../chat/tree.js';
+import { clearAutoQueue } from '../../engines/tts-engine.js';
+import { updateCacheUI, resetMonitorStats } from '../render/tree-render.js';
 
 registerUI('msg-nav', setupMsgNav);
 
@@ -196,6 +200,12 @@ function setupMsgNav() {
             <button type="button" data-act="delete" class="mn-ctx-danger">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M6 6l1 14h10l1-14"/></svg>
                 <span>删除</span>
+            </button>
+            <span class="mn-ctx-sep" aria-hidden="true"></span>
+            <button type="button" data-act="clear">
+                <!-- 虚线框 = 会话壳子保留、内部消息擦除（区别于删除整个会话的实心垃圾桶） -->
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2" stroke-dasharray="3 3"/><path d="M9.5 9.5l5 5M14.5 9.5l-5 5"/></svg>
+                <span>清空对话</span>
             </button>`;
         ctxScrim.style.display = 'block';
         ctxMenu.style.display = 'block';
@@ -216,9 +226,18 @@ function setupMsgNav() {
                 renderSessions(); // 非当前会话删除后索引已更新，需手动重渲染列表
             }, { armedText: '确认删除?', resetMs: 3000 });
         }
-        // 其余菜单项（重命名 / 置顶）走统一 handler；删除已由上方接管故跳过
+        // 清空对话（2026-08-27 迁入）：原顶栏 #btn-clear-chat 由此接管，作用于被长按的会话。
+        // 二次确认口径与原按钮一致（armed 文案原样沿用）
+        const clearBtn = ctxMenu.querySelector('[data-act="clear"]');
+        if (clearBtn) {
+            armClickConfirm(clearBtn, () => {
+                closeCtxMenu();
+                clearSessionMessages(id);
+            }, { armedText: '再次点击确认清空' });
+        }
+        // 其余菜单项（重命名 / 置顶）走统一 handler；删除/清空已由上方接管故跳过
         ctxMenu.querySelectorAll('button').forEach((b) => {
-            if (b.dataset.act === 'delete') return;
+            if (b.dataset.act === 'delete' || b.dataset.act === 'clear') return;
             b.addEventListener('click', (e) => {
                 e.stopPropagation();
                 const act = b.dataset.act;
@@ -227,6 +246,34 @@ function setupMsgNav() {
                 else if (act === 'pin') togglePin(id);
             });
         });
+    }
+
+    /**
+     * 清空指定会话的全部对话（长按菜单「清空对话」；2026-08-27 由顶栏 #btn-clear-chat 迁入）。
+     * - 激活会话：走原按钮同一套收尾（停播清队列 / 重建欢迎树 / 缓存与监控归零 / 落盘提示）；
+     * - 非激活会话：读快照换空欢迎树写回 —— 会话仍在列表，仅消息清空；
+     *   manualTitle 从索引条目回填（persistSession 的快照默认 manualTitle=null，
+     *   直接展开会抹掉重命名标题）。 @param {string} id
+     */
+    function clearSessionMessages(id) {
+        if (id === state.activeSessionId) {
+            clearAutoQueue(); // 清空对话即停当前播放 + 清空自动朗读队列（避免旧消息后台继续响）
+            initChatTree();
+            updateCacheUI(0);
+            resetMonitorStats(); // 新一轮对话：累计 token / 缓存等归零
+            saveToLocal('已清空');
+            return;
+        }
+        const sess = loadSession(id);
+        if (!sess) return;
+        const root = createNode('system', getEffectiveSysPrompt());
+        const welcome = createNode('assistant', WELCOME);
+        welcome.reasoning = '好开心！'; // 与 initChatTree 同构：首屏演示思维链，不入请求上下文
+        root.children.push(welcome);
+        const item = listSessions().find(s => s.id === id);
+        persistSession(id, { ...sess, tree: root, manualTitle: (item && item.manualTitle) || null });
+        renderSessions();
+        showToast('已清空', 'success');
     }
 
     /** 置顶切换：写存档 + 重建索引 + 重渲染；排序即时反映 @param {string} id */

@@ -1,10 +1,10 @@
 /**
- * 全量导入 / 导出 / 清空 事件绑定（Stage 3 解耦产出，原 bindDataExchangeEvents）。
+ * 全量导入 / 导出 事件绑定（Stage 3 解耦产出，原 bindDataExchangeEvents）。
  * 仅依赖 DOM 门面、state 单例、storage 与 chat/tree 的渲染/重置活函数。
+ * （「清空对话」已迁会话长按菜单，2026-08-27）
  */
 import { DOM } from '../../core/dom.js';
 import { Logger } from '../../core/logger.js';
-import { armClickConfirm } from './click-confirm.js';
 import { state } from '../../core/store.js';
 import { DEFAULT_SETTINGS } from '../../core/constants.js';
 import { closeAllModals } from '../../core/modal.js';
@@ -15,9 +15,8 @@ import { serializeTree, ensureNodeDefaults } from '../../core/tree-core.js';
 import { updateInputLayout } from '../input-manager.js';
 import {
     applySettings, migrateErrorFlags,
-    getLastNodeInPath, renderChat, initChatTree, updateCacheUI, resetMonitorStats
+    getLastNodeInPath, renderChat
 } from '../../chat/tree.js';
-import { clearAutoQueue } from '../../engines/tts-engine.js'; // 修⑥：清空对话即停播放 + 清空自动朗读队列
 
 /** 全量导入 / 导出 / 清空 */
 import { registerUI } from '../../core/registry.js';
@@ -60,6 +59,9 @@ export function bindDataExchangeEvents() {
         const a = document.createElement('a');
         a.href = url;
         a.download = `li_backup_${new Date().toISOString().slice(0, 10)}.json`;
+        // 掐断冒泡：导出入口已在面板/浮层内部（如提示词面板），临时 <a> 的合成点击若冒到
+        // document 会命中弹层「点外部关闭」监听器，把打开的面板顺带关掉（2026-08-27 迁入面板后暴露）
+        a.addEventListener('click', (e) => e.stopPropagation());
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
@@ -112,12 +114,5 @@ export function bindDataExchangeEvents() {
         e.target.value = '';
     });
 
-    // 清空对话：二次点击确认（替代原生 confirm，避免打断操作流、移动端友好）
-    armClickConfirm(DOM.btnClearChat, () => {
-        clearAutoQueue(); // 修⑥：清空对话即停当前播放 + 清空自动朗读队列（避免旧消息后台继续响）
-        initChatTree();
-        updateCacheUI(0);
-        resetMonitorStats(); // 新一轮对话：累计 token / 缓存等归零
-        saveToLocal('已清空');
-    }, { armedText: '再次点击确认清空' });
+    // 「清空对话」已于 2026-08-27 迁至会话长按菜单（msg-nav-panel clearSessionMessages）
 }

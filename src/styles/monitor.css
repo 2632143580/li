@@ -4,6 +4,8 @@
     display: flex;
     align-items: center;
     gap: 12px;
+    min-height: var(--topbar-h);   /* 顶栏三方统一高度（topbar.css 定义） */
+    box-sizing: border-box;
     padding: 4px 10px;
     border-radius: var(--pill-radius);
     cursor: pointer;               /* 监控区即左栏展开/收起开关（原箭头已移除）；圆环点击另弹编辑气泡 */
@@ -246,19 +248,7 @@
     to { transform: rotate(360deg); }
 }
 
-.danger-icon-btn {
-    /* 危险按钮红从 --color-error 派生（40% 透明度），跟随主题 */
-    color: color-mix(in srgb, var(--color-error) 40%, transparent);
-}
-
-.danger-icon-btn:hover {
-    color: color-mix(in srgb, var(--color-error) 90%, transparent);
-}
-
-/* 二次点击确认「待确认」态：红色警示色（图标/文本按钮共用，无脉冲环，用户拍板：脉冲非必要） */
-.danger-icon-btn.armed {
-    color: var(--color-error);
-}
+/* .danger-icon-btn 已随 #btn-clear-chat 迁移删除（2026-08-27：清空对话入口移至会话长按菜单） */
 
 /* 文本按钮「待确认」态（如删除配色）共用红色警示色 */
 .cs-item-del.armed {
@@ -267,27 +257,7 @@
     border-color: var(--color-error);
 }
 
-/* 清空按钮：把 <svg> 图标包进 <button>，待确认态直接把图标换成「?」（不再浮气泡）。 */
-#btn-clear-chat {
-    border: none;
-    background: none;
-    padding: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 4px;
-}
-#btn-clear-chat svg {
-    width: 22px;
-    height: 22px;
-    display: block;
-}
-/* 待确认态：图标变「?」实心警示，红脉冲环（颜色/脉冲由 .danger-icon-btn.armed 提供） */
-#btn-clear-chat.armed {
-    font-size: 17px;
-    font-weight: 700;
-    line-height: 1;
-}
+/* #btn-clear-chat 专属样式已随按钮迁除（2026-08-27：清空对话入口移至会话长按菜单） */
 
 /* 色块点待确认态：底色上叠一个「?」问号（白字 + 深色描边保证任意底色可读），红色警示 */
 .qt-dot.armed {

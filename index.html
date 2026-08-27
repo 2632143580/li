@@ -156,14 +156,12 @@
                 <span id="ctx-ring-pct" class="ctx-ring-pct">0%</span>
             </button>
         </div>
-        <!-- 收起时隐藏的工具区：竖向展开，上方一排图标按钮 + 下方独立一排色块选择器 -->
+        <!-- 收起时隐藏的工具区：竖向展开（背景插件入口 + 色块选择器）。
+             2026-08-27 按用户布局收敛：清空对话迁会话长按菜单、导入/导出全部迁提示词面板 -->
         <div class="tb-body">
-        <!-- 一排图标按钮：背景插件 / 清空对话 / 导入 / 导出（词云入口已移至右上角顶栏，2026-08-16） -->
+        <!-- 背景插件入口（原一排图标钮仅存此项；色块条独立下方） -->
         <div class="tb-row">
             <svg id="btn-bg-plugin" class="icon-btn"><use href="#i-puzzle"/></svg>
-            <button id="btn-clear-chat" class="icon-btn danger-icon-btn"><svg><use href="#i-trash"/></svg></button>
-            <svg id="btn-import-all" class="icon-btn"><use href="#i-upload"/></svg>
-            <svg id="btn-export-all" class="icon-btn"><use href="#i-download"/></svg>
         </div>
             <!-- 快速配色色块条：独立一排，点击即时换肤（数据源 plugins/quick-themes.js） -->
             <div id="quick-theme-palette" class="qt-palette"></div>
@@ -182,15 +180,24 @@
                     <svg viewBox="0 0 24 24"><path d="M6 6 L18 18 M18 6 L6 18"/></svg>
                 </button>
             </div>
-            <textarea class="pb-textarea" id="prompt-textarea" rows="5" placeholder="输入系统提示词 / 人设，定义角色与行为…"></textarea>
+            <!-- 主操作置顶（2026-08-27）：应用/全局是面板核心动作，置于 textarea 之上符合操作动线 -->
             <div class="pb-actions">
                 <button class="pb-btn" id="prompt-apply" type="button">应用到本会话</button>
                 <button class="pb-btn pb-btn--accent" id="prompt-global" type="button">设为全局默认</button>
             </div>
+            <textarea class="pb-textarea" id="prompt-textarea" rows="5" placeholder="输入系统提示词 / 人设，定义角色与行为…"></textarea>
+            <!-- 轻量行分两组：提示词文件传输 ｜ 全量数据备份；原 tb-body 的导入/导出全部迁入 -->
             <div class="pb-foot">
-                <button class="pb-foot-btn" id="prompt-import" type="button">导入文件</button>
-                <span class="pb-foot-sep" aria-hidden="true"></span>
-                <button class="pb-foot-btn" id="prompt-export" type="button">导出文件</button>
+                <span class="pb-foot-group">
+                    <button class="pb-foot-btn" id="prompt-import" type="button">导入文件</button>
+                    <span class="pb-foot-sep" aria-hidden="true"></span>
+                    <button class="pb-foot-btn" id="prompt-export" type="button">导出文件</button>
+                </span>
+                <span class="pb-foot-group">
+                    <button class="pb-foot-btn" id="btn-import-all" type="button" aria-label="导入全部对话存档">导入存档</button>
+                    <span class="pb-foot-sep" aria-hidden="true"></span>
+                    <button class="pb-foot-btn" id="btn-export-all" type="button" aria-label="导出全部对话存档">导出存档</button>
+                </span>
             </div>
             <input id="prompt-file" type="file" accept=".txt,.md,text/plain,text/markdown" hidden>
         </div>

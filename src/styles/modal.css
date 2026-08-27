@@ -634,6 +634,13 @@ body.modal-open *:not(.modal-overlay):not(.modal-overlay *):not(#fs-editor):not(
 #msg-nav .mn-ctx button:active { background: var(--white-a12); }
 #msg-nav .mn-ctx button.mn-ctx-danger { color: var(--color-error); }
 #msg-nav .mn-ctx button.mn-ctx-danger:hover { background: color-mix(in srgb, var(--color-error) 14%, transparent); }
+/* 分组分隔线（2026-08-27）：「删除/清空」危险组与其余常规项之间的视觉断点 */
+#msg-nav .mn-ctx-sep {
+    display: block;
+    height: 1px;
+    margin: 4px 10px;
+    background: var(--white-a10);
+}
 
 /* 重命名输入框：替换标题，stopPropagation 拦 Escape 防关面板 */
 #msg-nav .mn-rename {
