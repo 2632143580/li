@@ -5,7 +5,7 @@
  *       不含任何逻辑、不触碰 DOM、不发请求、不依赖其它模块。
  *       可变全局状态见 core/state.js；无副作用工具函数见 core/utils.js。
  *
- * 导出：API_TIMEOUT_MS, STORAGE_KEY, TAU, ERROR_PREFIX, DEFAULT_SETTINGS, WELCOME
+ * 导出：API_TIMEOUT_MS, MODELS_TIMEOUT_MS, STORAGE_KEY, TAU, ERROR_PREFIX, DEFAULT_SETTINGS, WELCOME
  * 依赖：无
  */
 
@@ -15,6 +15,9 @@
 
 /** 单次流式读取的超时上限，单位毫秒。超时后 AbortController 中止请求。 @type {number} */
 export const API_TIMEOUT_MS = 30000;
+/** /models 模型清单拉取的超时上限，单位毫秒（models.js fetchModelsForProvider 消费）。清单是辅助数据，
+ *  超时即失败可见，不等满聊天级 30s。 @type {number} */
+export const MODELS_TIMEOUT_MS = 10000;
 /** localStorage 存档键名（全局键：settings + 会话索引 + 激活 id + 计数器，v4）。改动此值等于丢弃旧存档。 @type {string} */
 export const STORAGE_KEY = 'liChatData_v2';
 /** 单会话存档键前缀：SESSION_KEY_PREFIX + sessionId -> { id, chatTree, stats, sysPrompt|null, draft, createdAt, updatedAt, manualTitle } @type {string} */
@@ -41,6 +44,9 @@ export const ERROR_PREFIX = '发生错误:';
  *   ttsProb         {number}  发语音概率 0~1；每条 AI 消息按此概率掷骰决定是否渲染成语音条（其余渲染为文字）。默认 1 = 每条都语音（保留原「句句发语音」行为），0 = 永不语音
  *   keys            {{zhipu:string, deepseek:string}} 按服务商分别记忆的 Key（custom 已移除，自定义服务商直接用当前 apiKey）
  *   bgDimOpacity    {number}  背景遮罩不透明度，0.0 全透明 ~ 1.0 全遮盖
+ *   bubbleOpacity   {number}  消息气泡底色不透明度，0.0 气泡全透明 ~ 1.0 原始浓度（只缩放底色 alpha，
+ *                             文字/边框不受影响）；经 tree.js applyBubbleOpacity 写入 :root --bubble-opacity，
+ *                             全部气泡底色以 calc(α * var(--bubble-opacity)) 消费（含主题气泡，见 hooks.json）
  *   bgTransform     {{scale:number, xPct:number, yPct:number}} 背景图变换；
  *                             scale 为缩放倍数（>=1），xPct/yPct 是相对自身尺寸的平移百分比（分辨率无关）
  *   quickTheme      {string|null} 当前快速配色名（plugins/quick-themes.js 的 QUICK_THEMES 键）；
@@ -63,18 +69,8 @@ export const DEFAULT_SETTINGS = {
     ttsAutoRead: false,       // 自动朗读：AI 回复流式生成时逐句自动播放（独立于 ttsEnabled；纯文字模式无语音条，不读）
     showReasoning: true,      // 显示思维链：AI 回复若有 reasoning_content 则在正文上方渲染可折叠「思维链」块；默认开
     reasoningAutoExpand: true, // 思维链自动展开：AI 回复后思维链默认展开（关闭则默认折叠、可手动展开）；默认开
-    showEcgWave: true,        // 思维链头部「波形监护仪」显示开关（UI 控件现位于组件页 component-switcher，原设置页开关已迁入）。用户定义：『心电图』=波形(右侧 canvas 监护仪)，不含左侧 love.svg 爱心。
-    thinkIconStyle: 'ecg',    // 【已废弃】旧图标风格 ecg/minimal，现统一由 thinkIconProvider 决定；保留仅为兼容旧存档（minimal→kimi）
-    thinkIconProvider: 'ecg', // 组件来源：ecg（医疗监护仪：爱心+心电canvas）/ glm（双线流光：track+flow）/ kimi（单线流光：单path脉冲）
-    ecgEmotion: 'calm',       // 默认情绪：calm / excited / sad / thinking
-    ecgSize: 'md',             // 心电图尺寸：xs / sm / md / lg / xl；由组件切换 Sheet 控制
-                               //   默认开；关闭只去掉右侧波形，左侧爱心(与折叠头一体)恒显示。
+    // 思维链头部仅爱心图标（三种波形组件及性能开关已于 2026-08-25 整体移除）
 
-    // 性能控制开关（组件切换页）
-    ecgAnimation: true,        // 心电图动画：false=静态波形，不跑rAF循环
-    ecgGlow: true,             // 波形辉光：false=去掉shadowBlur，降低GPU负载
-    historyEcg: true,          // 历史消息心电图动画：false=仅当前消息动画，历史消息静态
-    ecgHalfRate: false,        // 心电图 30fps 省电模式：true=隔帧绘制+步进×2补偿（扫描速度视觉不变，绘制次数减半）
     bgAnimation: true,         // 背景动画：false=停止BgEngine rAF循环
     bgCanvas: true,            // 背景画布：false=隐藏全屏Canvas，释放GPU内存
 
@@ -89,6 +85,7 @@ export const DEFAULT_SETTINGS = {
         prefixTemplate: '（警告：已触发禁止词「{words}」，请更换表达方式）'
     },
     bgDimOpacity: 0.4,
+    bubbleOpacity: 1,          // 消息气泡底色不透明度（0~1，只缩放底色 alpha；见上方字段注释）
     bgTransform: { scale: 1, xPct: 0, yPct: 0 },
     quickTheme: null
 };

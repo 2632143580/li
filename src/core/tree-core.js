@@ -12,7 +12,7 @@
  *   tree-core 只依赖同层 state.js，完全自洽。
  *
  * 依赖：core/state（仅 state 与 ERROR_PREFIX，均为 core 层，不引入任何上层依赖）
- * 导出：createNode, migrateErrorFlags, getCurrentPath, getLastNodeInPath, buildApiMessages, findMaxId
+ * 导出：createNode, migrateErrorFlags, ensureNodeDefaults, getCurrentPath, getLastNodeInPath, buildApiMessages, findMaxId, serializeTree
  *
  * 注意：本文件刻意不依赖 chat/api、ui/*、engines/*，保持纯数据，便于单测与分层。
  */
@@ -150,6 +150,11 @@ export function findMaxId(node) {
  */
 const NODE_SERIALIZE_KEYS = ['id', 'role', 'content', 'reasoning', 'time', 'children', 'selectedChildIndex', 'isError'];
 
+// 序列化时可省略的默认值：字段值等于默认值时不在 JSON 写出，避免 selectedChildIndex:0 / isError:false /
+// reasoning:'' 这类「每节点重复」的冗余键值（曾占导出 5KB+）。children 单独处理（空数组省略）。
+// 反序列化端由 ensureNodeDefaults 对称补回，保证导入 / 切换会话后字段完整、行为不变。
+const NODE_OMIT_DEFAULTS = { reasoning: '', selectedChildIndex: 0, isError: false };
+
 /**
  * 产出「干净可序列化」的树副本：逐节点按 NODE_SERIALIZE_KEYS 白名单重建。
  * 供 storage.persistSession（落盘）与 data-exchange（导出 JSON）共用——
@@ -163,10 +168,27 @@ export function serializeTree(node) {
     const out = {};
     for (const k of NODE_SERIALIZE_KEYS) {
         if (k === 'children') {
-            out.children = (node.children || []).map(serializeTree).filter(Boolean);
-        } else if (node[k] !== undefined) {
-            out[k] = node[k];
+            const children = (node.children || []).map(serializeTree).filter(Boolean);
+            if (children.length > 0) out.children = children; // 空 children 省略（缺省即视为无子）
+        } else if (node[k] !== undefined && node[k] !== NODE_OMIT_DEFAULTS[k]) {
+            out[k] = node[k]; // 等于默认值的字段不写出
         }
     }
     return out;
+}
+
+/**
+ * 反序列化规范化：为缺失 / 类型不符的字段补回默认值，与 serializeTree 的「默认值省略」对称。
+ * 覆盖所有反序列化入口（localStorage 落盘 loadSession、全量导入），保证导入 / 切换会话后
+ * selectedChildIndex / reasoning / children / isError 字段完整——否则 getLastNodeInPath 等会以
+ * node.children[undefined] 遍历断裂。isError 的精确推导仍由 migrateErrorFlags 负责（此处仅给保守默认）。
+ * @param {object} node - 对话树节点
+ */
+export function ensureNodeDefaults(node) {
+    if (!node || typeof node !== 'object') return;
+    if (typeof node.selectedChildIndex !== 'number') node.selectedChildIndex = 0;
+    if (typeof node.reasoning !== 'string') node.reasoning = '';
+    if (!Array.isArray(node.children)) node.children = [];
+    if (typeof node.isError !== 'boolean') node.isError = false;
+    for (const child of node.children) ensureNodeDefaults(child);
 }

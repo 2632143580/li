@@ -2,8 +2,7 @@
 //  快速配色（色块选择器，第 3 步）
 //  数据源 plugins/quick-themes.js；应用走 ThemeEngine 通道（与用户导入的主题插件同路）。
 //  点击内置色块 → applyQuickTheme：唯一槽位切换 + 持久化 quickTheme。星空插件已移除，背景现为纯 CSS 底色，无需在此同步/卸载动画背景。
-//  自定义配色：色块条末尾的「+」圆点 → 模态框粘贴颜色代码 → 持久化(localStorage 独立键) + 应用 + 启动恢复 + 删除（桌面右键色块 / 移动端模态框内列表按钮）。
-//  单色方案另带「撞色强度」滑块（创建表单 + 已保存列表每项各一），实时预览、按方案持久化；多色/渐变无单色跳色故不显示。
+//  自定义配色：色块条末尾的「+」圆点 → 底部抽屉粘贴颜色代码 → 持久化(localStorage 独立键) + 应用 + 启动恢复 + 删除（桌面右键色块 / 移动端抽屉内列表按钮）。
 // ================================================================
 
 /**
@@ -32,12 +31,6 @@ const CUSTOM_KEY = 'li_custom_schemes';
 let customSchemes = [];
 /** 当前激活的自定义配色 id（null = 未激活） @type {string|null} */
 let activeCustomId = null;
-/** 创建表单里「撞色强度」滑块的当前值（用户气泡互补色调入页面的百分比，默认 56） @type {number} */
-let currentCreateMix = 56;
-/** 列表项滑块拖动时，待应用的方案 id（rAF 节流，避免拖动期间每帧重复挂载主题） @type {string|null} */
-let pendingApplyId = null;
-/** 当前挂起的 rAF 句柄（0 = 无） @type {number} */
-let applyRaf = 0;
 
 /**
  * 单槽挂载（内置 / 自定义共用一个 ThemeEngine 槽位，互斥）。
@@ -58,7 +51,7 @@ function mountScheme(scheme, id) {
 /**
  * 应用快速配色（唯一槽位）：
  * 1. 若已有快速配色主题挂着 → 先 ThemeEngine.unmount（避免多组配色叠加打架）
- * 2. 用该组 tokens 包装成主题对象 → ThemeEngine.register + mount（与用户主题插件同通道，updateInputColors 自动刷新输入框）
+ * 2. 用该组 tokens 包装成主题对象 → ThemeEngine.register + mount（与用户主题插件同通道）
  * 3. 持久化 settings.quickTheme（storage 白名单自动纳入）+ 刷新色块高亮
  * @param {string} name - QUICK_THEMES 的键（配色名）
  * @returns {boolean} 是否应用成功（QUICK_THEMES 无此键返回 false）
@@ -94,24 +87,6 @@ export function applyCustomScheme(id) {
     saveToLocal(null, true);
     refreshHighlights();
     return true;
-}
-
-/**
- * 恢复默认主题（原版 tokens.css，无任何配色挂载）：
- * 卸载当前配色（ThemeEngine.unmount 会 removeProperty 还原 tokens.css 默认值）
- * + 清空快速/自定义激活态与持久化。
- * @returns {void}
- */
-export function applyDefaultTheme() {
-    if (activeQuickThemeId) {
-        ThemeEngine.unmount(activeQuickThemeId);
-        activeQuickThemeId = null;
-    }
-    state.settings.quickTheme = null;
-    activeCustomId = null;
-    saveCustomSchemes(null);
-    saveToLocal('已恢复默认主题');
-    refreshHighlights();
 }
 
 // ================================================================
@@ -183,10 +158,9 @@ function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
  * 把粘贴的颜色代码解析成完整配色对象（swatch / cssText / tokens）。
  * - 渐变约束：渐变只能进 cssText 的 body 规则，--color-bg 仍用纯色兜底（否则输入框 Canvas / color-mix 会崩）。
  * @param {string} code - 用户粘贴的内容
- * @param {number} [accentMix=56] - 用户气泡「互补跳色」混入页面底色的百分比（0~70），由模态框滑块控制
  * @returns {{swatch:string, cssText:string, tokens:object}|null}
  */
-function buildSchemeFromCode(code, accentMix = 56) {
+function buildSchemeFromCode(code) {
     let trimmed = (code || '').trim();
     if (!trimmed) return null;
     // 容错：去掉 `background:` / `background-color:` 前缀与结尾分号（色系.html 等工具可能包裹成 `background: ...;`），
@@ -269,22 +243,12 @@ function buildSchemeFromCode(code, accentMix = 56) {
         for (const k in DARK_INPUT) tokens[k] = DARK_INPUT[k];
     }
 
-    // 气泡底色：单色方案把「互补跳色」混入页面底色着色用户气泡（混入比例 = accentMix，由模态框「撞色强度」滑块控制；
-    // AI 气泡用更淡的同跳色，比例固定为 round(accentMix*0.43)，保持与用户气泡一致的撞色观感），让整页看得到撞色层次，
-    // 解决「单色全红、只有按钮有强调色」的问题；多色/渐变方案沿用原白/黑微调透明气泡（外观不变）。
-    let bubbleCss;
-    if (rgbs.length === 1) {
-        bubbleCss = `.chat-bubble--ai{background:color-mix(in srgb, var(--color-accent) ${Math.round(accentMix * 0.43)}%, transparent);padding:10px 14px}`
-                  + `.chat-bubble--user{background:color-mix(in srgb, var(--color-accent) ${accentMix}%, var(--color-bg));padding:10px 14px}`;
-    } else {
-        bubbleCss = isLight ? LIGHT_BUBBLE_CSS : DARK_BUBBLE_CSS;
-    }
+    // 气泡底色：统一走深/浅模板（单色不跳色染泡；alpha 吃 --bubble-opacity）
+    const bubbleCss = isLight ? LIGHT_BUBBLE_CSS : DARK_BUBBLE_CSS;
     const cssText = (isGradient && gradientCss ? `body{background:${gradientCss}} ` : '') + bubbleCss;
     // swatch 圆点色：单色显示用户色（强调色），渐变显示渐变，多色用兜底基色
     const swatch = (isGradient && gradientCss) ? gradientCss : (rgbs.length === 1 ? rgbToHex(accentRgb) : baseHex);
-
-    // isSingle：标记该方案是否为单色（仅单色才有「撞色强度」滑块；多色/渐变无单色跳色概念）
-    return { swatch, cssText, tokens, isSingle: rgbs.length === 1 };
+    return { swatch, cssText, tokens };
 }
 
 // ================================================================
@@ -325,18 +289,13 @@ function renderQuickThemePalette() {
     const palette = DOM.quickThemePalette;
     if (!palette) return;
     palette.innerHTML = '';
-    // 默认主题圆点（恢复原版 tokens.css，无任何配色挂载；swatch = tokens.css :root 默认基色）
-    const defDot = document.createElement('div');
-    defDot.className = 'qt-dot qt-default';
-    defDot.dataset.default = '1';
-    defDot.style.background = '#080b14';
-    palette.appendChild(defDot);
     // 内置配色
     for (const [name, theme] of Object.entries(QUICK_THEMES)) {
         const dot = document.createElement('div');
         dot.className = 'qt-dot';
         dot.dataset.qt = name;
-        dot.style.background = theme.swatch;
+        dot.style.setProperty('--swatch', theme.swatch);
+        dot.title = name;
         palette.appendChild(dot);
     }
     // 自定义配色
@@ -344,7 +303,8 @@ function renderQuickThemePalette() {
         const dot = document.createElement('div');
         dot.className = 'qt-dot qt-custom';
         dot.dataset.cs = scheme.id;
-        dot.style.background = scheme.swatch;
+        dot.style.setProperty('--swatch', scheme.swatch);
+        dot.title = scheme.name;
         // 右键二次确认删除：trigger=contextmenu，避免与「左键点击=应用配色」冲突
         armClickConfirm(dot, () => deleteCustomScheme(scheme.id), { trigger: 'contextmenu', armedText: '再次点击删除（右键）' });
         palette.appendChild(dot);
@@ -353,7 +313,6 @@ function renderQuickThemePalette() {
     const add = document.createElement('div');
     add.className = 'qt-dot qt-add';
     add.dataset.add = '1';
-    add.textContent = '+';
     palette.appendChild(add);
 
     refreshHighlights();
@@ -365,38 +324,33 @@ function refreshHighlights() {
     if (!palette) return;
     palette.querySelectorAll('.qt-dot').forEach(d => {
         let active = false;
-        if (d.dataset.default) active = !state.settings.quickTheme && !activeCustomId;
-        else if (d.dataset.qt) active = d.dataset.qt === state.settings.quickTheme;
+        if (d.dataset.qt) active = d.dataset.qt === state.settings.quickTheme;
         else if (d.dataset.cs) active = d.dataset.cs === activeCustomId;
         d.classList.toggle('active', active);
     });
 }
 
 // ================================================================
-//  自定义配色：模态框与交互
+//  自定义配色：抽屉与交互
 // ================================================================
 
-/** 打开自定义配色模态框 @returns {void} */
+/** 打开自定义配色底部抽屉 @returns {void} */
 function openCustomSchemeModal() {
     const m = DOM.customSchemeModal;
     if (!m) return;
     DOM.customSchemeInput.value = '';
-    // 重置创建表单的撞色强度到默认（新配色独立设定，不继承上一个方案的强度）
-    currentCreateMix = 56;
-    if (DOM.customSchemeMix) DOM.customSchemeMix.value = '56';
-    updateSchemePreview('');
     renderCustomSchemeList();
     openModal('custom-scheme-modal');
     // 不主动 focus textarea：移动端 focus 会立即弹出软键盘遮挡面板，用户可能只想浏览已有配色。
     // 用户点击输入框时自然聚焦弹键盘（用户手势触发，Chrome 不拦截）。
 }
 
-/** 关闭自定义配色模态框 @returns {void} */
+/** 关闭自定义配色底部抽屉 @returns {void} */
 function closeCustomSchemeModal() {
     closeAllModals();
 }
 
-/** 渲染自定义配色管理列表（模态框内，移动端可触屏删除；桌面也可用，不依赖右键） @returns {void} */
+/** 渲染自定义配色管理列表（抽屉内，移动端可触屏删除；桌面也可用，不依赖右键） @returns {void} */
 function renderCustomSchemeList() {
     const list = DOM.customSchemeList;
     if (!list) return;
@@ -419,21 +373,6 @@ function renderCustomSchemeList() {
         name.textContent = scheme.name;
         row.appendChild(sw);
         row.appendChild(name);
-        // 仅单色方案有「撞色强度」滑块（多色/渐变无单色跳色概念，滑块无意义）
-        if (scheme.isSingle) {
-            const mixWrap = document.createElement('div');
-            mixWrap.className = 'cs-item-mix';
-            const mix = document.createElement('input');
-            mix.type = 'range';
-            mix.min = '0';
-            mix.max = '70';
-            mix.step = '1';
-            mix.value = String(scheme.mix ?? 56);
-            mix.className = 'slider';
-            mix.addEventListener('input', () => onItemMixInput(scheme.id, +mix.value));
-            mixWrap.appendChild(mix);
-            row.appendChild(mixWrap);
-        }
         const del = document.createElement('button');
         del.type = 'button';
         del.className = 'cs-item-del';
@@ -441,76 +380,6 @@ function renderCustomSchemeList() {
         armClickConfirm(del, () => deleteCustomScheme(scheme.id), { armedText: '确认删除?' });
         row.appendChild(del);
         list.appendChild(row);
-    }
-}
-
-/**
- * 列表项「撞色强度」滑块拖动：就地重算该方案的 cssText 并持久化；
- * 若此方案当前激活，则实时刷新真实页面气泡（让用户直接看到撞色浓淡变化）。
- * 重算用持久化的原始代码（scheme.code），仅气泡底色随 mix 变，其余 token 不变。
- * @param {string} id - 自定义配色 id
- * @param {number} mix - 新的撞色强度（0~70）
- * @returns {void}
- */
-function onItemMixInput(id, mix) {
-    const scheme = customSchemes.find(s => s.id === id);
-    if (!scheme || !scheme.isSingle) return;
-    const rebuilt = buildSchemeFromCode(scheme.code, mix);
-    if (!rebuilt) return;
-    scheme.cssText = rebuilt.cssText;
-    scheme.mix = mix;
-    saveCustomSchemes(activeCustomId);
-    // 仅当它是当前激活方案才实时刷新整页（rAF 节流，避免拖动期间每帧重复挂载主题）
-    if (activeCustomId === id) scheduleCustomApply(id);
-}
-
-/** rAF 节流地重新应用某方案，用于滑块拖动实时预览 @param {string} id @returns {void} */
-function scheduleCustomApply(id) {
-    pendingApplyId = id;
-    if (applyRaf) return;
-    applyRaf = requestAnimationFrame(() => {
-        applyRaf = 0;
-        const pid = pendingApplyId;
-        pendingApplyId = null;
-        if (pid) applyCustomScheme(pid);
-    });
-}
-
-/** 实时预览：把粘贴内容解析成配色并刷新缩略图（微缩模型）。
- *  @param {string} code - 粘贴的颜色代码
- *  @param {number} [mix] - 撞色强度（用户气泡互补色混入页面的百分比），缺省用 currentCreateMix
- *  @returns {void} */
-function updateSchemePreview(code, mix = currentCreateMix) {
-    const preview = DOM.customSchemePreview;
-    if (!preview) return;
-    const scheme = (code || '').trim() ? buildSchemeFromCode(code, mix) : null;
-    // 撞色强度滑块整行：仅单色输入时显示，多色/渐变/空输入时隐藏（无单色跳色概念）
-    const mixRow = DOM.customSchemeMix ? DOM.customSchemeMix.closest('.cs-mix-row') : null;
-    if (scheme) {
-        // 把整组颜色变量作为内联 CSS 变量打到缩略图容器上，使其内部 mock 用与真实 UI 同名的变量渲染。
-        // 仅作用于此容器（沙箱预览），不挂载到 <html>，故不影响整页主题。
-        for (const k in scheme.tokens) preview.style.setProperty(k, scheme.tokens[k]);
-        preview.style.background = scheme.swatch;
-        preview.classList.remove('cs-empty');
-        // 单色方案：把「撞色强度」实时反映到缩略图里的用户/AI 气泡（与真实气泡同款 color-mix 公式），
-        // 这样拖滑块时不用看数字也能直接看到跳色浓淡。多色/渐变无单色跳色，回退到缩略图默认上色。
-        const userBubble = preview.querySelector('.ct-user');
-        const aiBubble = preview.querySelector('.ct-ai');
-        if (scheme.isSingle) {
-            if (userBubble) userBubble.style.background = `color-mix(in srgb, var(--color-accent) ${mix}%, var(--color-bg))`;
-            if (aiBubble) aiBubble.style.background = `color-mix(in srgb, var(--color-accent) ${Math.round(mix * 0.43)}%, transparent)`;
-        } else {
-            if (userBubble) userBubble.style.background = '';
-            if (aiBubble) aiBubble.style.background = '';
-        }
-        if (mixRow) mixRow.style.display = scheme.isSingle ? '' : 'none';
-    } else {
-        for (const k in preview.style) {
-            if (k.startsWith('--')) preview.style.removeProperty(k);
-        }
-        preview.style.background = '';
-        preview.classList.add('cs-empty');
-        if (mixRow) mixRow.style.display = 'none';
     }
 }
 
@@ -527,19 +396,18 @@ function shakeSaveButton() {
     });
 }
 
-/** 从模态框保存自定义配色并应用 @returns {void} */
+/** 从抽屉保存自定义配色并应用 @returns {void} */
 function saveCustomSchemeFromModal() {
     const code = DOM.customSchemeInput.value.trim();
-    const scheme = buildSchemeFromCode(code, currentCreateMix);
+    const scheme = buildSchemeFromCode(code);
     if (!scheme) {
         shakeSaveButton(); // 无效输入：保存按钮抖动提示（替代原生 alert）
         showThemeFeedback('无效颜色代码'); // 文字提示：抖动只是动效，用户未必懂原因，补一句可读反馈
         return;
     }
     scheme.id = 'cs_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
-    scheme.name = '自定义 ' + (customSchemes.length + 1);
-    scheme.code = code;                       // 持久化原始代码，供列表滑块就地重算 cssText
-    scheme.mix = currentCreateMix;            // 持久化撞色强度，供列表滑块恢复该方案同款强度
+    // T09-3：名字直接用色值（多色取首色，长码截断），不再叫「自定义 1/2/…」
+    scheme.name = (scheme.colors && scheme.colors[0] ? scheme.colors[0] : code).slice(0, 18);
     customSchemes.push(scheme);
     saveCustomSchemes(scheme.id);
     closeCustomSchemeModal();
@@ -584,14 +452,13 @@ export function bindQuickThemeEvents() {
     palette.addEventListener('click', (e) => {
         const dot = e.target.closest('.qt-dot');
         if (!dot) return;
-        if (dot.dataset.default) { applyDefaultTheme(); return; }
         if (dot.dataset.add) { openCustomSchemeModal(); return; }
         if (dot.dataset.cs) { applyCustomScheme(dot.dataset.cs); return; }
         if (dot.dataset.qt) { applyQuickTheme(dot.dataset.qt); }
     });
 
 
-    // 模态框交互
+    // 抽屉交互
     if (DOM.customSchemeModal) {
         // 点击遮罩空白处关闭
         DOM.customSchemeModal.addEventListener('click', (e) => {
@@ -599,14 +466,6 @@ export function bindQuickThemeEvents() {
         });
         DOM.customSchemeCancel.addEventListener('click', closeCustomSchemeModal);
         DOM.customSchemeSave.addEventListener('click', saveCustomSchemeFromModal);
-        DOM.customSchemeInput.addEventListener('input', () => updateSchemePreview(DOM.customSchemeInput.value));
-        // 创建表单「撞色强度」滑块：拖动即更新当前强度并实时刷新缩略图气泡（不显示数字，纯拖动预览）
-        if (DOM.customSchemeMix) {
-            DOM.customSchemeMix.addEventListener('input', () => {
-                currentCreateMix = +DOM.customSchemeMix.value;
-                updateSchemePreview(DOM.customSchemeInput.value, currentCreateMix);
-            });
-        }
     }
 
     // 左右方向键循环切换配色（内置 + 自定义）

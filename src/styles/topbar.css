@@ -1,18 +1,103 @@
-/* ====================== 隐藏输入框 ====================== */
-#hiddenInput {
+/* ====================== 底部胶囊输入条（2026-08-28 对齐模拟稿 .input-bar） ======================
+   容器承载外观，内部 #hiddenInput 保留既有 IME/回车/文本同步全链路（零逻辑改动）；
+   右侧 .ib-send 发送按钮与 Enter 走同一 submitInput 出口。 */
+.input-bar {
     position: fixed;
+    bottom: 14px;
+    left: 50%;
+    transform: translateX(-50%);
     z-index: 10;
-    background: transparent;
+    width: min(560px, calc(100vw - 24px));
+    height: 44px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 0 8px 0 16px;
+    background: var(--bg-input);
+    border: 1px solid var(--white-a10);
+    border-radius: var(--pill-radius);
+    box-sizing: border-box;
+    transition: border-color var(--transition-fast);
+}
+.input-bar:focus-within { border-color: var(--color-accent-dim); }
+
+#hiddenInput {
+    position: static;              /* 旧绝对定位废弃：交由 .input-bar 容器 flex 排布 */
+    flex: 1;
+    min-width: 0;
+    height: 100%;
+    background: none;
     color: var(--input-text);
     caret-color: var(--input-cursor);
     border: none;
     outline: none;
     resize: none;
     padding: 0;
-    padding-left: 12px;
-    text-indent: 0;
-    line-height: 30px;
     letter-spacing: normal;
+    line-height: normal;
+    font-size: 14px;               /* 模拟稿 .ph 定值 */
+}
+#hiddenInput::placeholder { color: var(--white-a40); }
+
+/* 发送按钮：纸飞机（模拟稿 svg 原样）；与 Enter 共用 submitInput 出口 */
+.ib-send {
+    width: 34px;
+    height: 34px;
+    flex: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    color: var(--white-a50);
+    background: none;
+    border: none;
+    border-radius: 50%;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+    transition: color var(--transition-fast), transform var(--transition-fast);
+}
+.ib-send:hover { color: var(--white-a90); transform: scale(1.08); }
+.ib-send:active { transform: scale(0.9); }
+.ib-send svg {
+    width: 18px;
+    height: 18px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.6;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+/* 输入条内次级图标钮（全屏编辑 / 禁止词）：与 .ib-send 同尺寸同交互，
+   收进输入条后不再浮层重叠；触控目标 34px（铁律），图标 18px 居中 */
+.ib-icon {
+    width: 34px;
+    height: 34px;
+    flex: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    color: var(--white-a50);
+    background: none;
+    border: none;
+    border-radius: 50%;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+    transition: color var(--transition-fast), transform var(--transition-fast);
+}
+.ib-icon:hover { color: var(--white-a90); transform: scale(1.08); }
+.ib-icon:active { transform: scale(0.9); }
+.ib-icon svg {
+    width: 18px;
+    height: 18px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.6;
+    stroke-linecap: round;
+    stroke-linejoin: round;
 }
 
 /* ====================== 顶栏 ====================== */
@@ -21,22 +106,37 @@
    原三处各自 color-mix 硬编码 100%，但 monitor-bar:hover 走 85% 而其他两个不变，
    造成透明度不一致。统一为变量后，改一处全局生效。 */
 :root {
-    --bg-pill: color-mix(in srgb, var(--color-bg) 92%, transparent);
-    --bg-pill-hover: color-mix(in srgb, var(--color-bg) 80%, transparent);
+    /* 三方胶囊底色（2026-08-28 校准）：纯 white-a08 太透——左栏浮在消息流上时内容
+       全部透出，视觉上与工具按钮「重叠」（用户实测抓到）。改 bg 86% 打底保证遮蔽力，
+       观感仍是深色胶囊；hover 提亮到 78% */
+    --bg-pill: color-mix(in srgb, var(--color-bg) 86%, transparent);
+    --bg-pill-hover: color-mix(in srgb, var(--color-bg) 78%, transparent);
     --pill-border: 1px solid var(--white-a10);
     --pill-border-hover: 1px solid var(--white-a20);
-    --pill-radius: 10px;
+    /* 全圆角胶囊（FIX-9 圆角 token 收口：10px 圆角矩形 → 999px 真胶囊） */
+    --pill-radius: 999px;
+    /* 顶栏三方统一视觉高度：40px（模拟稿定值）；≤600px 变量改 44px 触控铁律一处生效 */
+    --topbar-h: 40px;
 }
 
+/* 移动端：触控目标 ≥ 40px（铁律）。只动一处变量，三方胶囊同高跟上 */
+@media (max-width: 600px) {
+    :root { --topbar-h: 44px; }
+}
+
+/* 右侧顶栏（2026-08-28 三 bar 气泡统一）：与左中两 bar 同配方——--bg-pill 底 / --pill-border 边 /
+   --pill-radius 真胶囊 / --topbar-h 同高，hover 同款提亮，padding 与 pb-pill 一致 */
 .top-bar {
     position: fixed;
-    top: 20px;
-    right: 20px;
+    top: 12px;
+    right: 12px;
     z-index: 20;
     display: flex;
     align-items: center;
-    gap: 15px;
-    padding: 4px 10px;
+    gap: 14px;
+    min-height: var(--topbar-h);
+    box-sizing: border-box;
+    padding: 0 14px;
     border-radius: var(--pill-radius);
     background: var(--bg-pill);
     border: var(--pill-border);
@@ -47,10 +147,19 @@
     border: var(--pill-border-hover);
 }
 
+/* #4（用户 2026-08-27）：消息导航图标点击区加宽到 2 倍（44px = 2×22px 基准）。
+   图标本体仍 22px 居中（裸 <svg> 默认 preserveAspectRatio 居中、不拉伸），多余 22px 为纯点击面积，
+   纯增大触控目标、零新增元素、不引入原生控件；移动端触控目标≥40px 亦满足。
+   对应代码名：#btn-msg-nav / DOM.btnMsgNav / openModal('msg-nav') 的触发图标。 */
+#btn-msg-nav {
+    width: 44px;
+    height: 22px;
+}
+
 .top-bar-left {
     position: fixed;
-    top: 20px;
-    left: 20px;
+    top: 12px;
+    left: 12px;
     z-index: 20;
     display: flex;
     flex-direction: column;       /* 头（监控）/ 体（工具按钮+色块条）纵向堆叠；收起态只显示头 */
@@ -66,25 +175,20 @@
    展开/收起由**点击监控区**承担（原箭头与 tb-head 包裹层已按用户要求移除，监控直挂顶层）；
    配色/圆角/动效全部走已有语义 token，不引入硬编码 RGB（避免触发 skin-lint）。 */
 
-/* 体：竖向展开（监控下方上下堆叠）——上一排 4 个图标按钮，下一排色块选择器 */
-/* 方案 A（用户拍板 2026-08-18）：整块浅底胶囊，与监控胶囊同款配方（color-mix 72% + white-a10 边框），
-   图标+色块落进同一底、左栏视觉成整体；圆角用 --radius-lg 与胶囊尺度匹配 */
+/* 体：单行横向（背景插件入口 + 色块选择器同行）——排版收敛：消除原「孤行图标 + 色块条」两行松散结构 */
+/* 整块浅底胶囊（用户拍板 2026-08-18），与监控胶囊同款配方（color-mix 72% + white-a10 边框）；
+   圆角用 --radius-lg 与胶囊尺度匹配 */
 .tb-body {
     display: flex;
-    flex-direction: column;       /* 竖向展开：按钮行 + 色块选择器行 上下堆叠 */
-    align-items: flex-start;
+    flex-direction: row;               /* 单行：插件入口居左，色块条弹性伸缩 */
+    align-items: center;
     gap: 10px;
-    padding: 10px;
-    border-radius: var(--pill-radius);
+    padding: 8px 10px;
+    max-width: calc(100vw - 24px);     /* 与 top-bar-left 的 left:12px 对齐，窄屏不溢出视口 */
+    border-radius: var(--radius-lg);   /* 面板状容器用面板圆角——999px 会裁切内部内容（实测抓到） */
     background: var(--bg-pill);
     border: var(--pill-border);
     animation: fadeIn 0.18s ease;
-}
-/* 上一排：4 个图标按钮横向一排 */
-.tb-row {
-    display: flex;
-    align-items: center;
-    gap: 10px;
 }
 .top-bar-left.collapsed .tb-body { display: none; }
 

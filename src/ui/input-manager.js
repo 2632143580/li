@@ -4,14 +4,37 @@
  * 职责：管理隐藏输入框的焦点状态、IME 组合输入、回车发送；并提供全屏编辑器开关。
  *       inputManager.text 是渲染器读取的输入文本来源。
  *
- * 导出：inputManager, openFSEditor, alignIcons, currentAlign, bindFsEditorEvents
- * 依赖：core/dom, ui/input-renderer, engines/bg-engine, chat/tree（sendMessage）
+ * 导出：inputManager, openFSEditor, alignIcons, currentAlign, bindFsEditorEvents, updateInputLayout
+ * 依赖：core/dom, engines/bg-engine, chat/tree（sendMessage）
  */
 import { DOM } from '../core/dom.js';
 import { openModal, closeAllModals } from '../core/modal.js';
-import { inputRenderer } from './input-renderer.js';
 import { BgEngine } from '../engines/bg-engine.js';
 import { sendMessage } from '../chat/tree.js';
+
+/**
+ * 更新输入区布局（随视口变化）。
+ * 2026-08-28 起输入框换为底部胶囊 .input-bar（纯 CSS 定位），此函数不再承担定位，
+ * 保留空实现以维持既有调用点（resize 链路）签名兼容。
+ * @returns {void}
+ */
+export function updateInputLayout() {
+    /* 布局已由 .input-bar CSS 全权负责（fixed bottom:14px 居中，见 topbar.css） */
+}
+
+/**
+ * 提交输入：发送按钮与 Enter 共用的唯一出口。
+ * 取 hiddenInput 当前值，trim 非空即发送并清空（含 IME 组合态残留数据）。
+ * @returns {void}
+ */
+function submitInput() {
+    const t = DOM.hiddenInput.value.trim();
+    if (!t) return;
+    DOM.hiddenInput.value = "";
+    inputManager.text = "";
+    inputManager.compData = "";
+    sendMessage(t);
+}
 
 /** 输入管理器单例 @type {object} */
 export const inputManager = {
@@ -28,46 +51,37 @@ export const inputManager = {
     init() {
         DOM.hiddenInput.addEventListener("focus", () => {
             this.focused = true;
-            inputRenderer.markDirty();
         });
         DOM.hiddenInput.addEventListener("blur", () => {
             this.focused = false;
-            inputRenderer.markDirty();
         });
         DOM.hiddenInput.addEventListener("compositionstart", () => {
             this.composing = true;
-            inputRenderer.markDirty();
         });
         DOM.hiddenInput.addEventListener("compositionupdate", (e) => {
             this.compData = e.data;
-            inputRenderer.markDirty();
         });
         DOM.hiddenInput.addEventListener("compositionend", () => {
             this.composing = false;
             this.compData = "";
             this.text = DOM.hiddenInput.value;
-            inputRenderer.markDirty();
         });
         DOM.hiddenInput.addEventListener("input", () => {
             if (!this.composing) {
                 this.text = DOM.hiddenInput.value;
-                inputRenderer.markDirty();
             }
         });
         DOM.hiddenInput.addEventListener("keydown", (e) => {
             BgEngine.triggerKeydown(e);
             if (e.key === "Enter" && !e.isComposing) {
                 e.preventDefault();
-                const t = this.text.trim();
-                if (t) {
-                    DOM.hiddenInput.value = "";
-                    this.text = "";
-                    this.compData = "";
-                    sendMessage(t);
-                }
+                submitInput();
             }
             if (e.key === "Escape") DOM.hiddenInput.blur();
         });
+
+        // 发送按钮：与 Enter 同一 submitInput 出口（2026-08-28 输入条新增）
+        if (DOM.btnSend) DOM.btnSend.addEventListener('click', () => submitInput());
     }
 };
 

@@ -22,7 +22,7 @@ export function bindGlobalEvents() {
 
     // 点击底部区域聚焦输入框
     window.addEventListener('click', (e) => {
-        if (e.target.id !== 'chat' && e.target.id !== 'bg' && e.target.id !== 'ui-canvas') return;
+        if (e.target.id !== 'chat' && e.target.id !== 'bg') return;
         if (e.clientY > H - 80) DOM.hiddenInput.focus();
     });
 
@@ -48,8 +48,6 @@ export function bindGlobalEvents() {
             DOM.bgModalClose.click();
         } else if (DOM.customSchemeModal && DOM.customSchemeModal.style.display === 'flex') {
             closeAllModals();
-        } else if (DOM.wordcloudDialog && DOM.wordcloudDialog.style.display === 'flex') {
-            DOM.wordcloudClose.click();
         } else if (DOM.cropModal && DOM.cropModal.style.display === 'flex') {
             DOM.cropCancel.click();
         } else if (DOM.voiceModal && DOM.voiceModal.style.display === 'flex') {

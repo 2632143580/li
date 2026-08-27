@@ -14,7 +14,7 @@ import { state } from './store.js';
 import { DEFAULT_SETTINGS, STORAGE_KEY, SESSION_KEY_PREFIX } from './constants.js';
 import { ensureKeysObject, KEY_PROVIDERS } from './utils.js';
 import { DOM } from './dom.js';
-import { migrateErrorFlags, getLastNodeInPath, serializeTree } from './tree-core.js';
+import { migrateErrorFlags, getLastNodeInPath, serializeTree, ensureNodeDefaults } from './tree-core.js';
 import { genSessionId, getEffectiveSysPrompt, freshStats, buildIndexEntry, lastMessageTime, migrateV3ToV4 } from './sessions.js';
 
 /** 防抖保存定时器句柄 @type {number|null} */
@@ -186,6 +186,7 @@ export function loadSession(id) {
     if (p) return { tree: p.tree, stats: p.stats, sysPrompt: p.sysPrompt, llmConfig: p.llmConfig || null, draft: p.draft || '' };
     const raw = readSessionRaw(id);
     if (!raw) return null;
+    ensureNodeDefaults(raw.chatTree); // 补回序列化省略的默认值（覆盖切换会话路径，与 boot 一致）
     return {
         tree: raw.chatTree,
         stats: raw.stats || freshStats(),
@@ -253,6 +254,9 @@ export function loadFromLocal() {
         // 先应用设置再判会话有效性：即使「尚无会话」（首跑刚建键但未写入索引的窗口），
         // 全局设置也必须加载——否则首跑注入/上次修改的设置丢失，请求会打到默认地址。
         applyLoadedSettings(data.settings);
+        // 恢复模型清单缓存：modelCache 随全局键落盘（writeGlobalKey），必须在此读回。
+        // 此前漏读导致每次刷新缓存清空 → 设置页模型列表「时有时无」（当前模型兜底塞入与空列表交替的假象）。
+        state.modelCache = (data.modelCache && typeof data.modelCache === 'object') ? data.modelCache : {};
         state.msgIdCounter = data.msgIdCounter || 0;
         state.sessionIndex = data.sessionIndex || [];
         state.activeSessionId = data.activeSessionId || (state.sessionIndex[0] && state.sessionIndex[0].id) || null;

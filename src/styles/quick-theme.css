@@ -7,11 +7,15 @@
     align-items: center;
     gap: 6px;
     padding: 3px 6px;
-    border-radius: 100px;
+    border-radius: var(--pill-radius);
     background: color-mix(in srgb, var(--color-bg) 50%, transparent);
     border: 1px solid var(--white-a08);
-    /* 不限制 max-width：色块按内容展开，避免末尾「+」被掐断。
-       仅在自定义色块极多、整行真正溢出时才滚动（滚动条已隐藏，正常情况不触发）。 */
+    /* 2026-08-28 修复「色块被压缩只露 2 个 + sticky 加号叠压」：宽度显式 max-content，
+       10 色块全展开全部可见（用户铁律：色块选择器必须全部可见）；
+       位于 .tb-body 弹性行内：宽屏按 max-content 全展开，窄屏 flex 收缩（min-width:0）后内部滚动兜底（滚动条已隐藏） */
+    width: max-content;
+    flex: 0 1 auto;
+    min-width: 0;
     overflow-x: auto;
     overflow-y: visible;
     scrollbar-width: none;
@@ -23,43 +27,55 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    cursor: pointer;
+    flex-shrink: 0;
+    -webkit-tap-highlight-color: transparent;
+}
+.qt-dot::before {
+    content: '';
     width: 16px;
     height: 16px;
     border-radius: 50%;
-    cursor: pointer;
+    background: var(--swatch, transparent);
     border: 1px solid var(--white-a30);
-    transition: transform var(--transition-fast), box-shadow var(--transition-fast);
-    flex-shrink: 0;
+    transition: transform var(--transition-fast), box-shadow var(--transition-fast), border-color var(--transition-fast);
 }
 
-.qt-dot:hover {
+.qt-dot:hover::before {
     transform: scale(1.18);
     border-color: var(--white-a60);
 }
 
 /* 选中态：白-强调双环描边（深/浅底都可见），无打勾（与描边重复，已移除） */
-.qt-dot.active {
+.qt-dot.active::before {
     box-shadow: 0 0 0 2px var(--white-a90), 0 0 0 4px var(--color-accent);
 }
 
-/* 自定义配色：添加「+」圆点（虚线边框 + 居中加号，永不激活）。
-   sticky 钉在色块条可视右缘：即便整行溢出滚动，「+」也永远可见、点得到。 */
+/* 自定义配色：添加入口圆点（虚线边框空圆，T09-4：不再显示「+」加号图标）。
+   2026-08-28：原 sticky 钉右缘方案随「palette 全展开」移除——全部色块可见后
+   不存在被遮挡问题，sticky 反而在视觉上叠压相邻色块（用户实测抓到）。 */
 .qt-dot.qt-add {
-    position: sticky;
-    right: 0;
-    z-index: 2;
-    border: 1px dashed var(--white-a40);
     color: var(--white-a60);
     font-size: 15px;
     font-weight: 600;
     line-height: 1;
     user-select: none;
-    /* 实心底遮挡滑到下方的色块，保证「+」区域干净可点 */
-    background: var(--color-bg, #111418);
     flex-shrink: 0;
 }
-.qt-dot.qt-add:hover {
+.qt-dot.qt-add::before {
+    width: 28px;
+    height: 28px;
+    border: 1px dashed var(--white-a40);
+    background: var(--color-bg, #111418);
+}
+.qt-dot.qt-add:hover::before {
     border-color: var(--color-accent);
+    transform: none;
+}
+.qt-dot.qt-add:hover {
     color: var(--color-accent);
 }
 
@@ -83,7 +99,7 @@
     resize: vertical;
     box-sizing: border-box;
     padding: 10px 12px;
-    border-radius: 10px;
+    border-radius: var(--radius-md);
     border: 1px solid var(--white-a10);
     background: var(--bg-input, rgba(0, 0, 0, .2));
     color: var(--color-user);
@@ -93,71 +109,6 @@
     outline: none;
 }
 .cs-textarea:focus { border-color: var(--color-accent); }
-.cs-preview-row {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    margin-top: 12px;
-}
-/* 缩略图（微缩模型）：内嵌一个迷你聊天界面 mock，用与真实 UI 同名的 CSS 变量渲染，
-   由 updateSchemePreview 把当前方案的整组 token 作为内联变量打到本容器上（沙箱预览，不动整页）。 */
-.cs-thumb {
-    width: 100%;
-    height: 168px;
-    border-radius: 12px;
-    border: 1px solid var(--white-a20);
-    overflow: hidden;
-    position: relative;
-    display: flex;
-    flex-direction: column;
-    background-size: cover;
-    background-position: center;
-    font-size: 10px;
-    line-height: 1.4;
-}
-.cs-thumb.cs-empty { background: var(--white-a06); }
-.cs-thumb.cs-empty .ct-top,
-.cs-thumb.cs-empty .ct-body,
-.cs-thumb.cs-empty .ct-input { display: none; }
-.ct-top {
-    display: flex;
-    gap: 5px;
-    padding: 8px 10px;
-    background: color-mix(in srgb, var(--color-bg) 78%, transparent);
-    border-bottom: 1px solid var(--white-a10);
-}
-.ct-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--color-accent); }
-.ct-body { flex: 1; padding: 8px 10px; display: flex; flex-direction: column; gap: 6px; overflow: hidden; }
-.ct-bubble { max-width: 78%; padding: 5px 8px; border-radius: 8px; }
-.ct-ai { align-self: flex-start; background: var(--white-a08); color: var(--color-ai); border: 1px solid var(--white-a10); }
-.ct-user { align-self: flex-end; background: var(--color-accent-solid); color: var(--white-a90); }
-.ct-modal {
-    align-self: center;
-    width: 72%;
-    padding: 7px 9px;
-    border-radius: 8px;
-    background: var(--bg-modal);
-    /* 简约化（用户拍板）：去投影 */
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-}
-.ct-modal-bar { height: 4px; border-radius: 2px; background: var(--color-accent); }
-.ct-modal-title { color: var(--white-a90); font-weight: 600; }
-.ct-input {
-    padding: 7px 10px;
-    background: color-mix(in srgb, var(--color-bg) 85%, transparent);
-    border-top: 1px solid var(--white-a10);
-    color: var(--white-a40);
-    display: flex;
-    align-items: center;
-    gap: 5px;
-}
-.ct-caret { width: 2px; height: 12px; background: var(--color-accent); border-radius: 1px; }
-.cs-name-preview {
-    font-size: 13px;
-    color: var(--white-a70);
-}
 .cs-actions {
     display: flex;
     gap: 10px;
@@ -220,26 +171,4 @@
     color: var(--white-a90);
 }
 
-/* 撞色强度滑块（仅单色方案出现）：纯拖动预览，不显示数字（用户反馈「数字看不好」） */
-.cs-mix-row {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    margin-top: 10px;
-}
-.cs-mix-label {
-    font-size: 13px;
-    color: var(--white-a70);
-    flex-shrink: 0;
-    white-space: nowrap;
-}
-.cs-mix-row .slider { flex: 1; }
-/* 列表项内嵌的撞色强度滑块：固定宽度，避免挤压名称与删除按钮 */
-.cs-item-mix {
-    flex: 0 0 96px;
-    display: flex;
-    align-items: center;
-}
-.cs-item-mix .slider { width: 100%; }
 
-/* ====================== 配色调试面板（临时调试用） ====================== */

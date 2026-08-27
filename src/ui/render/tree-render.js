@@ -35,9 +35,7 @@ import { getCurrentPath, getLastNodeInPath } from '../../core/tree-core.js';
 import { bus, EVENTS } from '../../core/bus.js';
 import { showContextMenu } from '../context-menu.js';
 import { renderVoiceTiles, renderBoth } from '../voice-tiles.js'; // 语音回复（句句发语音）；renderWaifuContent 为本模块本地定义
-import { buildLoveSvg, buildEcgMonitorSvg, initEcgHeartCanvases, observeEcgContainer } from '../../plugins/ecg-heart.js';
-import { buildMinimalThinkSvg } from '../../plugins/think-minimal.js';
-import { buildGlmThinkSvg } from '../../plugins/think-glm.js';
+import { buildLoveSvg } from '../../plugins/love-icon.js';
 
 /**
  * 生成气泡外层容器的 className（buildMsgDom 与 renderMessage 共用，消除重复书写）
@@ -93,6 +91,9 @@ function getRenderKind(node) {
  */
 export function renderContent(contentEl, node) {
     const isStreaming = (node === state.currentEndNode && state.waiting);
+    // 流式生成中给消息 wrapper 挂 .streaming-text（CSS 限高+滚动），完成/重建时移除释放高度（待办 Phase2）
+    const _wrap = contentEl.closest('.msg') || contentEl.parentElement;
+    if (_wrap) _wrap.classList.toggle('streaming-text', isStreaming);
 
     const kind = getRenderKind(node);
 
@@ -434,56 +435,19 @@ function renderReasoningBlock(node, wrapper) {
         });
         wrapper.insertBefore(block, bubble);
     }
-    // 头部图标 = 两部分，关系写死（用户强调）：
-    //   ① love.svg（爱心 + 其内部爱心折线）：与爱心是一体的，恒显，不受任何开关控制；
-    //   ② 心电图 canvas 波形（用户说的「心电图」）：受 showEcgWave 控制（关 → 只留爱心）。
-    // 健壮性（修「空白占位」bug）：绝不依赖「wantWave!==hasWave 才重建」这类脆弱判断——
-    //   它在「首建且开关本就关」时 wantWave===hasWave 为 true，会跳过 innerHTML 赋值，
-    //   导致 toggle 永为空按钮。改为就地核对每个子元素：缺则补、多则删，任何状态都自愈。
+    // 头部图标：仅爱心（love.svg + 其内部爱心折线），恒显不受任何开关控制。
+    // 三种波形组件（ecg 心电 canvas 监护仪 / glm 双线流光 / kimi 单线流光）已于 2026-08-25 整体移除。
     const toggle = block.querySelector('.reasoning-toggle');
-    // 三组件统一结构（用户 2026-08-23 拍板）：爱心(恒显) + 波形(右, 受 showEcgWave 控) + chevron。
-    // ecg=心电 canvas 监护仪 / glm=双线流光 / kimi=单线流光，三者都是「波形」组件，故统一带爱心。
-    // thinkIconProvider 优先；旧存档 thinkIconStyle 兼容：'minimal'→kimi、'ecg'→ecg；仅 thinkIconProvider 未设(undefined)时才看旧字段。
-    const p = state.settings.thinkIconProvider;
-    const provider = p === 'ecg' || p === 'glm' || p === 'kimi' ? p
-        : (state.settings.thinkIconStyle === 'minimal' ? 'kimi' : 'ecg');
-    const emotion = ['calm', 'excited', 'sad', 'thinking'].includes(node._emotion)
-        ? node._emotion
-        : (['calm', 'excited', 'sad', 'thinking'].includes(state.settings.ecgEmotion) ? state.settings.ecgEmotion : 'calm');
-    toggle.dataset.componentProvider = provider;
-    // 先清旧元素，再统一重建（缺则补、多则删，任何状态都自愈）
-    toggle.querySelector('.rk-think-minimal')?.remove();
-    toggle.querySelector('.rk-think-glm')?.remove();
     toggle.querySelector('.rk-love-ico')?.remove();
-    toggle.querySelector('.rk-ecg-mon')?.remove();
     toggle.querySelector('.rk-chev')?.remove();
-    // 爱心恒显（拆自 love-icon.js，不受 showEcgWave 控制）
     toggle.insertAdjacentHTML('afterbegin', buildLoveSvg());
-    // 波形在爱心右侧，受 showEcgWave 开关控制（关 → 只留爱心）
-    if (state.settings.showEcgWave) {
-        if (provider === 'ecg') {
-            toggle.insertAdjacentHTML('beforeend', buildEcgMonitorSvg(emotion, state.settings.ecgSize));
-        } else if (provider === 'glm') {
-            toggle.insertAdjacentHTML('beforeend', buildGlmThinkSvg(emotion, state.settings.ecgSize));
-        } else {
-            toggle.insertAdjacentHTML('beforeend', buildMinimalThinkSvg(emotion, state.settings.ecgSize));
-        }
-        // 性能开关统一作用于三种波形（2026-08-23 根因修复）：
-        // canvas 路径（ecg）由 initEcgHeartCanvases 的 animated 参数停轮；
-        // SVG 路径（glm/kimi）是 CSS 无限动画，rAF 开关摸不到——此前历史消息的流光动画
-        // 常驻每帧 paint，是「开关全关 GPU 仍 47%」的元凶。这里挂 .reasoning-static 由 CSS 冻结。
-        const isCurrent = (node === state.currentEndNode);
-        const animated = state.settings.ecgAnimation && (state.settings.historyEcg || isCurrent);
-        toggle.classList.toggle('reasoning-static', !animated);
-        if (provider === 'ecg') {
-            initEcgHeartCanvases(toggle, animated, state.settings.ecgGlow, state.settings.ecgHalfRate);
-        }
-        // 离屏冻结：IO 统一登记（幂等），块滚出视口时冻结 CSS 流光 + 停 canvas 轮——
-        // 看不见处不产帧，零视觉损失（折叠态头部波形仍可见，不冻结）。
-        observeEcgContainer(block);
-    }
     toggle.insertAdjacentHTML('beforeend', '<span class="rk-chev"></span>');
     block.querySelector('.reasoning-body').textContent = node.reasoning;
+    // 生成中（.thinking）：思维链超出 140px 限高后自动滚底，最新行恒可见（待办 Phase2「循环滚动」）
+    if (isThinking) {
+        const _rb = block.querySelector('.reasoning-body');
+        _rb.scrollTop = _rb.scrollHeight;
+    }
     // 折叠态：流式生成中强制展开；否则用用户手动选择，��消息默认跟随「自动展开」开关
     const collapsed = isThinking ? false
         : (typeof node._reasoningCollapsed === 'boolean' ? node._reasoningCollapsed : !state.settings.reasoningAutoExpand);

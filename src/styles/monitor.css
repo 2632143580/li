@@ -4,7 +4,9 @@
     display: flex;
     align-items: center;
     gap: 12px;
-    padding: 4px 10px;
+    min-height: var(--topbar-h);   /* 顶栏三方统一高度（topbar.css 定义） */
+    box-sizing: border-box;
+    padding: 0 14px;               /* 真胶囊（--pill-radius:999px）下上下 padding 让位给行高居中；14px 与 pb-pill/top-bar 一致 */
     border-radius: var(--pill-radius);
     cursor: pointer;               /* 监控区即左栏展开/收起开关（原箭头已移除）；圆环点击另弹编辑气泡 */
     background: var(--bg-pill);
@@ -46,17 +48,6 @@
 .monitor-light.cache.hit .ml-icon {
     color: var(--status-cache);
     filter: drop-shadow(0 0 5px var(--status-cache));
-}
-
-/* ====================== 通用面板标题（监控已删，词云等面板仍在用，勿删） ====================== */
-.monitor-title {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    font-size: 14px;
-    font-weight: 600;
-    color: var(--white-a90);
-    margin-bottom: 4px;
 }
 
 /* ====================== 全局关闭叉（多个面板共用） ====================== */
@@ -122,7 +113,7 @@
     min-width: 168px;
     background: var(--bg-select);
     /* 简约化（用户拍板）：去描边与投影 */
-    border-radius: 10px;
+    border-radius: var(--radius-md);
     padding: 8px 10px;
     animation: ctxPopIn 0.15s ease;
 }
@@ -160,7 +151,7 @@
     color: var(--white-a90);
     background: var(--bg-input);
     border: 1px solid var(--white-a20);
-    border-radius: 6px;
+    border-radius: var(--radius-sm);
     padding: 4px 8px;
     outline: none;
     font-variant-numeric: tabular-nums;
@@ -178,7 +169,7 @@
     color: var(--white-a90);
     background: var(--color-accent);
     border: none;
-    border-radius: 6px;
+    border-radius: var(--radius-sm);
     padding: 4px 10px;
     cursor: pointer;
     transition: filter var(--transition-fast, 0.15s);
@@ -257,37 +248,7 @@
     to { transform: rotate(360deg); }
 }
 
-/* 组件切换入口 = 迷你监护仪（屏框+心电尖峰，替换原三滑杆）。
-   尺寸/颜色继承 .icon-btn（22px / --white-a40），hover 提亮由 .icon-btn:hover 提供。
-   巧思：hover 时波形从左到右扫描点亮一次（dashoffset 22→0），像监护仪开机自检；
-   空闲态完全静止，无常驻动画开销（同 .settings-ring 的 hover 才动原则）。 */
-.comp-switch-btn .cs-pulse {
-    stroke-dasharray: 22;      /* 波形总长 ≈21.5，取整 22 */
-    stroke-dashoffset: 0;
-}
-
-.comp-switch-btn:hover .cs-pulse {
-    animation: cs-pulse-scan 0.8s ease-out;
-}
-
-@keyframes cs-pulse-scan {
-    from { stroke-dashoffset: 22; }   /* 从无到有，左→右点亮 */
-    to { stroke-dashoffset: 0; }
-}
-
-.danger-icon-btn {
-    /* 危险按钮红从 --color-error 派生（40% 透明度），跟随主题 */
-    color: color-mix(in srgb, var(--color-error) 40%, transparent);
-}
-
-.danger-icon-btn:hover {
-    color: color-mix(in srgb, var(--color-error) 90%, transparent);
-}
-
-/* 二次点击确认「待确认」态：红色警示色（图标/文本按钮共用，无脉冲环，用户拍板：脉冲非必要） */
-.danger-icon-btn.armed {
-    color: var(--color-error);
-}
+/* .danger-icon-btn 已随 #btn-clear-chat 迁移删除（2026-08-27：清空对话入口移至会话长按菜单） */
 
 /* 文本按钮「待确认」态（如删除配色）共用红色警示色 */
 .cs-item-del.armed {
@@ -296,27 +257,7 @@
     border-color: var(--color-error);
 }
 
-/* 清空按钮：把 <svg> 图标包进 <button>，待确认态直接把图标换成「?」（不再浮气泡）。 */
-#btn-clear-chat {
-    border: none;
-    background: none;
-    padding: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 4px;
-}
-#btn-clear-chat svg {
-    width: 22px;
-    height: 22px;
-    display: block;
-}
-/* 待确认态：图标变「?」实心警示，红脉冲环（颜色/脉冲由 .danger-icon-btn.armed 提供） */
-#btn-clear-chat.armed {
-    font-size: 17px;
-    font-weight: 700;
-    line-height: 1;
-}
+/* #btn-clear-chat 专属样式已随按钮迁除（2026-08-27：清空对话入口移至会话长按菜单） */
 
 /* 色块点待确认态：底色上叠一个「?」问号（白字 + 深色描边保证任意底色可读），红色警示 */
 .qt-dot.armed {

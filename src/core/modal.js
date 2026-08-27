@@ -12,13 +12,11 @@ import { Logger } from './logger.js';
 /** 参与互斥的主面板 id 清单（按需追加新面板，旧代码零改动） @type {string[]} */
 const MODAL_IDS = [
     'modal',              // 设置面板
-    'wordcloud-dialog',   // 词云
     'bg-modal',           // 背景管理
     'custom-scheme-modal',// 自定义配色
     'voice-modal',        // 语音设置（句句发语音）
     'fs-editor',          // 全屏编辑器
     'crop-modal',         // 背景裁剪编辑器——曾漏加导致 closeAllModals 永远跳过它、确认/取消都关不掉（"上传图片背景关不掉"根因）
-    'component-switcher', // 组件切换面板
     'msg-nav'             // 消息快速导航面板
 ];
 

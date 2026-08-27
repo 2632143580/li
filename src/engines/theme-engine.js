@@ -7,13 +7,11 @@
  *       注入给用户插件的 state 是只读 Proxy，写入被拦截。
  *
  * 导出：ThemeEngine
- * 依赖：core/logger, core/state, core/dom, plugins/default-theme, ui/input-renderer（updateInputColors）
+ * 依赖：core/logger, core/state, core/dom
  */
 import { Logger } from '../core/logger.js';
 import { state } from '../core/store.js';
 import { DOM } from '../core/dom.js';
-import { DefaultThemePlugin } from '../plugins/default-theme.js';
-import { updateInputColors } from '../ui/input-renderer.js';
 
 /** 解析颜色亮度（0–255），支持 #rrggbb / #rgb / rgb(r,g,b)；用于判断主题深浅以加 theme-light 信号。
  *  内联实现以避免引入 quick-themes 的依赖（防止循环依赖），且与 quick-theme.js 的 getCssBrightness 阈值 150 保持一致。 */
@@ -50,9 +48,8 @@ export const ThemeEngine = {
     /** 已注册主题对象表：id → themeObj @type {object<string,object>} */
     availableThemes: {},
 
-    /** 初始化引擎，注册内置 default_theme 模板 */
+    /** 初始化引擎（内置主题由 quick-theme 等宿主模块按需 register；启动即挂载的基础配色由 tokens.css :root 承担） */
     init() {
-        this.register('default_theme', DefaultThemePlugin);
         return this;
     },
 
@@ -109,7 +106,6 @@ export const ThemeEngine = {
         // 标记已有主题激活：用于门控分句气泡默认皮肤（让主题统一接管 AI 气泡外观，见 waifu.css）
         document.body.classList.add('theme-active');
         syncThemeLightClass(); // 主题挂载后同步浅色信号（驱动状态色双套系统翻转）
-        updateInputColors(); // 主题挂载后刷新输入框颜色缓存
         return true;
     },
 
@@ -138,7 +134,6 @@ export const ThemeEngine = {
         // 仅当无任何主题残留时才移除激活标记，避免多个主题并存时误关门控
         if (this.activeThemes.length === 0) document.body.classList.remove('theme-active');
         syncThemeLightClass(); // 重新评估浅色信号（残留主题可能为深色）
-        updateInputColors(); // 主题卸载后刷新输入框颜色缓存
     },
 
 };

@@ -4,7 +4,7 @@
     z-index: 50;
     background: var(--bg-modal);
     /* 毛玻璃已移除；简约化：去描边与投影（用户拍板） */
-    border-radius: 6px;
+    border-radius: var(--radius-sm);
     padding: 5px;
     display: none;
     animation: modalIn 0.15s ease;

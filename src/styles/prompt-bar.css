@@ -1,0 +1,190 @@
+/* ====================== 顶部中央提示栏（系统提示词 / 人设） ======================
+   独立入口：从设置 modal 迁出的系统提示词编辑，位于左侧栏闭合处之后、右侧栏之前。
+   胶囊复用顶栏统一配方（--bg-pill / --pill-radius），面板为中央浮层；
+   全部走 tokens.css 语义 token（--white-a* / --color-accent-* / --radius-* / --transition-*），
+   深浅主题与自定义配色自动翻转，无任何硬编码颜色字面量。
+   移动端触控目标 ≥ 40px（铁律）；无 emoji、无 logo+文字、无状态装饰圆点。
+
+   动画注意（历史教训）：keyframes 的 transform 会整体覆盖元素的静态 transform ——
+   曾因此 translateX 居中偏移在动画期间丢失，面板先出现在右偏处再跳回居中
+   （视觉即「从右到左卡顿」）；修复见 .pb-panel 区块注释：动画逐帧携带完整 transform。 */
+
+/* 定位锚点：固定在视口顶部中央（模拟稿：top:12px 与左右两 bar 同线）；面板向下展开 */
+.prompt-bar {
+    position: fixed;
+    top: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 20;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+/* 胶囊按钮（与 .top-bar / .monitor-bar 同款 pill 配方 + 同高 --topbar-h）；
+   点亮态仅以描边 + 徽文色表达 */
+.pb-pill {
+    display: inline-flex;
+    align-items: center;
+    height: var(--topbar-h);
+    box-sizing: border-box;
+    padding: 0 14px;
+    border-radius: var(--pill-radius);
+    background: var(--bg-pill);
+    border: var(--pill-border);
+    color: var(--white-a70);
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 12px;
+    transition: background var(--transition-normal), border-color var(--transition-normal), color var(--transition-normal);
+}
+.pb-pill:hover {
+    background: var(--bg-pill-hover);
+    border: var(--pill-border-hover);
+    color: var(--white-a85);
+}
+.pb-pill.active {
+    border-color: var(--color-accent-dim);
+    color: var(--color-accent-bright);
+}
+
+/* 状态徽：会话级 / 全局默认（信息文案，非圆点装饰） */
+.pb-badge {
+    font-size: 11px;
+    letter-spacing: 0.3px;
+    color: var(--white-a40);
+    white-space: nowrap;
+}
+.pb-pill.active .pb-badge {
+    color: var(--color-accent-bright);
+}
+
+/* ---------- 面板浮层（2026-08-28 对齐模拟稿）----------
+   水平居中 = left:50% + translateX(-50%)；radius-lg 18px + modal-elevation 光晕投影。
+   动画注意（历史教训）：keyframes 的 transform 会整体覆盖静态 transform ——
+   因此入场动画的【每一帧】都必须完整携带 translateX(-50%)，
+   否则动画期间偏移丢失、面板先出现在右偏处再瞬间跳回居中（即「从右到左卡顿」的根因）。 */
+.pb-panel {
+    position: absolute;
+    top: calc(var(--topbar-h) + 8px);
+    left: 50%;
+    transform: translateX(-50%);
+    width: min(420px, 92vw);
+    padding: 14px 14px 10px;
+    border-radius: var(--radius-lg);
+    background: var(--bg-modal);
+    box-shadow: var(--modal-elevation);
+    z-index: 30;
+    /* 用户要求：提示词面板「立马弹出」，去掉入场动画（无延迟）；减弱动效偏好下同样无动画 */
+    animation: none;
+}
+.pb-panel[hidden] { display: none; }
+
+/* 头行：标题左 · 主操作右上角（T06：叉已移除，Esc/点外关闭） */
+.pb-panel-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 6px;
+}
+.pb-title {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--white-a80);
+}
+
+/* 主操作组：右上角缩小版（模拟稿定值 3px 9px / 11px 文字） */
+.pb-actions {
+    display: flex;
+    gap: 6px;
+}
+.pb-btn {
+    padding: 2px 7px;
+    font-size: 11px;
+    font-family: inherit;
+    line-height: 1.3;
+    color: var(--white-a80);
+    background: var(--white-a05);
+    border: 1px solid var(--white-a10);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: all 0.2s var(--ease);
+    white-space: nowrap;
+}
+.pb-btn:hover {
+    border-color: var(--white-a20);
+    color: var(--white-a85);
+    background: var(--white-a10);
+}
+/* 强调：设为全局默认 */
+.pb-btn--accent {
+    background: var(--color-accent-soft);
+    border-color: var(--color-accent-dim);
+    color: var(--color-accent-bright);
+}
+.pb-btn--accent:hover {
+    background: var(--color-accent-dim);
+    color: var(--color-accent-solid);
+}
+
+/* 编辑区：radius-md + bg-input + 13px/1.7（模拟稿配方） */
+.pb-textarea {
+    width: 100%;
+    box-sizing: border-box;
+    background: var(--bg-input);
+    border: 1px solid var(--white-a06);
+    border-radius: var(--radius-md);
+    padding: 9px 11px;
+    color: var(--white-a90);
+    font-size: 13px;
+    font-family: inherit;
+    outline: none;
+    resize: vertical;
+    min-height: 88px;
+    line-height: 1.7;
+    transition: border-color 0.25s var(--ease);
+    display: block;
+}
+.pb-textarea::placeholder { color: var(--white-a45); }
+.pb-textarea:focus { border-color: var(--color-accent-dim); }
+
+/* 次级操作行：两组轻量文字钮 —— 左「提示词文件」右「全量存档」（2026-08-27 导入/导出全部自 tb-body 迁入） */
+.pb-foot {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 2px 8px;
+    margin-top: 8px;          /* 模拟稿定值：文本域到脚栏按钮的距离收紧 */
+}
+.pb-foot-group {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;                 /* 模拟稿定值 6px（原 4px） */
+}
+/* 脚栏文字钮：对齐模拟稿——纯文字按钮，无 min-height / 无 padding / hover 仅变字色（无底色方块） */
+.pb-foot-btn {
+    font-size: 12px;
+    font-family: inherit;
+    color: var(--white-a50);
+    background: none;
+    border: none;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: color var(--transition-fast);
+}
+.pb-foot-btn:hover {
+    color: var(--white-a90);
+}
+.pb-foot-sep {
+    width: 1px;
+    height: 10px;             /* 模拟稿定值 10px（原 12px） */
+    background: var(--white-a10);
+}
+
+/* 移动端：触控目标 ≥ 40px（铁律）—— 胶囊高度由 --topbar-h 统一；
+   T06 缩小版主操作按模拟稿保留紧凑尺寸（面板内控件，点按区域以 padding 兜底） */
+@media (max-width: 600px) {
+    .pb-btn { padding: 3px 9px; }
+}

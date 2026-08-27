@@ -6,25 +6,18 @@
  *       全程无模态框遮挡、不侵入发送逻辑（前缀只是普通文本进输入框，发什么就是什么）。
  *
  * 导出：无（副作用导入）
- * 依赖：engines/moderator-engine、core/bus、core/dom、ui/input-manager、ui/input-renderer
+ * 依赖：engines/moderator-engine、core/bus、core/dom、ui/input-manager
  */
 import { moderator } from '../engines/moderator-engine.js';
 import { bus, EVENTS } from '../core/bus.js';
 import { DOM } from '../core/dom.js';
 import { inputManager } from './input-manager.js';
-import { inputRenderer } from './input-renderer.js';
 
 // ============ 样式（就近内联，不拆 style 文件——单文件构建下 style.css 会被整体内联，此处也遵循同样做法） ============
 const style = document.createElement('style');
 style.textContent = `
-    /* 右下角入口图标（紧贴输入框右侧，bottom 与输入框基线对齐附近；与全屏编辑器入口 fs-trigger-btn 水平错开不重叠）
-       主题阶：--white-aXX 深色=白 alpha / 浅色=黑 alpha，跟随主题自动翻转（禁硬编码字面量） */
-    #mod-trigger-btn {
-        position: fixed; bottom: 15px; right: 50px;
-        width: 24px; height: 24px; color: var(--white-a60);
-        cursor: pointer; z-index: 10; display: flex; align-items: center; justify-content: center;
-    }
-    #mod-trigger-btn:hover { color: var(--white-a90); }
+    /* 禁止词入口图标：已收进 .input-bar 作为 .ib-icon（与全屏编辑/发送同排 flex），
+       样式与 hover 由 topbar.css 的 .ib-icon 统一承担；此处不再固定浮层，杜绝与输入框重叠 */
     /* 轻量气泡配置面板：固定定位浮于输入框上方，非模态不遮全屏（背景/文字全部走主题变量，深浅自动适配） */
     #mod-pop {
         position: fixed; bottom: 45px; right: 10px;
@@ -57,10 +50,17 @@ document.head.appendChild(style);
 
 // ============ DOM 结构 ============
 // 入口图标：圆圈 + 斜杠（禁止语义），线条最少
-const btn = document.createElement('div');
+const btn = document.createElement('button');
 btn.id = 'mod-trigger-btn';
+btn.className = 'ib-icon';
+btn.type = 'button';
+btn.setAttribute('aria-label', '禁止词');
 btn.innerHTML = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><line x1="6" y1="18" x2="18" y2="6"></line></svg>`;
-document.body.appendChild(btn);
+// 收进 .input-bar（与全屏编辑/发送同排 flex），插在发送按钮之前；兜底仍挂 body
+const bar = document.getElementById('input-bar');
+const send = document.getElementById('btn-send');
+if (bar && send) bar.insertBefore(btn, send);
+else document.body.appendChild(btn);
 
 // 气泡配置面板：两个 textarea（词库批量粘贴 / 前缀模板）+ 保存按钮 + 词数统计
 const pop = document.createElement('div');
@@ -129,7 +129,6 @@ hint.querySelector('.mh-apply').onclick = () => {
     inputManager.text = DOM.hiddenInput.value;     // 同步 text，供渲染器读取显示
     inputManager.composing = false;                // 若正处 IME 组合，重置组合态，防止组合文本叠加到新前缀上
     inputManager.compData = '';                    // 清残留组合文本（composing=false 后不再被渲染，但保持状态干净）
-    inputRenderer.markDirty();                     // 置脏触发 Canvas 重绘，立即显示新文本
     DOM.hiddenInput.focus();                       // 聚焦让用户立刻修改或继续写正文
     hint.classList.remove('show');                 // 关闭提示条，避免重复应用
 };

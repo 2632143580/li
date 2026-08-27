@@ -1,21 +1,6 @@
-/* ====================== 全屏编辑器入口 ====================== */
-#fs-trigger-btn {
-    position: fixed;
-    bottom: 26px;
-    right: 20px;
-    z-index: 11;
-    width: 20px;
-    height: 20px;
-    /* 主题阶：深色=白 alpha / 浅色=黑 alpha（tokens.css .theme-light 自动翻转），禁用硬编码字面量 */
-    stroke: var(--white-a80);
-    opacity: 0.5;
-    cursor: pointer;
-    transition: opacity var(--transition-normal);
-}
-
-#fs-trigger-btn:hover {
-    opacity: 1;
-}
+/* ====================== 全屏编辑器入口 ======================
+   #fs-trigger-btn 已收进 .input-bar 作为 .ib-icon（2026-08-28 修复固定浮层与输入条重叠），
+   样式与 hover 由 topbar.css 的 .ib-icon 统一承担，此处不再保留固定定位。 */
 
 /* ====================== 消息底部 ====================== */
 .msg-footer {

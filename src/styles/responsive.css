@@ -1,15 +1,21 @@
 /* ====================== 响应式适配 ====================== */
 @media (max-width: 480px) {
-    .top-bar { gap: 8px; right: 12px; top: 16px; }
-    .top-bar-left { left: 12px; top: 16px; gap: 8px; }
-    .monitor-bar { gap: 8px; padding: 3px 7px; }
+    .top-bar { gap: 10px; right: 12px; top: 12px; }
+    .top-bar-left { left: 12px; top: 12px; gap: 8px; }
+    .monitor-bar { gap: 8px; padding: 0 10px; }
     .monitor-light .ml-icon { width: 13px; height: 13px; }
     .monitor-light .ml-num { font-size: 11px; }
-    #chat { padding: 50px 16px 100px 16px; }
+    #chat { padding: 64px 16px 88px 16px; }
     .msg { max-width: 90%; }
     .modal-content { width: 94%; padding: 18px; }
     .compact-grid { gap: 10px; }
     #fs-textarea { font-size: 16px; }
+    /* 色块选择器：窄屏缩小触控容器到 36px（仍满足 ≥36px 最低标准），
+       适配 tb-body 竖向布局宽度限制 */
+    .qt-dot { width: 32px; height: 32px; }
+    .qt-dot::before { width: 14px; height: 14px; }
+    .qt-dot.qt-add::before { width: 24px; height: 24px; }
+    .qt-palette { gap: 4px; padding: 2px 4px; }
 }
 
 /* ====================== 无障碍：减少动效 ====================== */

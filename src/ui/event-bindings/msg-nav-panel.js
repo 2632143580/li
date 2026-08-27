@@ -36,14 +36,17 @@ import { analyzeWordFreq, getActiveSegmenter } from '../../core/wordcloud-analyz
 import { registerUI } from '../../core/registry.js';
 import { openModal, closeAllModals } from '../../core/modal.js';
 import { getProviderByUrl } from '../../core/utils.js';
-import { Logger } from '../../core/logger.js';
-import { fetchModelsForProvider } from '../../core/models.js';
-import { loadSession, persistSession, saveSession, setSessionPinned } from '../../core/storage.js';
+import { loadSession, persistSession, setSessionPinned, saveToLocal } from '../../core/storage.js';
 import { showToast } from '../../core/toast.js';
 import { getEffectiveSysPrompt } from '../../core/sessions.js';
 import { armClickConfirm } from './click-confirm.js';
-import { LLM_PROVIDERS } from '../../core/config.js';
-import { DEFAULT_PROVIDER } from '../../core/constants.js';
+import { openWordCloud } from './wordcloud-panel.js';
+import { DEFAULT_PROVIDER, WELCOME } from '../../core/constants.js';
+import { createNode } from '../../core/tree-core.js';
+import { initChatTree } from '../../chat/tree.js';
+import { clearAutoQueue } from '../../engines/tts-engine.js';
+import { updateCacheUI, resetMonitorStats } from '../render/tree-render.js';
+import { moderator } from '../../engines/moderator-engine.js'; // 禁词引擎：消息预览禁词下划线（待办 Phase5）
 
 registerUI('msg-nav', setupMsgNav);
 
@@ -57,14 +60,17 @@ const PREVIEW_CH = 120;
 const LONG_PRESS_MS = 600;
 /** 角色色点：与词云分色一致（user 暖橙 / ai 冷蓝） @type {Object<string,string>} */
 const ROLE_DOT = { user: '#ff9f43', assistant: '#4dabf7' };
+/** 待办 Phase5：禁词常驻下划线——每次渲染前在 renderMessages 刷新（词库可能被改），供 highlight 复用 @type {string[]} */
+let bannedWords = [];
+/** @type {Set<string>} */
+let bannedSet = new Set();
 
-// 快速切换可用的服务商常量：端点与默认模型已集中到 core/config.js 的 LLM_PROVIDERS（死常量，不序列化）。
-
-/** 读上次 tab（默认 'sessions'） @returns {'sessions'|'messages'} */
+/** 读上次 tab（默认 'sessions'） @returns {'sessions'|'messages'|'words'} */
 function readTab() {
-    try { return localStorage.getItem(TAB_KEY) === 'messages' ? 'messages' : 'sessions'; } catch (_) { return 'sessions'; }
+    // 三 tab 全量校验：'words' 也持久化（旧版只认 'messages'，词频 tab 记不住）
+    try { const v = localStorage.getItem(TAB_KEY); return (v === 'messages' || v === 'words') ? v : 'sessions'; } catch (_) { return 'sessions'; }
 }
-/** 写上次 tab @param {'sessions'|'messages'} t */
+/** 写上次 tab @param {'sessions'|'messages'|'words'} t */
 function writeTab(t) {
     try { localStorage.setItem(TAB_KEY, t); } catch (_) { /* 忽略 */ }
 }
@@ -128,6 +134,7 @@ function setupMsgNav() {
                 <div class="mn-tabs segmented" role="group" aria-label="面板切换">
                     <button type="button" class="segmented__item" data-tab="sessions">会话</button>
                     <button type="button" class="segmented__item" data-tab="messages">消息</button>
+                    <button type="button" class="segmented__item" data-tab="words">词频</button>
                 </div>
                 <button class="mn-close" id="mn-close" aria-label="关闭">✕</button>
             </div>
@@ -143,12 +150,11 @@ function setupMsgNav() {
                 <div class="mn-sub" id="mn-sub"></div>
                 <div class="mn-list" id="mn-list"></div>
             </div>
+            <div class="mn-pane" data-pane="words" hidden></div>
         </div>
     `;
     document.body.appendChild(panel);
 
-    /** 当前展开 SP 编辑器的会话 id（null = 全部收起）。展开态唯一事实源，重渲染据此恢复 @type {string|null} */
-    let spEditId = null;
     /** 长按操作菜单是否打开 @type {boolean} */
     let ctxMenuOpen = false;
 
@@ -193,6 +199,12 @@ function setupMsgNav() {
             <button type="button" data-act="delete" class="mn-ctx-danger">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M6 6l1 14h10l1-14"/></svg>
                 <span>删除</span>
+            </button>
+            <span class="mn-ctx-sep" aria-hidden="true"></span>
+            <button type="button" data-act="clear">
+                <!-- 虚线框 = 会话壳子保留、内部消息擦除（区别于删除整个会话的实心垃圾桶） -->
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2" stroke-dasharray="3 3"/><path d="M9.5 9.5l5 5M14.5 9.5l-5 5"/></svg>
+                <span>清空对话</span>
             </button>`;
         ctxScrim.style.display = 'block';
         ctxMenu.style.display = 'block';
@@ -213,9 +225,18 @@ function setupMsgNav() {
                 renderSessions(); // 非当前会话删除后索引已更新，需手动重渲染列表
             }, { armedText: '确认删除?', resetMs: 3000 });
         }
-        // 其余菜单项（重命名 / 置顶）走统一 handler；删除已由上方接管故跳过
+        // 清空对话（2026-08-27 迁入）：原顶栏 #btn-clear-chat 由此接管，作用于被长按的会话。
+        // 二次确认口径与原按钮一致（armed 文案原样沿用）
+        const clearBtn = ctxMenu.querySelector('[data-act="clear"]');
+        if (clearBtn) {
+            armClickConfirm(clearBtn, () => {
+                closeCtxMenu();
+                clearSessionMessages(id);
+            }, { armedText: '再次点击确认清空' });
+        }
+        // 其余菜单项（重命名 / 置顶）走统一 handler；删除/清空已由上方接管故跳过
         ctxMenu.querySelectorAll('button').forEach((b) => {
-            if (b.dataset.act === 'delete') return;
+            if (b.dataset.act === 'delete' || b.dataset.act === 'clear') return;
             b.addEventListener('click', (e) => {
                 e.stopPropagation();
                 const act = b.dataset.act;
@@ -224,6 +245,34 @@ function setupMsgNav() {
                 else if (act === 'pin') togglePin(id);
             });
         });
+    }
+
+    /**
+     * 清空指定会话的全部对话（长按菜单「清空对话」；2026-08-27 由顶栏 #btn-clear-chat 迁入）。
+     * - 激活会话：走原按钮同一套收尾（停播清队列 / 重建欢迎树 / 缓存与监控归零 / 落盘提示）；
+     * - 非激活会话：读快照换空欢迎树写回 —— 会话仍在列表，仅消息清空；
+     *   manualTitle 从索引条目回填（persistSession 的快照默认 manualTitle=null，
+     *   直接展开会抹掉重命名标题）。 @param {string} id
+     */
+    function clearSessionMessages(id) {
+        if (id === state.activeSessionId) {
+            clearAutoQueue(); // 清空对话即停当前播放 + 清空自动朗读队列（避免旧消息后台继续响）
+            initChatTree();
+            updateCacheUI(0);
+            resetMonitorStats(); // 新一轮对话：累计 token / 缓存等归零
+            saveToLocal('已清空');
+            return;
+        }
+        const sess = loadSession(id);
+        if (!sess) return;
+        const root = createNode('system', getEffectiveSysPrompt());
+        const welcome = createNode('assistant', WELCOME);
+        welcome.reasoning = '好开心！'; // 与 initChatTree 同构：首屏演示思维链，不入请求上下文
+        root.children.push(welcome);
+        const item = listSessions().find(s => s.id === id);
+        persistSession(id, { ...sess, tree: root, manualTitle: (item && item.manualTitle) || null });
+        renderSessions();
+        showToast('已清空', 'success');
     }
 
     /** 置顶切换：写存档 + 重建索引 + 重渲染；排序即时反映 @param {string} id */
@@ -235,69 +284,6 @@ function setupMsgNav() {
         showToast(next ? '已置顶' : '已取消置顶', 'success');
     }
 
-    /**
-     * 展开/收起某行的 SP 编辑器（点 SP 预览触发）。
-     * 经 renderSessions 统一重渲染保证「同时至多一行展开」，杜绝多行同开的漂移态。 @param {string} id
-     */
-    function toggleSpEditor(id) {
-        spEditId = (spEditId === id) ? null : id; // 再点同一行 = 收起
-        renderSessions();
-    }
-
-    /** 收起 SP 编辑器（取消 / Esc / 保存完成后调用） */
-    function collapseSpEditor() {
-        spEditId = null;
-        renderSessions();
-    }
-
-    /**
-     * 为已展开的行内编辑器填初值并绑定事件（renderSessions 重建 DOM 后调用）。
-     * 预填：会话级覆盖优先，无覆盖以全局默认作编辑起点（留空保存 = 恢复全局默认）。
-     * 无气泡/盒子包裹：编辑器仅 textarea + 操作行 + 一行极淡提示，视觉上不是浮层。 @param {HTMLElement} ed 编辑器根节点
-     */
-    function fillSpEditor(ed) {
-        const id = ed.dataset.id;
-        const sess = loadSession(id);
-        if (!sess) { spEditId = null; return; }
-        const ta = ed.querySelector('.mn-sp-input');
-        const hasOverride = sess.sysPrompt != null && sess.sysPrompt !== '';
-        ta.value = hasOverride ? sess.sysPrompt : state.settings.sysPrompt;
-        // 键盘：Esc 只收编辑器（拦冒泡防 global.js 连面板一起关）；Ctrl/Cmd+Enter 保存（多行 textarea 裸 Enter 应换行）
-        ta.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape') { e.stopPropagation(); collapseSpEditor(); }
-            else if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') { e.preventDefault(); saveSp(id, ta.value); }
-        });
-        ed.querySelector('.mn-sp-cancel').addEventListener('click', (e) => { e.stopPropagation(); collapseSpEditor(); });
-        ed.querySelector('.mn-sp-save').addEventListener('click', (e) => { e.stopPropagation(); saveSp(id, ta.value); });
-    }
-
-    /**
-     * 保存会话 SP：空 = 恢复继承全局；当前会话走运行时 + state 落盘，后台会话写存档并同步 pending 快照。
-     * @param {string} id 会话 id @param {string} rawVal textarea 原始值
-     */
-    function saveSp(id, rawVal) {
-        const next = rawVal.trim() ? rawVal.trim() : null;
-        if (id === state.activeSessionId) {
-            // 当前会话：直接改运行时（含对话树根 content 同步），用 state 当前态落盘——避免防抖窗口内旧存档覆盖新树
-            state.sessionSysPrompt = next;
-            if (state.chatTree) state.chatTree.content = getEffectiveSysPrompt();
-            saveSession(id);
-        } else {
-            // 后台会话：先同步 pending 快照（否则流式完成落盘会用旧 sysPrompt 覆盖新设置），再写存档
-            const p = state.pending.get(id);
-            if (p) {
-                p.sysPrompt = next;
-                saveSession(id, { tree: p.tree, stats: p.stats, sysPrompt: next, draft: p.draft || '', llmConfig: p.llmConfig || null });
-            } else {
-                const sess = loadSession(id);
-                if (sess) { sess.sysPrompt = next; persistSession(id, sess); }
-            }
-        }
-        spEditId = null;
-        renderSessions();
-        showToast(next ? '已保存会话提示词' : '已恢复全局默认', 'success');
-    }
-
     // 遮罩点击关闭
     panel.addEventListener('click', (e) => { if (e.target === panel) closeAllModals(); });
 
@@ -306,6 +292,8 @@ function setupMsgNav() {
     const sessionsList = panel.querySelector('#mn-sessions');
     const messagesPane = panel.querySelector('[data-pane="messages"]');
     const sessionsPane = panel.querySelector('[data-pane="sessions"]');
+    const wordsPane = panel.querySelector('[data-pane="words"]');
+    const wcInner = document.getElementById('wordcloud-panel-inner');  // 词云内容根节点：运行时移入 wordsPane
     const newBtn = panel.querySelector('#mn-new');
     const search = panel.querySelector('#mn-search');
     const sub = panel.querySelector('#mn-sub');
@@ -331,7 +319,8 @@ function setupMsgNav() {
      */
     function highlight(text, q) {
         const terms = hotWords.slice();
-        if (q) for (const w of q.toLowerCase().split(/\s+/)) if (w && !hotWordSet.has(w)) terms.push(w);
+        if (q) for (const w of q.toLowerCase().split(/\s+/)) if (w && !hotWordSet.has(w) && !bannedSet.has(w)) terms.push(w);
+        for (const w of bannedWords) if (w && !hotWordSet.has(w)) terms.push(w); // 禁词常驻下划线（不与高频词重复）
         terms.sort((a, b) => b.length - a.length);
         const lower = text.toLowerCase();
         let html = '';
@@ -340,9 +329,9 @@ function setupMsgNav() {
             let m = null;
             for (const w of terms) { if (w && lower.startsWith(w, i)) { m = w; break; } }
             if (m) {
-                html += hotWordSet.has(m)
-                    ? `<mark class="htw">${escapeHtml(text.slice(i, i + m.length))}</mark>`
-                    : `<mark class="hq">${escapeHtml(text.slice(i, i + m.length))}</mark>`;
+                // 禁词优先红下划线（hmod），其次高频词（htw），再次查找词（hq）
+                const cls = bannedSet.has(m) ? 'hmod' : hotWordSet.has(m) ? 'htw' : 'hq';
+                html += `<mark class="${cls}">${escapeHtml(text.slice(i, i + m.length))}</mark>`;
                 i += m.length;
             } else {
                 html += escapeHtml(text[i]);
@@ -357,7 +346,6 @@ function setupMsgNav() {
         closeCtxMenu(); // 重建列表前确保菜单已收（重渲染不会动菜单 DOM，但状态须干净）
         const sessions = listSessions();
         if (!sessions.length) {
-            spEditId = null; // 空列表无行可展开，清理展开态
             sessionsList.innerHTML = '<div class="mn-empty">还没有会话</div>';
             return;
         }
@@ -374,30 +362,20 @@ function setupMsgNav() {
             // SP 预览：会话级覆盖去空白截 16 字；无覆盖 = 「默认」（继承全局）。accent = 有会话级覆盖
             const hasSp = s.sysPrompt != null && s.sysPrompt !== '';
             const spText = hasSp ? s.sysPrompt.replace(/\s+/g, ' ').trim().slice(0, 16) + '…' : '默认';
-            // 行2 右侧的 SP 入口：清晰可点的小 pill（展开行内编辑器），accent 表「有独立提示词」
-            const metaRight = `<button type="button" class="mn-sp${hasSp ? ' has-sp' : ''}" data-id="${escapeHtml(s.id)}"><i class="mn-sp-tag">SP</i><span class="mn-sp-text">${escapeHtml(spText)}</span></button>`;
+            // 行2 右侧的 SP 只读预览（纯显示，无点击效果），accent 表「有独立提示词」
+            const metaRight = `<span class="mn-sp${hasSp ? ' has-sp' : ''}"><i class="mn-sp-tag">SP</i><span class="mn-sp-text">${escapeHtml(spText)}</span></span>`;
             return `<div class="mn-session${active ? ' active' : ''}" data-id="${escapeHtml(s.id)}">
                 <div class="mn-row-top">
                     ${pin}
                     <span class="mn-session-title">${escapeHtml(s.title)}</span>
                     ${dots}
-                    <button type="button" class="mn-llm-chip${providerClass}" data-id="${escapeHtml(s.id)}" data-provider="${providerKey}">${escapeHtml(modelName)}</button>
+                    <span class="mn-llm-chip${providerClass}">${escapeHtml(modelName)}</span>
                 </div>
                 <div class="mn-row-meta">
                     <span class="mn-time">${relTime(s.updatedAt)}</span>
                     <span class="mn-sep">·</span>
                     <span class="mn-count">${s.msgCount} 条</span>
                     ${metaRight}
-                </div>
-                <div class="mn-sp-editor${spEditId === s.id ? ' open' : ''}" data-id="${escapeHtml(s.id)}">
-                    <div class="mn-sp-inner">
-                        <div class="mn-sp-tip">留空保存 = 采用全局默认提示词</div>
-                        <textarea class="mn-sp-input" rows="4" spellcheck="false"></textarea>
-                        <div class="mn-sp-actions">
-                            <button type="button" class="mn-sp-cancel">取消</button>
-                            <button type="button" class="mn-sp-save">保存</button>
-                        </div>
-                    </div>
                 </div>
             </div>`;
         }).join('');
@@ -418,8 +396,8 @@ function setupMsgNav() {
             row.addEventListener('pointerdown', (e) => {
                 if (e.button && e.button !== 0) return; // 右键交给原生 contextmenu
                 if (ctxMenuOpen) return;
-                // SP 编辑区 / 输入框内按下：不触发整行长按菜单（修复「编辑区长按误弹气泡」）
-                if (e.target.closest('input, textarea, [contenteditable], .mn-sp-editor')) return;
+                // SP 预览气泡 / 输入框内按下：不触发整行长按菜单
+                if (e.target.closest('input, textarea, [contenteditable]')) return;
                 startX = lastX = e.clientX; startY = lastY = e.clientY;
                 longFired = false; // 每次按下重置：即便上次长按后 click 未派发也不会卡在 true
                 clearTimeout(pressTimer);
@@ -448,7 +426,7 @@ function setupMsgNav() {
             // 原生长按/右键：直接开菜单（移动端最可靠的触发通道）。preventDefault 掐掉系统选择/复制菜单
             row.addEventListener('contextmenu', (e) => {
                 // 编辑区 / 输入框内：放行系统菜单（不拦、不弹自定义菜单）
-                if (e.target.closest('input, textarea, [contenteditable], .mn-sp-editor')) return;
+                if (e.target.closest('input, textarea, [contenteditable]')) return;
                 e.preventDefault();
                 if (ctxMenuOpen) return;
                 longFired = true;
@@ -462,74 +440,10 @@ function setupMsgNav() {
             });
         });
 
-        // LLM 芯片交互：click 触发快切；pointerdown 阻止冒泡——行长按打开菜单(600ms)绑定在 row 上，
-        // chip 上按下不得误触发菜单（chip 与 row 是嵌套关系，事件会冒泡到 row）
-        sessionsList.querySelectorAll('.mn-llm-chip').forEach((chip) => {
-            chip.addEventListener('pointerdown', (e) => e.stopPropagation());
-            chip.addEventListener('contextmenu', (e) => e.stopPropagation()); // 长按芯片不弹整行菜单
-            chip.addEventListener('click', (e) => {
-                e.stopPropagation();
-                handleQuickLlmSwitch(chip.dataset.id, chip.dataset.provider);
-            });
-        });
-
-        // SP 预览按钮：click 行内展开编辑器；pointerdown / contextmenu 同样拦截，防长按误触菜单
-        sessionsList.querySelectorAll('.mn-sp').forEach((btn) => {
-            btn.addEventListener('pointerdown', (e) => e.stopPropagation());
-            btn.addEventListener('contextmenu', (e) => e.stopPropagation());
-            btn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                toggleSpEditor(btn.dataset.id);
-            });
-        });
-
-        // 已展开的行：重渲染后恢复初值与事件（展开态唯一事实源 spEditId；行已不在列表则清态）
-        if (spEditId) {
-            const ed = sessionsList.querySelector('.mn-sp-editor.open');
-            if (ed) fillSpEditor(ed); else spEditId = null;
-        }
+        // LLM 芯片与 SP 预览均为纯显示（模型切换在设置页、SP 编辑在顶部提示词 bar），无交互绑定。
     }
 
-    /**
-     * 快速切换会话 LLM（chip 点击）：只有两个模型，在 智谱↔DeepSeek 间两态互切（无「全局」第三态）。
-     * key 复用全局 settings.keys 槽（不存会话，避免密钥明文随会话复制）；
-     * 只写会话级配置（当前会话写 state + 落盘，后台会话写存档），永不触碰全局 settings。
-     * @param {string} id 会话 id @param {string} providerKey chip 当前模型标识（'zhipu'|'deepseek'，与渲染同源）
-     */
-    async function handleQuickLlmSwitch(id, providerKey) {
-        // 两态互切：当前是智谱→切 DeepSeek，反之→智谱；点一下即设显式会话级覆盖，无「继承全局」中间态
-        const cur = providerKey === 'deepseek' ? 'deepseek' : 'zhipu';
-        const next = cur === 'zhipu' ? 'deepseek' : 'zhipu';
 
-        // 切换只切服务商（apiUrl），model 零写死、实时跟随设置页；
-        // 顺带拉取该服务商清单（填充缓存 + 验证 key），但拉取结果不影响切换本身（model 不取自清单，故不中止切换）。
-        try {
-            await fetchModelsForProvider(next);
-        } catch (err) {
-            Logger.warn('[MsgNav] 切到 ' + LLM_PROVIDERS[next].name + ' 时拉取模型失败（可稍后在设置页重试）', err);
-        }
-
-        // 写会话级配置：只指定服务商；model 取该服务商在设置页调好的默认模型（零写死、不取清单首）。
-        const nextCfg = { provider: next, model: state.settings.providers[next].model || '' };
-
-        if (id === state.activeSessionId) {
-            // 当前会话：写运行时（请求层立即生效）+ saveSession 落盘（内部 updateIndexFromRaw 同步索引 → chip 立即更新、刷新不丢）
-            state.sessionLlmConfig = nextCfg;
-            saveSession(id);
-        } else {
-            // 后台会话：同步 pending 快照（流式完成落盘用新配置）或静默写存档；persistSession 内部同步索引
-            const p = state.pending.get(id);
-            if (p) {
-                p.llmConfig = nextCfg;
-                saveSession(id, { tree: p.tree, stats: p.stats, sysPrompt: p.sysPrompt, draft: p.draft || '', llmConfig: nextCfg });
-            } else {
-                const sess = loadSession(id);
-                if (sess) { sess.llmConfig = nextCfg; persistSession(id, sess); }
-            }
-        }
-        renderSessions();
-        showToast('已切换至 ' + LLM_PROVIDERS[next].name, 'success');
-    }
 
     /**
      * 开始重命名：把标题替换为 input，聚焦并全选。
@@ -587,6 +501,10 @@ function setupMsgNav() {
         const path = getCurrentPath(state.chatTree) || [];
         const msgs = path.filter((n) => n.role !== 'system');
 
+        // 待办 Phase5：禁词常驻下划线——每次渲染前刷新（词库可能被改），复用 moderator.words[].count
+        bannedWords = moderator.words.map((w) => w.word.toLowerCase());
+        bannedSet = new Set(bannedWords);
+
         sub.textContent = `共 ${msgs.length} 条 · 高频词已融入预览（下划线）`;
         const filtered = ql ? msgs.filter((n) => (n.content || '').toLowerCase().includes(ql)) : msgs;
         if (!filtered.length) {
@@ -606,7 +524,8 @@ function setupMsgNav() {
             </div>`;
         }).join('');
         list.querySelectorAll('.mn-row').forEach((row) => {
-            row.addEventListener('click', () => jumpTo(row.dataset.id, row));
+            // 待办 Phase3：点击消息跳转后关闭 sheet（消息导航点消息能收起面板）
+            row.addEventListener('click', () => { jumpTo(row.dataset.id, row); closeAllModals(); });
         });
     }
 
@@ -622,7 +541,7 @@ function setupMsgNav() {
         if (row) row.classList.add('active');
     }
 
-    /** 切换 tab @param {'sessions'|'messages'} t */
+    /** 切换 tab @param {'sessions'|'messages'|'words'} t */
     function setTab(t) {
         writeTab(t);
         tabs.querySelectorAll('.segmented__item').forEach((b) => {
@@ -630,6 +549,11 @@ function setupMsgNav() {
         });
         sessionsPane.hidden = t !== 'sessions';
         messagesPane.hidden = t !== 'messages';
+        wordsPane.hidden = t !== 'words';
+        if (t === 'words') {
+            mountWordCloud();  // 词云内嵌当前 sheet，不再另开面板
+            return;
+        }
         if (t === 'sessions') {
             closeCtxMenu();
             renderSessions();
@@ -643,9 +567,17 @@ function setupMsgNav() {
         }
     }
 
+    /** 把词云内容节点移入「词频」pane（当前 sheet 内），再触发渲染。节点移动而非克隆，监听器随节点保留。 */
+    function mountWordCloud() {
+        closeCtxMenu();
+        if (wcInner && wcInner.parentElement !== wordsPane) wordsPane.appendChild(wcInner);
+        openWordCloud();  // 仅渲染，不再 openModal
+    }
+
     tabs.addEventListener('click', (e) => {
         const b = e.target.closest('.segmented__item');
-        if (b) setTab(b.dataset.tab);
+        if (!b) return;
+        setTab(b.dataset.tab);
     });
 
     newBtn.addEventListener('click', () => createNew());

@@ -4,7 +4,7 @@
  * 职责：统一收口所有 getElementById，避免散落各处的 DOM 查询；
  *       提供视口尺寸 W/H 的活绑定（setViewport 重载），供跨模块只读读取。
  *
- * 导出：DOM, uiCtx, W, H, setViewport
+ * 导出：DOM, W, H, setViewport
  * 依赖：无（最底层视图层，不 import 任何业务模块）
  */
 
@@ -14,26 +14,26 @@ export const DOM = {};
 (function buildDOMCache() {
     // 原单文件 buildDOMCache 的 id 清单，逐字保留以保证与 index.html 的 id 对齐
     const ids = [
-        'bg', 'bg-img-layer', 'bg-dim-layer', 'bg-dom-layer', 'chat', 'ui-canvas', 'hiddenInput', 'save-indicator',
+        'bg', 'bg-img-layer', 'bg-dim-layer', 'bg-dom-layer', 'chat', 'hiddenInput', 'save-indicator',
         'top-msg-count', 'cache-status', 'cache-hit-val', 'context-menu',
         'settings-icon', 'modal', 'modal-close', 'modal-cancel',
         'set-apiUrl', 'set-apiKey', 'set-model-text',
         'set-model-options',
-        'set-bgDim', 'set-bgDim-val', 'bg-dim-sim',
-        'set-aiName', 'set-sysPrompt',
+        'set-bgDim', 'set-bgDim-val',
+        'set-bubbleOpacity', 'set-bubbleOpacity-val',
         'api-key-toggle',
         'provider-tabs', 'provider-hint', 'btn-fetch-models',
         'quick-theme-palette',
-        'custom-scheme-modal', 'custom-scheme-input', 'custom-scheme-preview', 'custom-scheme-list',
-        'custom-scheme-mix',
+        'custom-scheme-modal', 'custom-scheme-input', 'custom-scheme-list',
         'custom-scheme-cancel', 'custom-scheme-save',
-        'btn-wordcloud', 'wordcloud-dialog', 'wordcloud-close', 'wordcloud-list',
+        'wordcloud-list',
         'wordcloud-query', 'wordcloud-query-result', 'wordcloud-quick', 'wordcloud-status',
         'wordcloud-seg-light', 'wordcloud-seg-jieba', 'wordcloud-note',
         'bg-modal', 'btn-bg-plugin', 'bg-modal-close', 'plugin-list-container', 'theme-list-container',
         'fs-editor', 'fs-textarea', 'fs-title', 'fs-confirm', 'fs-cancel',
         'fs-trigger-btn', 'fs-align-btn',
-        'btn-comp-switch', 'btn-msg-nav', 'btn-clear-chat', 'btn-import-all', 'btn-export-all',
+        'btn-msg-nav', 'btn-import-all', 'btn-export-all',
+        'input-bar', 'btn-send',
         'btn-tts-toggle',
         // 语音设置模态框（云端唯一语音源：系统语音/语速/概率预设已移除）
         'voice-modal', 'voice-modal-close', 'voice-modal-cancel',
@@ -52,8 +52,10 @@ export const DOM = {};
         'bg-storage-info', 'btn-bg-clean-old', 'bg-img-grid',
         'bg-batch-words', 'btn-bg-batch-apply', 'bg-batch-status', 'btn-bg-clear-sel',
         'crop-modal', 'crop-frame', 'crop-preview', 'crop-zoom', 'crop-zoom-val', 'crop-fit', 'crop-reset', 'crop-cancel', 'crop-confirm',
-        'file-import-all', 'file-import-prompt', 'file-import-bg-image', 'bg-current-indicator',
-        'sys-prompt-import',
+        'file-import-all', 'file-import-bg-image', 'bg-current-indicator',
+        // 顶部中央提示栏（系统提示词 / 人设）：胶囊 + 面板 + 编辑控件
+        'prompt-bar', 'prompt-toggle', 'prompt-badge', 'prompt-panel',
+        'prompt-textarea', 'prompt-apply', 'prompt-global', 'prompt-import', 'prompt-export', 'prompt-file',
         // 监控信息栏：消息灯 + 缓存灯 + 上下文占用圆环（点击弹编辑气泡改上限）；监控区即展开开关
         'top-bar-left', 'monitor-bar',
         'ctx-ring', 'ctx-ring-fill', 'ctx-ring-pct',
@@ -67,9 +69,6 @@ export const DOM = {};
         DOM[camelKey] = document.getElementById(id);
     }
 })();
-
-/** UI 画布 2D 上下文，供输入渲染器（drawInputArea）绘制呼吸圆环与文本。 @type {CanvasRenderingContext2D} */
-export const uiCtx = DOM.uiCanvas.getContext("2d");
 
 /**
  * 视口尺寸（CSS 像素）。以 let 导出实现「活绑定」：

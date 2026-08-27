@@ -19,7 +19,7 @@
  *       ingestUsage / resetMonitorStats  ← 来自 ui/render/tree-render.js（stage4 迁出，整体 re-export 保持对外 API 不变）
  * 依赖：core/dom, core/logger, core/state, core/bus（发消息改走事件总线）,
  *       core/tree-core（6 个纯函数已下移，此处 re-export）,
- *       engines/bg-engine, ui/input-renderer,
+ *       engines/bg-engine,
  *       ui/render/tree-render（渲染/监控显示函数已迁出，此处 re-export）,
  *       chat/api（不再 import；发消息走 core/bus，bind* 事件注册已迁 ui/event-bindings）, ui/event-bindings（tempSettings 活绑定）
  */
@@ -30,7 +30,6 @@ import { state } from '../core/store.js';
 import { WELCOME, ERROR_PREFIX, DEFAULT_PROVIDER } from '../core/constants.js';
 import { getEffectiveSysPrompt, touchIndex } from '../core/sessions.js';
 import { BgEngine } from '../engines/bg-engine.js';
-import { inputRenderer } from '../ui/input-renderer.js';
 // 输入相关事件（openFSEditor / bindFsEditorEvents）已迁至 ui/event-bindings，本模块不再直接引用。
 // 来自事件绑定层 event-bindings 的「设置暂存」活绑定（stage3 解耦：bind* 事件注册已迁到 ui/event-bindings）。
 // 仅保留 tempSettings 这一个活绑定，供 checkProviderMatch / populateModelSelect 读取当前编辑中的设置。
@@ -129,7 +128,6 @@ export { splitSentences };
 export function sendMessage(text) {
     if (!text.trim() || state.waiting) return;
     state.waiting = true;
-    inputRenderer.markDirty();
 
     BgEngine.triggerMessage('user', text);
 
@@ -158,7 +156,6 @@ export function sendMessage(text) {
 export function regenerate(node, parentNode) {
     if (state.waiting) return;
     state.waiting = true;
-    inputRenderer.markDirty();
 
     let aiNode;
     if (node.isError) {
@@ -187,7 +184,6 @@ export function regenerate(node, parentNode) {
 export function editAndResend(node, parentNode, newText) {
     if (!newText.trim() || state.waiting) return;
     state.waiting = true;
-    inputRenderer.markDirty();
 
     BgEngine.triggerMessage('user', newText);
 
@@ -213,14 +209,27 @@ export function editAndResend(node, parentNode, newText) {
 //  设置管理（纯函数：把设置应用到 UI 与状态，不含事件绑定）
 // ================================================================
 
+/** 应用消息气泡不透明度（单一消费点）。
+ *  把 settings.bubbleOpacity 写入 :root --bubble-opacity；全部气泡底色（默认皮肤/语音条/错误泡/主题气泡）
+ *  统一以 calc(α * var(--bubble-opacity)) 消费该 token（见 waifu.css / tts.css / chat.css / quick-themes.js）。
+ *  钳位 0~1 容错脏档；applySettings（启动/保存）与设置页取消回退均经此应用。 */
+export function applyBubbleOpacity() {
+    const v = Number(state.settings.bubbleOpacity);
+    document.documentElement.style.setProperty('--bubble-opacity',
+        (Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : 1).toString());
+}
+
 /** 应用设置到 UI 和状态 */
 export function applySettings() {
     // 根 content 同步为「有效系统提示词」：当前会话有覆盖则用覆盖，否则全局默认（会话级覆盖 + 全局默认双轨）
     if (state.chatTree) state.chatTree.content = getEffectiveSysPrompt();
     // 构建来源后缀：本地构建=本地，GitHub Actions 构建=github（由 vite.config.js 经 import.meta.env.VITE_BUILD_ENV 注入）
-    document.title = state.settings.aiName + ' · ' + (import.meta.env.VITE_BUILD_ENV || '本地');
+    // http.server 原生 ESM 无 import.meta.env，&& 短路后回退 '本地'，双模式兼容
+    document.title = state.settings.aiName + ' · ' + (import.meta.env && import.meta.env.VITE_BUILD_ENV || '本地');
     // --msg-font-size 已由 tokens.css 提供默认 16px（chat.css 消费），字号设置移除后不再用 JS 覆写（2026-08-16）
-    inputRenderer.markDirty();
+    applyBubbleOpacity(); // 气泡底色不透明度 token（含启动恢复/保存提交/取消回退的统一入口）
+    // 有效系统提示词已随上面同步到根 content，此处广播变更事件（prompt-bar 据此刷新状态徽/点亮态）
+    bus.emit(EVENTS.SYS_PROMPT_CHANGE, getEffectiveSysPrompt());
 }
 
 /** 模型变更通知：设置页「思考强度」分段需随模型预设刷新（树.js 不 import settings.js，走 DOM 事件解耦避免循环依赖） */
@@ -321,6 +330,5 @@ bus.on(EVENTS.RETRY_REQUEST, (detail) => {
     } catch (err) {
         Logger.error('[Tree] 处理 RETRY_REQUEST 失败', err);
         state.waiting = false;
-        inputRenderer.markDirty();
     }
 });
