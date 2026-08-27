@@ -92,6 +92,28 @@ function onFileChange(e) {
     e.target.value = '';
 }
 
+/**
+ * 导出提示词为 .txt 文件：所见即所得（编辑区当前值），空则回退当前生效值。
+ * Blob + 临时 <a download> 触发下载，URL 用完即回收。
+ * 注意：临时 <a> 的程序化点击必须掐断冒泡 —— 否则冒到 document 命中
+ * 「点面板外部关闭」监听器，导出瞬间面板会被顺带关闭。
+ * @returns {void}
+ */
+function exportFile() {
+    const text = pendingPrompt != null && pendingPrompt.trim() !== '' ? pendingPrompt : getEffectiveSysPrompt();
+    const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `系统提示词_${new Date().toISOString().slice(0, 10)}.txt`;
+    a.addEventListener('click', (e) => e.stopPropagation());
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+    saveToLocal('已导出提示词');
+}
+
 export function bindPromptBarEvents() {
     if (!DOM.promptToggle) return;
 
@@ -114,10 +136,11 @@ export function bindPromptBarEvents() {
         pendingPrompt = DOM.promptTextarea.value;
     });
 
-    // 应用 / 全局 / 导入
+    // 应用 / 全局 / 导入 / 导出
     if (DOM.promptApply) DOM.promptApply.addEventListener('click', applyToSession);
     if (DOM.promptGlobal) DOM.promptGlobal.addEventListener('click', setGlobal);
     if (DOM.promptImport) DOM.promptImport.addEventListener('click', importFile);
+    if (DOM.promptExport) DOM.promptExport.addEventListener('click', exportFile);
     if (DOM.promptFile) DOM.promptFile.addEventListener('change', onFileChange);
 
     // 点面板外部关闭（不提交）

@@ -118,15 +118,6 @@
         <symbol id="i-cloud" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
             <path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"></path>
         </symbol>
-        <!-- 人设 / 系统提示词：多面宝石（立体人设 / 多切面=多步加工）+ 顶部注入滴（信息注入） -->
-        <symbol id="i-persona" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M12 3l7 4v8l-7 4-7-4V7z"></path>
-            <path d="M12 3v6"></path>
-            <path d="M5 7l7 4 7-4"></path>
-            <path d="M5 15l7-4 7 4"></path>
-            <path d="M12 13v4"></path>
-            <circle cx="12" cy="2" r="1" fill="currentColor" stroke="none"></circle>
-        </symbol>
     </svg>
 
     <img id="bg-img-layer" alt="" />
@@ -182,21 +173,26 @@
     <!-- 顶部中央提示栏：系统提示词（人设）独立入口，位于左侧栏闭合处之后、右侧栏之前 -->
     <div class="prompt-bar" id="prompt-bar">
         <button class="pb-pill" id="prompt-toggle" type="button" aria-label="编辑系统提示词 / 人设">
-            <svg class="pb-icon"><use href="#i-persona"/></svg>
             <span class="pb-badge" id="prompt-badge">全局默认</span>
         </button>
         <div class="pb-panel" id="prompt-panel" hidden>
             <div class="pb-panel-head">
                 <span class="pb-title">系统提示词</span>
-                <button class="pb-close" id="prompt-close" type="button" aria-label="关闭">✕</button>
+                <button class="pb-close" id="prompt-close" type="button" aria-label="关闭">
+                    <svg viewBox="0 0 24 24"><path d="M6 6 L18 18 M18 6 L6 18"/></svg>
+                </button>
             </div>
             <textarea class="pb-textarea" id="prompt-textarea" rows="5" placeholder="输入系统提示词 / 人设，定义角色与行为…"></textarea>
             <div class="pb-actions">
                 <button class="pb-btn" id="prompt-apply" type="button">应用到本会话</button>
                 <button class="pb-btn pb-btn--accent" id="prompt-global" type="button">设为全局默认</button>
-                <button class="pb-btn" id="prompt-import" type="button">导入文件</button>
-                <input id="prompt-file" type="file" accept=".txt,.md,text/plain,text/markdown" hidden>
             </div>
+            <div class="pb-foot">
+                <button class="pb-foot-btn" id="prompt-import" type="button">导入文件</button>
+                <span class="pb-foot-sep" aria-hidden="true"></span>
+                <button class="pb-foot-btn" id="prompt-export" type="button">导出文件</button>
+            </div>
+            <input id="prompt-file" type="file" accept=".txt,.md,text/plain,text/markdown" hidden>
         </div>
     </div>
 
