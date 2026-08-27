@@ -661,7 +661,8 @@ function setupMsgNav() {
             </div>`;
         }).join('');
         list.querySelectorAll('.mn-row').forEach((row) => {
-            row.addEventListener('click', () => jumpTo(row.dataset.id, row));
+            // 待办 Phase3：点击消息跳转后关闭 sheet（消息导航点消息能收起面板）
+            row.addEventListener('click', () => { jumpTo(row.dataset.id, row); closeAllModals(); });
         });
     }
 
