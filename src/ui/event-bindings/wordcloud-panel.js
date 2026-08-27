@@ -26,6 +26,7 @@
 import { DOM } from '../../core/dom.js';
 import { getCurrentPath } from '../../chat/tree.js';
 import { analyzeWordFreq, setActiveSegmenter, getActiveSegmenter } from '../../core/wordcloud-analyzer.js';
+import { moderator } from '../../engines/moderator-engine.js'; // 禁词引擎：词频「禁词」tab 复用 words[].count（待办 Phase5）
 
 /** 列表展示的词数上限（全量表仍在内存中，查询不受此限制）。 @type {number} */
 const TOP_N = 100;
@@ -149,12 +150,13 @@ function readRoleColors() {
     const Lt = relativeLuminance(bgRgb) < 0.35 ? 0.70 : 0.42;
     const St = clamp(accentS, 0.50, 0.85);   // 饱和度沿用主题基调，夹在安全区间
 
-    const HUE_USER = 20, HUE_AI = 205, HUE_BOTH = 140;
+    const HUE_USER = 20, HUE_AI = 205, HUE_BOTH = 140, HUE_WARN = 352;
     const user = hslCss(HUE_USER, St, Lt);
     const ai = hslCss(HUE_AI, St, Lt);
     const both = hslCss(HUE_BOTH, St, Lt);
+    const warn = hslCss(HUE_WARN, St, Lt);
 
-    return { user, ai, both };
+    return { user, ai, both, warn };
 }
 
 /** 切换当前显示的分组 tab：高亮对应 tab、显示对应组容器（其余隐藏）。 @param {string} key 'user'|'ai'|'both' */
@@ -246,6 +248,55 @@ function renderList(freq) {
         }
         panels.appendChild(panel);
     }
+
+    // 「禁词」tab：复用 moderator.words（{word,count}），按 count 降序；无词库时为「（无）」
+    const banned = (moderator.words || [])
+        .slice()
+        .sort((a, b) => (b.count || 0) - (a.count || 0))
+        .slice(0, TOP_N);
+    const bTab = document.createElement('button');
+    bTab.type = 'button';
+    bTab.className = 'wc-tab';
+    bTab.dataset.group = 'banned';
+    if (!banned.length) bTab.setAttribute('aria-disabled', 'true');
+    bTab.textContent = '禁词';
+    bTab.addEventListener('click', () => switchGroup('banned'));
+    tabs.appendChild(bTab);
+
+    const bPanel = document.createElement('div');
+    bPanel.className = 'wc-group';
+    bPanel.dataset.group = 'banned';
+    if (!banned.length) {
+        const empty = document.createElement('div');
+        empty.className = 'wc-empty';
+        empty.textContent = '（无）';
+        bPanel.appendChild(empty);
+    }
+    for (const { word, count } of banned) {
+        const row = document.createElement('div');
+        row.className = 'wc-row';
+
+        const w = document.createElement('span');
+        w.className = 'wc-word';
+        w.textContent = word;
+
+        const track = document.createElement('span');
+        track.className = 'wc-track';
+
+        const bar = document.createElement('span');
+        bar.className = 'wc-bar';
+        bar.style.width = Math.max(4, Math.round((count / Math.max(1, banned[0].count)) * 100)) + '%';
+        bar.style.background = colors.warn;
+        track.appendChild(bar);
+
+        const c = document.createElement('span');
+        c.className = 'wc-count';
+        c.textContent = String(count);
+
+        row.append(w, track, c);
+        bPanel.appendChild(row);
+    }
+    panels.appendChild(bPanel);
 
     list.append(tabs, panels);
     switchGroup(activeKey);          // 应用初始选中 tab（含恢复上次选中）
