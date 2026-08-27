@@ -9,10 +9,10 @@
    曾因此 translateX 居中偏移在动画期间丢失，面板先出现在右偏处再跳回居中
    （视觉即「从右到左卡顿」）；修复见 .pb-panel 区块注释：动画逐帧携带完整 transform。 */
 
-/* 定位锚点：固定在视口顶部中央；面板相对其绝对定位向下展开 */
+/* 定位锚点：固定在视口顶部中央（模拟稿：top:12px 与左右两 bar 同线）；面板向下展开 */
 .prompt-bar {
     position: fixed;
-    top: 20px;
+    top: 12px;
     left: 50%;
     transform: translateX(-50%);
     z-index: 20;
@@ -28,7 +28,7 @@
     align-items: center;
     height: var(--topbar-h);
     box-sizing: border-box;
-    padding: 0 12px;
+    padding: 0 14px;
     border-radius: var(--pill-radius);
     background: var(--bg-pill);
     border: var(--pill-border);

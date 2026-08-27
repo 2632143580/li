@@ -16,9 +16,11 @@
     --color-accent-dim: rgba(232,230,227,.25);
     --color-user-bright: rgba(232,230,227,.9);
     --color-error: rgba(229,72,77,.9);
-    --radius-sm: 4px;
-    --radius-md: 8px;
-    --radius-lg: 12px;
+    /* 圆角三档（2026-08-28 对齐模拟稿）：sm=控件/小钮 8px，md=输入域/卡片 14px，
+       lg=面板/浮层 18px；全圆角胶囊统一用 --pill-radius:999px（topbar.css 定义） */
+    --radius-sm: 8px;
+    --radius-md: 14px;
+    --radius-lg: 18px;
     --transition-fast: 0.2s ease;
     --transition-normal: 0.3s ease;
     --transition-smooth: 0.4s cubic-bezier(0.22, 1, 0.36, 1);
