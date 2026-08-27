@@ -196,7 +196,7 @@ body.bg-image-active .chat-bubble--user {
     align-items: center;
     gap: 8px;
     width: 100%;
-    min-height: 30px;                      /* 移动端触控达标；较旧 34px 收紧，缩减爱心到思维链文字的纵向高度 */
+    min-height: 28px;                      /* 移动端触控达标；对齐模拟稿 28px（原 34→30→28），缩减爱心到思维链文字的纵向高度 */
     padding: 2px;
     border: none;
     background: transparent;

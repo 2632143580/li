@@ -309,16 +309,21 @@ function applyHitHighlight() {
     if (!DOM.wordcloudList) return;
     const rows = DOM.wordcloudList.querySelectorAll('.wc-row');
     let hitGroupKey = null;
+    let activeHit = false;        // 命中词是否已在当前激活组（是则不切 tab）
     for (const row of rows) {
         const w = row.querySelector('.wc-word');
         const isHit = !!w && w.textContent === queryWord && queryWord !== '';
         row.classList.toggle('hit', isHit);
         if (isHit) {
             const panel = row.closest('.wc-group');
-            if (panel && panel.dataset.group) hitGroupKey = panel.dataset.group;
+            const g = panel && panel.dataset.group;
+            if (g === activeGroupKey) activeHit = true;   // 命中已在当前激活组：不打断、不跳 tab
+            if (g) hitGroupKey = g;
         }
     }
-    if (hitGroupKey && hitGroupKey !== activeGroupKey) switchGroup(hitGroupKey);
+    // 仅当命中词不在当前激活组时才切 tab（用户直达：搜到的词在别组才定位过去）；
+    // 命中已在当前组则保持，避免「点击高频词被强制跳到禁词组」（禁词面板最后 append，会覆盖 hitGroupKey）
+    if (!activeHit && hitGroupKey && hitGroupKey !== activeGroupKey) switchGroup(hitGroupKey);
 }
 
 /** 更新提示栏文案（词总数 + 当前分词模式说明）。 */

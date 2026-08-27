@@ -104,7 +104,7 @@
     font-size: 11px;
     font-family: inherit;
     line-height: 1.5;
-    color: var(--white-a70);
+    color: var(--white-a80);
     background: var(--white-a05);
     border: 1px solid var(--white-a10);
     border-radius: var(--radius-sm);
@@ -161,11 +161,10 @@
 .pb-foot-group {
     display: inline-flex;
     align-items: center;
-    gap: 4px;
+    gap: 6px;                 /* 模拟稿定值 6px（原 4px） */
 }
+/* 脚栏文字钮：对齐模拟稿——纯文字按钮，无 min-height / 无 padding / hover 仅变字色（无底色方块） */
 .pb-foot-btn {
-    min-height: 32px;
-    padding: 0 10px;
     font-size: 12px;
     font-family: inherit;
     color: var(--white-a50);
@@ -173,15 +172,14 @@
     border: none;
     border-radius: var(--radius-sm);
     cursor: pointer;
-    transition: color var(--transition-fast), background var(--transition-fast);
+    transition: color var(--transition-fast);
 }
 .pb-foot-btn:hover {
-    color: var(--white-a85);
-    background: var(--white-a06);
+    color: var(--white-a90);
 }
 .pb-foot-sep {
     width: 1px;
-    height: 12px;
+    height: 10px;             /* 模拟稿定值 10px（原 12px） */
     background: var(--white-a10);
 }
 
@@ -189,5 +187,4 @@
    T06 缩小版主操作按模拟稿保留紧凑尺寸（面板内控件，点按区域以 padding 兜底） */
 @media (max-width: 600px) {
     .pb-btn { padding: 5px 10px; }
-    .pb-foot-btn { min-height: 40px; }
 }
