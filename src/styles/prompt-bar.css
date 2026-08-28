@@ -127,6 +127,22 @@
     background: var(--color-accent-dim);
     color: var(--color-accent-solid);
 }
+/* 冗余态：当前编辑内容已等于该按钮目标值 → 虚线框 + 不可点击（减法：无意义的重复操作不该可点）。
+   用原生 disabled 属性拦截点击；样式覆盖默认禁用灰，改为虚线描边表达「此态无意义」。 */
+.pb-btn[disabled] {
+    border-style: dashed;
+    border-color: var(--white-a15);
+    color: var(--white-a35);
+    background: transparent;
+    cursor: not-allowed;
+    opacity: 1;
+}
+.pb-btn[disabled]:hover {
+    border-style: dashed;
+    border-color: var(--white-a15);
+    color: var(--white-a35);
+    background: transparent;
+}
 
 /* 编辑区：radius-md + bg-input + 13px/1.7（模拟稿配方） */
 .pb-textarea {

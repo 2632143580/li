@@ -62,23 +62,25 @@ function baseScore(mode) {
 let indicatorHideTimer = null;
 
 /**
- * 更新指示器（AI 触发/恢复时调用）：短暂显示"背景：NAME"后自动淡出（约 2.5s），非长驻。
- * 此前设计为长驻导致「背景：X」永久贴在屏幕上，故改为短暂确认提示。
- * @param {string|null} name - 当前背景名；null 表示无背景
+ * 更新指示器（仅 AI 触发命中时调用）：短暂显示"触发词：WORD"后自动淡出（约 2.5s），非长驻。
+ * 此前为长驻"背景：X"永久贴屏，后改短暂确认；本次进一步改为显示「命中的触发词」而非图片文件名，
+ * 信息更聚焦（用户想知道"是哪条词触发了切换"，而非不直观的文件名）。
+ * 语义约束：仅 AI 触发路径传入 word；固定背景/刷新恢复等非触发路径传 null —— 此时不弹 toast。
+ * @param {string|null} word - 命中的触发词；null/空表示无触发，不弹 toast
  */
-function updateIndicator(name) {
+function updateIndicator(word) {
     const el = DOM.bgCurrentIndicator;
     if (!el) return;
     if (indicatorHideTimer) { clearTimeout(indicatorHideTimer); indicatorHideTimer = null; }
-    if (name) {
-        el.textContent = '背景：' + name;
+    if (word) {
+        el.textContent = '触发词：' + word;   // 显示命中的触发词，而非图片文件名
         el.classList.add('show');
         indicatorHideTimer = setTimeout(() => {
             el.classList.remove('show');
             indicatorHideTimer = null;
         }, 2500);
     } else {
-        el.classList.remove('show');
+        el.classList.remove('show');          // 无触发词（固定/恢复等路径）不弹 toast
     }
 }
 
@@ -89,11 +91,9 @@ function updateIndicator(name) {
 async function evaluate(text) {
     const settings = (await getSetting()) || defaultSettings();
 
-    // 固定背景优先：跳过自动切换，仅刷新指示器
+    // 固定背景优先：跳过自动切换，且不弹触发词 toast（固定态无 AI 触发，不符合"显示触发词"语义）
     if (settings.pinnedId) {
-        const meta = await getAllImagesMeta();
-        const cur = meta.find((m) => m.id === settings.pinnedId);
-        updateIndicator(cur ? cur.name : null);
+        updateIndicator(null);
         return;
     }
 
@@ -101,36 +101,36 @@ async function evaluate(text) {
     if (!meta.length) return;
 
     const mode = settings.globalMode || 'exact';
-    const hits = []; // { id, score }
+    const hits = []; // { id, score, word } —— word 为命中中的最高分词（用于 toast 显示）
     for (const img of meta) {
         const words = (img.triggerWords || '')
             .split(/[,\n，]/)
             .map((s) => s.trim())
             .filter(Boolean);
-        let best = 0;
+        let best = 0, bestWord = '';
         for (const w of words) {
             if (testWord(w, text, mode)) {
-                // 同模式按词长加权（越长越具体 → 分越高）
+                // 同模式按词长加权（越长越具体 → 分越高）；分数刷新时同步记录对应的命中词
                 const s = baseScore(mode) + Math.min(w.length, 50) * 0.001;
-                if (s > best) best = s;
+                if (s > best) { best = s; bestWord = w; }
             }
         }
-        if (best > 0) hits.push({ id: img.id, score: best });
+        if (best > 0) hits.push({ id: img.id, score: best, word: bestWord });
     }
     if (!hits.length) return; // 无命中 → 保持当前，不报错
 
     // 取最高分；并列则随机兜底
     const maxScore = Math.max(...hits.map((h) => h.score));
     const top = hits.filter((h) => h.score === maxScore);
-    const chosenId = top[Math.floor(Math.random() * top.length)].id;
+    const chosen = top[Math.floor(Math.random() * top.length)]; // { id, score, word }
 
-    const rec = await getImage(chosenId);
+    const rec = await getImage(chosen.id);
     if (!rec) return;
 
     await applyBlob(rec.blob);
-    settings.currentId = chosenId;
+    settings.currentId = chosen.id;
     await putSetting(settings);
-    updateIndicator(rec.name);
+    updateIndicator(chosen.word); // 显示命中的触发词（chosen.word 必然非空：命中必有触发词）
 }
 
 /**
@@ -161,5 +161,5 @@ async function restoreBackground() {
     const rec = await getImage(settings.currentId);
     if (!rec) return;
     await applyBlob(rec.blob);
-    updateIndicator(rec.name);
+    updateIndicator(null); // 刷新恢复非触发路径，不弹触发词 toast
 }

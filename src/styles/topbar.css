@@ -7,7 +7,7 @@
     left: 50%;
     transform: translateX(-50%);
     z-index: 10;
-    width: min(560px, calc(100vw - 24px));
+    width: var(--bar-width);
     height: 44px;
     display: flex;
     align-items: center;
@@ -68,6 +68,9 @@
     stroke-linecap: round;
     stroke-linejoin: round;
 }
+/* 发送按钮按需显隐：输入框有文字才显示，空则隐藏（减法：无内容时按钮无意义）。
+   注意 .ib-send 设了 display:flex，会盖过 [hidden] 的默认 display:none，故需显式规则强制隐藏。 */
+.ib-send[hidden] { display: none; }
 
 /* 输入条内次级图标钮（全屏编辑 / 禁止词）：与 .ib-send 同尺寸同交互，
    收进输入条后不再浮层重叠；触控目标 34px（铁律），图标 18px 居中 */
@@ -90,6 +93,8 @@
 }
 .ib-icon:hover { color: var(--white-a90); transform: scale(1.08); }
 .ib-icon:active { transform: scale(0.9); }
+/* 激活态：禁词面板展开时，触发图标变 accent 色，状态可读 */
+.ib-icon.active { color: var(--color-accent); }
 .ib-icon svg {
     width: 18px;
     height: 18px;
@@ -117,6 +122,12 @@
     --pill-radius: 999px;
     /* 顶栏三方统一视觉高度：40px（模拟稿定值）；≤600px 变量改 44px 触控铁律一处生效 */
     --topbar-h: 40px;
+    /* 输入栏容器宽度（与禁词面板 #mod-pop 共用，免得两边手算漂移）：
+       桌面 560、窄屏 100vw-24 兜底。当前调用方：.input-bar / #mod-pop */
+    --bar-width: min(560px, calc(100vw - 24px));
+    /* 输入栏容器高度（盒子高度，与 .input-bar { height: 44px } 对齐）；面板 / 提示条
+       用它锚定 bottom = 14px + var(--bar-h)，避免硬编码 44 数字漂移 */
+    --bar-h: 44px;
 }
 
 /* 移动端：触控目标 ≥ 40px（铁律）。只动一处变量，三方胶囊同高跟上 */
@@ -124,8 +135,9 @@
     :root { --topbar-h: 44px; }
 }
 
-/* 右侧顶栏（2026-08-28 三 bar 气泡统一）：与左中两 bar 同配方——--bg-pill 底 / --pill-border 边 /
-   --pill-radius 真胶囊 / --topbar-h 同高，hover 同款提亮，padding 与 pb-pill 一致 */
+/* 右侧顶栏：2026-08-28 改为「三个独立按钮」——容器不再是一个共享背景胶囊，
+   而是纯定位的 flex 排布层；每个直接子元素（语音/消息导航/设置）各自带独立背景壳。
+   去掉「一个底色把三个图标裹在一起」的整块感，三个按钮视觉平等、可独立 hover 提亮。 */
 .top-bar {
     position: fixed;
     top: 12px;
@@ -133,27 +145,40 @@
     z-index: 20;
     display: flex;
     align-items: center;
-    gap: 14px;
-    min-height: var(--topbar-h);
+    gap: 10px;
+    /* 容器自身无底色/无边框/无圆角/无 padding——只负责定位与排布，背景交给每个子按钮 */
+}
+/* 每个子按钮 = 一个独立胶囊（与输入栏 .ib-icon / 左栏胶囊同配方：--bg-pill 底 / --pill-border 边 / --pill-radius 圆角）。
+   尺寸 40px 满足触控铁律。background 由这里统一兜底：无论 .tts-on 的 accent 底是否后加载，
+   本规则（topbar.css 在 tts.css 之后）都保证胶囊底为 --bg-pill，开启态只靠图标变 accent 色 + 放大表达，不抢背景。 */
+.top-bar .icon-btn {
+    width: 40px;
+    height: 40px;
+    flex: none;
     box-sizing: border-box;
-    padding: 0 14px;
     border-radius: var(--pill-radius);
     background: var(--bg-pill);
     border: var(--pill-border);
-    transition: background var(--transition-normal), border-color var(--transition-normal);
+    transition: background var(--transition-normal), border-color var(--transition-normal), transform var(--transition-normal);
 }
-.top-bar:hover {
+/* 仅 svg 型按钮需要 padding：40px 盒 + 9px 留白 = 22px 图标居中（svg viewBox 会填满 content 区）。
+   div 型（设置环）不加 padding——其旋转环绕 position:absolute 居中，padding 会把它顶偏。 */
+.top-bar svg.icon-btn {
+    padding: 9px;
+}
+.top-bar .icon-btn:hover {
     background: var(--bg-pill-hover);
     border: var(--pill-border-hover);
 }
 
-/* #4（用户 2026-08-27）：消息导航图标点击区加宽到 2 倍（44px = 2×22px 基准）。
-   图标本体仍 22px 居中（裸 <svg> 默认 preserveAspectRatio 居中、不拉伸），多余 22px 为纯点击面积，
-   纯增大触控目标、零新增元素、不引入原生控件；移动端触控目标≥40px 亦满足。
+/* #4（用户 2026-08-27）：消息导航图标增大点击区。
+   2026-08-28 改为独立胶囊后，「独立胶囊本身已是 40px 实体点击区」承接了原 #4 的加宽语义，
+   不再需要 44×22 横条；此处仅与另外两个独立胶囊保持同尺寸（40px 圆形），视觉三连等权。
+   图标本体仍 22px 居中（裸 <svg> 默认 preserveAspectRatio 居中、不拉伸）。
    对应代码名：#btn-msg-nav / DOM.btnMsgNav / openModal('msg-nav') 的触发图标。 */
 #btn-msg-nav {
-    width: 44px;
-    height: 22px;
+    width: 40px;
+    height: 40px;
 }
 
 .top-bar-left {

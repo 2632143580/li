@@ -2,7 +2,7 @@
   "name": "li-chat",
   "private": true,
   "version": "1.0.0",
-  "description": "Li — 沉浸式 AI 对话界面（ES Module 多文件版，Vite 构建可回落为单文件 HTML）",
+  "description": "Li — 沉浸式 AI 对话界面",
   "type": "module",
   "scripts": {
     "dev": "vite",

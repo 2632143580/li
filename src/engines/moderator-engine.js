@@ -19,6 +19,8 @@ class ModeratorEngine {
         this.words = [];
         /** 前缀模板：整段包裹在括号里，支持 {words} 占位符（运行时替换为命中词，用户可自由编辑） @type {string} */
         this.prefixTemplate = '（警告：已触发禁止词「{words}」，请更换表达方式）';
+        /** 是否启用过滤：false 时引擎跳过扫描（由面板头部开关控制） @type {boolean} */
+        this.enabled = true;
         // 构造时不读盘：此时 state.settings 仍为 DEFAULT_SETTINGS，main 在 loadFromLocal 后显式调 load() 还原存档
         this._initListener(); // 订阅 AI 回复完成事件，进入被动扫描状态
     }
@@ -31,12 +33,13 @@ class ModeratorEngine {
             this.words = Array.isArray(m.words) ? m.words : [];
             this.prefixTemplate = (typeof m.prefixTemplate === 'string' && m.prefixTemplate)
                 ? m.prefixTemplate : this.prefixTemplate;
+            this.enabled = (typeof m.enabled === 'boolean') ? m.enabled : true;
         }
     }
 
     /** 持久化词库与模板：写回 state.settings.moderator 并防抖落盘（纳入 settings 序列化） @returns {void} */
     save() {
-        state.settings.moderator = { words: this.words, prefixTemplate: this.prefixTemplate };
+        state.settings.moderator = { words: this.words, prefixTemplate: this.prefixTemplate, enabled: this.enabled };
         debouncedSave();
     }
 
@@ -71,6 +74,7 @@ class ModeratorEngine {
      * @returns {Array<{word:string, count:number}>} 命中的词条数组（空 = 未命中）
      */
     checkText(text) {
+        if (!this.enabled) return [];          // 开关关闭：跳过扫描（命中提示不再触发）
         const hits = [];
         this.words.forEach(w => {
             if (text.includes(w.word)) {          // 子串包含即算命中（含中英文混合场景）

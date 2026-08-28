@@ -23,6 +23,15 @@ export function updateInputLayout() {
 }
 
 /**
+ * 发送按钮显隐：输入框有非空文字才显示，空则隐藏（减法：无内容时发送按钮无意义）。
+ * 文本源为 DOM.hiddenInput（与提交出口一致），trim 后判断。
+ * @returns {void}
+ */
+function updateSendBtn() {
+    if (DOM.btnSend) DOM.btnSend.hidden = DOM.hiddenInput.value.trim() === '';
+}
+
+/**
  * 提交输入：发送按钮与 Enter 共用的唯一出口。
  * 取 hiddenInput 当前值，trim 非空即发送并清空（含 IME 组合态残留数据）。
  * @returns {void}
@@ -34,6 +43,7 @@ function submitInput() {
     inputManager.text = "";
     inputManager.compData = "";
     sendMessage(t);
+    updateSendBtn(); // 清空后隐藏发送按钮
 }
 
 /** 输入管理器单例 @type {object} */
@@ -65,10 +75,12 @@ export const inputManager = {
             this.composing = false;
             this.compData = "";
             this.text = DOM.hiddenInput.value;
+            updateSendBtn(); // 组合结束后再判定显隐（避免半组合态误显）
         });
         DOM.hiddenInput.addEventListener("input", () => {
             if (!this.composing) {
                 this.text = DOM.hiddenInput.value;
+                updateSendBtn(); // 实时显隐发送按钮（组合输入中不抢显）
             }
         });
         DOM.hiddenInput.addEventListener("keydown", (e) => {
@@ -82,6 +94,8 @@ export const inputManager = {
 
         // 发送按钮：与 Enter 同一 submitInput 出口（2026-08-28 输入条新增）
         if (DOM.btnSend) DOM.btnSend.addEventListener('click', () => submitInput());
+
+        updateSendBtn(); // 初始：输入框为空 → 隐藏发送按钮
     }
 };
 
@@ -93,6 +107,16 @@ export const alignIcons = {
 
 /** 全屏编辑器当前对齐方式 @type {'center'|'left'} */
 export let currentAlign = 'center';
+/** 全屏编辑对齐偏好持久化键（旁路 localStorage，与 liNavTab / li.topbarLeftCollapsed 同类范式） */
+const FS_ALIGN_KEY = 'liFsAlign';
+/** 读取全屏编辑对齐偏好（'left' | 'center'，默认居中） @returns {'left'|'center'} */
+function readFsAlign() {
+    try { return localStorage.getItem(FS_ALIGN_KEY) === 'left' ? 'left' : 'center'; } catch (_) { return 'center'; }
+}
+/** 写入全屏编辑对齐偏好 @param {'left'|'center'} v */
+function writeFsAlign(v) {
+    try { localStorage.setItem(FS_ALIGN_KEY, v); } catch (_) { /* 隐私模式静默 */ }
+}
 
 /**
  * 打开全屏编辑器
@@ -104,9 +128,10 @@ export function openFSEditor(initialText, onSave, isSendMode) {
     DOM.hiddenInput.blur();
     DOM.fsTextarea.value = initialText;
     openModal('fs-editor');   // 走统一互斥开关（含 body 滚动锁）
-    currentAlign = 'center';
-    DOM.fsTextarea.style.textAlign = 'center';
-    DOM.fsAlignBtn.innerHTML = alignIcons.center;
+    // 读取对齐偏好（默认居中），而非每次硬重置；记忆落在 liFsAlign 跨刷新保留
+    currentAlign = readFsAlign();
+    DOM.fsTextarea.style.textAlign = currentAlign;
+    DOM.fsAlignBtn.innerHTML = currentAlign === 'left' ? alignIcons.left : alignIcons.center;
     setTimeout(() => DOM.fsTextarea.focus(), 100);
     DOM.fsTitle.textContent = isSendMode ? "沉浸式书写" : "沉浸式编辑";
     DOM.fsConfirm.textContent = isSendMode ? "发送" : "完成";
@@ -119,11 +144,19 @@ export function openFSEditor(initialText, onSave, isSendMode) {
             inputManager.text = "";
             inputManager.compData = "";
             sendMessage(text);
+            updateSendBtn(); // 全屏发送后隐藏输入条发送按钮（hiddenInput 已清空）
         } else {
             onSave(text);
         }
     };
+    // 取消 = 关闭全屏编辑：把全屏文本同步回输入框（保留编辑不丢弃），与打开前互为镜像
     DOM.fsCancel.onclick = () => {
+        const text = DOM.fsTextarea.value;
+        DOM.hiddenInput.value = text;
+        inputManager.text = text;
+        inputManager.composing = false;
+        inputManager.compData = '';
+        updateSendBtn();
         closeAllModals();
     };
 }
@@ -143,6 +176,7 @@ export function bindFsEditorEvents() {
             DOM.fsTextarea.style.textAlign = 'center';
             DOM.fsAlignBtn.innerHTML = alignIcons.center;
         }
+        writeFsAlign(currentAlign); // 记忆对齐偏好，下次打开保持
     });
     DOM.fsTriggerBtn.addEventListener('click', () => openFSEditor(DOM.hiddenInput.value, null, true));
 

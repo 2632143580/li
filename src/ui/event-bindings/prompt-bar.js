@@ -41,6 +41,24 @@ function badgeText() {
 function syncBadge() {
     if (DOM.promptBadge) DOM.promptBadge.textContent = badgeText();
     if (DOM.promptToggle) DOM.promptToggle.classList.toggle('active', getEffectiveSysPrompt().trim() !== '');
+    syncButtons(); // 任意路径改了提示词都刷新两按钮的冗余态（面板关闭时由总线事件触发亦无害）
+}
+
+/**
+ * 按钮冗余态：编辑区内容已等于某按钮「目标值」时，该按钮变虚线且不可点（减法：避免无意义的重复写入）。
+ *   - 设为全局默认：目标 = state.settings.sysPrompt（全局默认）
+ *   - 应用到本会话：目标 = state.sessionSysPrompt（会话级覆盖；仅当其非空才有意义）
+ * 比较按「压缩空白后 trim」归一化，避免仅空格/换行差异造成的误判。
+ * @returns {void}
+ */
+function syncButtons() {
+    const cur = pendingPrompt || '';
+    const norm = (s) => s.replace(/\s+/g, ' ').trim();
+    const eq = (a, b) => norm(a) === norm(b);
+    const globalVal = state.settings.sysPrompt || '';
+    const sessionVal = state.sessionSysPrompt != null ? state.sessionSysPrompt : null;
+    if (DOM.promptGlobal) DOM.promptGlobal.disabled = eq(cur, globalVal);
+    if (DOM.promptApply) DOM.promptApply.disabled = sessionVal != null && eq(cur, sessionVal);
 }
 
 /** 打开面板：先与其它气泡弹窗互斥（关 #ctx-edit-pop / 折叠 tb-body），再载入当前生效值并聚焦。 @returns {void} */
@@ -50,6 +68,7 @@ function openPanel() {
     if (DOM.promptTextarea) DOM.promptTextarea.value = pendingPrompt;
     if (DOM.promptPanel) DOM.promptPanel.hidden = false;
     if (DOM.promptTextarea) DOM.promptTextarea.focus();
+    syncButtons(); // 打开即按当前内容标记冗余按钮（如当前已是全局默认则禁用「设为全局默认」）
 }
 
 /** 关闭面板（不提交 pending）。 @returns {void} */
@@ -137,6 +156,7 @@ export function bindPromptBarEvents() {
     // 编辑区输入：实时写入 pending（不提交，提交仅经「应用 / 全局」按钮）
     if (DOM.promptTextarea) DOM.promptTextarea.addEventListener('input', () => {
         pendingPrompt = DOM.promptTextarea.value;
+        syncButtons(); // 实时刷新冗余态（编辑到与某目标值一致时即时禁用对应按钮）
     });
 
     // 应用 / 全局 / 导入 / 导出

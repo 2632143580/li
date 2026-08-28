@@ -1,26 +1,4 @@
 <!DOCTYPE html>
-<!--
-  Li — 沉浸式 AI 对话界面（ES Module 多文件版）
-
-  === 模块地图 ===
-  src/main.js                 入口：导入全部模块、屏幕尺寸、设置管理、插件面板、事件绑定、init/loop
-  src/style.css               全局样式（原两段 <style> 合并，层叠顺序不变）
-  src/core/logger.js          Logger 分级日志 + safe/safeAsync 包装
-  src/core/constants.js       不可变常量 + 默认配置（API_TIMEOUT_MS/STORAGE_KEY/TAU/ERROR_PREFIX/DEFAULT_SETTINGS/WELCOME）
-  src/core/state.js           仅可变 state 单例（引用不重新赋值，内部字段可变）
-  src/core/utils.js           纯工具函数（clamp/rand/safeParseInt/formatTokens/getProviderByUrl/ensureKeysObject）
-  src/core/store.js           state 集中读取门面（业务/渲染层统一从这取 state）
-  src/core/dom.js             DOM 元素总表、uiCtx、视口尺寸 W/H 与 setViewport
-  src/core/storage.js         saveToLocal / loadFromLocal / debouncedSave
-  src/engines/bg-engine.js    BgEngine 背景插件引擎（注册 StarPlugin）
-  src/engines/theme-engine.js ThemeEngine 主题插件引擎（quick-theme 等宿主模块按需注册）
-  src/plugins/star.js         StarPlugin 星空背景
-  src/ui/input-manager.js     隐藏 input 焦点/IME 管理 + 全屏编辑器
-  src/ui/context-menu.js      消息长按/右键菜单
-  src/chat/tree.js            对话数据 + 设置应用 + 监控对话框（DOM 渲染已迁 ui/render/）
-  src/ui/render/tree-render.js 对话视图层：DOM 渲染 + 监控显示（只依赖 core + ui/context-menu）
-  src/chat/api.js             流式请求、请求编排、token 用量统计与监控 UI 刷新
--->
 <html lang="zh-CN">
 
 <head>
