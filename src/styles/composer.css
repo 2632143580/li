@@ -105,16 +105,26 @@ body.composer-open .composer-scrim { opacity: 1; pointer-events: auto; }
 .cp-textarea::placeholder { color: var(--white-a45); }
 .cp-textarea::selection { background: var(--color-accent-soft); }
 
-/* ----- 胶囊态右侧按钮组（展开 + 禁词 + 发送） ----- */
+/* ----- 胶囊态右侧按钮组（展开 + 禁词 + 发送；无文字时发送 [hidden]） ----- */
 .cp-side {
     position: absolute;
     right: 8px; bottom: 7px;
     display: flex; gap: 6px;
-    transition: opacity .15s ease;
+    align-items: center;
 }
-/* 2026-08-28 改造:展开态保留禁词按钮常驻,只让展开 + 发送隐藏。
-   .cp-side 自身仍占位(等 .mod 态),用具体子项的 opacity 控制。 */
-.composer.open .cp-side .cp-round:not(.cp-moderator) { opacity: 0; pointer-events: none; }
+/* 2026-08-28 改造：展开态整个 cp-side 隐藏，cp-foot 内的 [禁词 / 收起 / 发送] 承担。
+   mod 态也由 cp-mod-panel 接管，cp-side 仍隐藏。 */
+.composer.open .cp-side { display: none; }
+/* 胶囊态发送 fab：[hidden] 真正消失（占位 0 宽，textarea 文字区右扩） */
+.cp-side .cp-round[hidden] { display: none !important; }
+/* 发送按钮从右侧滑入（无文字 → 有文字 时） */
+.cp-side .cp-round--send {
+    animation: cpFabIn .18s var(--transition-smooth, cubic-bezier(.22,1,.36,1));
+}
+@keyframes cpFabIn {
+    from { opacity: 0; transform: translateX(8px); }
+    to   { opacity: 1; transform: translateX(0); }
+}
 
 .cp-round {
     width: 30px; height: 30px;
@@ -135,12 +145,11 @@ body.composer-open .composer-scrim { opacity: 1; pointer-events: auto; }
     fill: none; stroke: currentColor;
     stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round;
 }
-.cp-round--send:not(:disabled) {
+.cp-round--send:not([hidden]) {
     background: var(--color-accent-soft);
     color: var(--color-accent-bright);
     border: 1px solid var(--color-accent-dim);
 }
-.cp-round--send:disabled { opacity: .4; pointer-events: none; }
 
 /* ----- 展开态底栏（字数 / 提示 / 操作组）----- */
 .cp-foot {
@@ -169,10 +178,12 @@ body.composer-open .composer-scrim { opacity: 1; pointer-events: auto; }
     flex: 1; text-align: center;
 }
 
-.cp-actions { display: flex; gap: 6px; flex: none; }
+.cp-actions { display: flex; gap: 6px; flex: none; align-items: center; }
 
-/* ----- 禁词按钮（2026-08-28 改造:在 cp-side 内常驻，胶囊态 + 展开态都显示）-----
-   视觉与其他 cp-round 一致,只多一个 .active 状态表示面板打开 */
+/* ----- 禁词按钮（2026-08-28 改造：两态两位置）
+   · 胶囊态：#cp-moderator 在 cp-side 内（textarea 右下角）
+   · 展开态：#cp-moderator-foot 在 cp-foot .cp-actions 内（与"收起 / 发送"同排）
+   视觉统一为 cp-round 配方（小圆 30px），仅多 .active 表达面板打开 */
 .cp-moderator {
     width: 30px; height: 30px;
     border-radius: 50%;

@@ -32,7 +32,14 @@ const numEl = () => document.getElementById('cp-mod-num');
 const toggleEl = () => document.getElementById('cp-mod-toggle');
 const saveBtn = () => document.getElementById('cp-mod-save');
 const cancelBtn = () => document.getElementById('cp-mod-cancel');
-const triggerBtn = () => document.getElementById('cp-moderator');
+/** 2026-08-28 改造:两个位置的禁词触发按钮 ——
+ *  · #cp-moderator 胶囊态 cp-side 内(textarea 右下角)
+ *  · #cp-moderator-foot 展开态 cp-foot .cp-actions 内(与"收起 / 发送"同排)
+ * 共享同一份状态:点任一都同步数据 + 调 openComposerMod/closeComposer。 */
+const triggerBtns = () => [
+    document.getElementById('cp-moderator'),
+    document.getElementById('cp-moderator-foot')
+].filter(Boolean);
 const hintEl = () => document.getElementById('mod-hint');
 const hitWordsEl = () => document.getElementById('mod-hit-words');
 
@@ -60,27 +67,25 @@ function syncToggle() {
 }
 
 // ====================== 事件绑定 ======================
-const trigger = triggerBtn();
-if (trigger) {
-    trigger.addEventListener('click', (e) => {
-        e.stopPropagation();
-        // composer.js 不挂 cp-moderator click（避免双触发），由本模块全权管
-        const composer = document.getElementById('composer');
-        const isMod = composer && composer.classList.contains('mod');
-        if (isMod) {
-            closeComposer();
-        } else {
-            // 切半屏禁词面板前同步词库 / 前缀 / 词数 / 开关
-            const w = wordsInput();
-            const p = prefixInput();
-            if (w) w.value = moderator.getWordsString();
-            if (p) p.value = moderator.prefixTemplate;
-            syncCount(moderator.words.length);
-            syncToggle();
-            openComposerMod();
-        }
-    });
+// 触发按钮:两个位置共享同一份处理（同步词库/前缀 + 切半屏禁词面板）
+function onTriggerClick(e) {
+    e.stopPropagation();
+    const composer = document.getElementById('composer');
+    const isMod = composer && composer.classList.contains('mod');
+    if (isMod) {
+        closeComposer();
+        return;
+    }
+    // 切半屏禁词面板前同步词库 / 前缀 / 词数 / 开关
+    const w = wordsInput();
+    const p = prefixInput();
+    if (w) w.value = moderator.getWordsString();
+    if (p) p.value = moderator.prefixTemplate;
+    syncCount(moderator.words.length);
+    syncToggle();
+    openComposerMod();
 }
+triggerBtns().forEach((btn) => btn.addEventListener('click', onTriggerClick));
 
 const tg = toggleEl();
 if (tg) {

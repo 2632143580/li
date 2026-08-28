@@ -41,7 +41,8 @@ const cpNum = DOM.cpNum;
 const cpCount = DOM.cpCount;
 const cpExpand = DOM.cpExpand;
 const cpCollapse = DOM.cpCollapse;
-const cpModerator = DOM.cpModerator;
+const cpModerator = DOM.cpModerator;             // 胶囊态 cp-side 内的禁词按钮
+const cpModeratorFoot = DOM.cpModeratorFoot;     // 展开态 cp-foot 内的禁词按钮(2026-08-28 补)
 const cpScrim = DOM.composerScrim;
 const cpEditBar = DOM.cpEditBar;
 const cpEditPreview = DOM.cpEditPreview;
@@ -236,7 +237,9 @@ export function closeComposer() {
 
 /**
  * 字符数 / 发送按钮 / 计数色阶同步。
- * 发送按钮(胶囊 fab + 编辑器底栏发送)按"非空"切换 disabled;
+ * 2026-08-28 改造：胶囊态的发送按钮（cp-send-fab）用 [hidden] 显隐——
+ *   无文字时完全隐藏（占位 0 宽,textarea 文字区右扩），有文字时滑入。
+ *   展开态的发送按钮（cp-send）维持 disabled 切换（用户在编辑器态下需要看得到按钮以触发发送）。
  * 计数 90% 黄色 / 满 2000 红色。
  */
 export function updateCount() {
@@ -244,8 +247,10 @@ export function updateCount() {
     const n = cpText.value.length;
     cpNum.textContent = String(n);
     const has = !!cpText.value.trim();
+    // 胶囊态发送 fab：无文字 → hidden（不占位，textarea 占满）；有文字 → 显示
+    if (cpSendFab) cpSendFab.hidden = !has;
+    // 展开态底栏发送：维持 disabled 切换（按钮始终可见,灰态表达不可发）
     if (cpSend) cpSend.disabled = !has;
-    if (cpSendFab) cpSendFab.disabled = !has;
     if (cpCount) {
         cpCount.classList.toggle('warn', n >= MAXLEN * 0.9 && n < MAXLEN);
         cpCount.classList.toggle('full', n >= MAXLEN);

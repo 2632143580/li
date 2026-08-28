@@ -143,6 +143,10 @@
             <span class="cp-count" id="cp-count"><b id="cp-num">0</b>&nbsp;/&nbsp;2000</span>
             <span class="cp-hint">Enter 换行 · ⌘/Ctrl+Enter 发送</span>
             <div class="cp-actions" id="cp-actions">
+                <!-- 禁词按钮 2026-08-28 改造：cp-side + cp-foot 两套位置都常驻,胶囊态用 cp-moderator,展开态用 cp-moderator-foot -->
+                <button class="cp-moderator" id="cp-moderator-foot" type="button" title="禁止词" aria-label="禁止词">
+                    <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"></circle><line x1="6" y1="18" x2="18" y2="6"></line></svg>
+                </button>
                 <button class="pb-btn" id="cp-collapse" type="button">收起</button>
                 <button class="pb-btn pb-btn--accent" id="cp-send" type="button" disabled>发送</button>
             </div>

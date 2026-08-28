@@ -34,7 +34,7 @@ export const DOM = {};
         // Composer（2026-08-28 一壳两态：胶囊 + 半屏编辑 + 节点编辑占位条 + 半屏禁词面板）
         'composer', 'composer-scrim',
         'cp-text', 'cp-send', 'cp-send-fab', 'cp-num', 'cp-count',
-        'cp-expand', 'cp-collapse', 'cp-moderator',
+        'cp-expand', 'cp-collapse', 'cp-moderator', 'cp-moderator-foot',
         'cp-edit-bar', 'cp-edit-preview', 'cp-edit-cancel', 'cp-edit-save',
         'cp-mod-panel', 'cp-mod-words', 'cp-mod-prefix', 'cp-mod-num', 'cp-mod-toggle', 'cp-mod-save', 'cp-mod-cancel',
         'btn-msg-nav', 'btn-import-all', 'btn-export-all',
