@@ -15,9 +15,10 @@ const MODAL_IDS = [
     'bg-modal',           // 背景管理
     'custom-scheme-modal',// 自定义配色
     'voice-modal',        // 语音设置（句句发语音）
-    'fs-editor',          // 全屏编辑器
     'crop-modal',         // 背景裁剪编辑器——曾漏加导致 closeAllModals 永远跳过它、确认/取消都关不掉（"上传图片背景关不掉"根因）
     'msg-nav'             // 消息快速导航面板
+    // 注(2026-08-28):'fs-editor' 已删除——全屏编辑器并入 .composer 一壳两态，
+    //   composer-open 由 .composer 自管 scrim 互斥,不再走 .modal-overlay 体系。
 ];
 
 /**

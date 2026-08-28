@@ -9,6 +9,7 @@ import { closeAllModals } from '../../core/modal.js';
 import { saveToLocal } from '../../core/storage.js';
 import { onResize } from '../../main.js';
 import { clearAutoQueue } from '../../engines/tts-engine.js';   // 关闭页面前清空自动朗读队列（避免后台继续响）
+import { closeComposer } from '../composer.js';                 // 2026-08-28:Esc 关 composer 替代旧 DOM.fsCancel.click()
 
 /** 窗口 / 全局键盘 */
 import { registerUI } from '../../core/registry.js';
@@ -20,10 +21,10 @@ export function bindGlobalEvents() {
     }
     window.addEventListener('resize', onResize);
 
-    // 点击底部区域聚焦输入框
+    // 点击底部区域聚焦输入框（2026-08-28 改向 .composer 内的 cpText）
     window.addEventListener('click', (e) => {
         if (e.target.id !== 'chat' && e.target.id !== 'bg') return;
-        if (e.clientY > H - 80) DOM.hiddenInput.focus();
+        if (e.clientY > H - 80 && DOM.cpText) DOM.cpText.focus();
     });
 
     // 页面卸载前：保存 + 清空自动朗读队列（与「清空对话/切换分支/切到后台/关闭语音」一致，避免后台继续响）
@@ -34,14 +35,18 @@ export function bindGlobalEvents() {
 
     // Escape 关闭弹窗：覆盖全部主面板（原实现漏了词云/裁剪/语音三块，ESC 对它们完全无效）。
     // 各面板的关闭点保持与点击「×/取消/确认」完全一致，避免两套关闭逻辑分叉。
+    // 2026-08-28:Composer 替代原 #fs-editor,直接调 closeComposer()(关输入/收 scrim/清编辑态)。
     document.addEventListener('keydown', (e) => {
         if (e.key !== 'Escape') return;
+        // 优先关 composer(open 状态下最高优先级,避免 sheet 把它盖住后关不掉)
+        if (DOM.composer && DOM.composer.classList.contains('open')) {
+            closeComposer();
+            return;
+        }
         // 按 DOM 层级从高到低检查每个互斥面板（global.js 是唯一 Escape 处理点，各面板不再自建监听）
         const msgNav = document.getElementById('msg-nav');
         if (msgNav && getComputedStyle(msgNav).display !== 'none') {
             closeAllModals();
-        } else if (DOM.fsEditor && DOM.fsEditor.style.display === 'flex') {
-            DOM.fsCancel.click();
         } else if (DOM.modal && DOM.modal.style.display === 'flex') {
             DOM.modalCancel.click();
         } else if (DOM.bgModal && DOM.bgModal.style.display === 'flex') {

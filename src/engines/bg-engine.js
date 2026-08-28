@@ -25,7 +25,7 @@ export const BgEngine = {
     activePlugins: [],
     /** 已注册但未必激活的插件对象表：id → pluginObj @type {object<string,object>} */
     availablePlugins: {},
-    /** 引擎级 DOM 引用（body / chat / hiddenInput），供插件 onMount 使用 @type {object} */
+    /** 引擎级 DOM 引用（body / chat / composer 内的 textarea），供插件 onMount 使用 @type {object} */
     domRefs: {},
 
     /** 初始化引擎，绑定 Canvas 与 DOM 引用（内置 star 插件已移除：满屏动画 Canvas 是移动端 GPU 大面开销根因，背景现由纯 CSS 底色兜底，零持续动画）*/
@@ -35,7 +35,7 @@ export const BgEngine = {
         this.domRefs = {
             body: document.body,
             chat: DOM.chat,
-            hiddenInput: DOM.hiddenInput
+            composerText: DOM.cpText
         };
         this.setupOverlayWatch();
         // 切后台/回前台：后台 rAF 本就被浏览器节流到 ~0，但回调仍会周期性唤醒主线程。
@@ -51,7 +51,8 @@ export const BgEngine = {
      * 侦测「任意全屏遮罩是否打开」，用于冻结背景动画循环（零视觉损失 + 消除整屏模糊重算）。
      * 用 MutationObserver 监听 DOM 显示状态变化，与模态框开关路径完全解耦——
      * 项目里大部分遮罩（设置/词云/语音/消息导航/日志）关闭已统一走 closeAllModals，
-     * 但仍有例外（如 #fs-editor / #set-model-options 等仍直接 `el.style.display='none'`），
+     * 但仍有例外（如 #set-model-options 等仍直接 `el.style.display='none'`，
+     * 以及 .composer-scrim 展开半屏编辑时的 opacity 切换），
      * 所以不能依赖某个开关函数去维护标志，必须自己侦测真实 DOM 状态。
      * 真值只在脏标记时重算（最多每帧一次），避免流式期间频繁属性变更带来的开销。
      * @returns {void}
@@ -59,7 +60,9 @@ export const BgEngine = {
     setupOverlayWatch() {
         this.overlayOpen = false;
         this.overlayDirty = true;
-        const overlays = '.modal-overlay, #fs-editor';
+        // .composer-scrim:展开态 opacity:1 + pointer-events:auto,关闭态 opacity:0 + pointer-events:none。
+        // 真实显示由 body.composer-open 推 .composer-scrim 状态;侦测 scrim 的 pointer-events:auto 即可判定。
+        const overlays = '.modal-overlay, .composer-scrim';
         const recompute = () => {
             this.overlayDirty = true;
             // 遮罩可能刚关闭（背景重新可见）：循环在遮罩打开时已被彻底 cancel，这里拉回。
@@ -75,7 +78,10 @@ export const BgEngine = {
         this._computeOverlayOpen = () => {
             const els = document.querySelectorAll(overlays);
             for (const el of els) {
+                // .modal-overlay 用 display 显隐;.composer-scrim 用 opacity + pointer-events 显隐;
+                // 真实显示态判定:display !== 'none' OR pointer-events === 'auto'(后者覆盖 scrim)。
                 if (getComputedStyle(el).display !== 'none') return true;
+                if (getComputedStyle(el).pointerEvents === 'auto') return true;
             }
             return false;
         };

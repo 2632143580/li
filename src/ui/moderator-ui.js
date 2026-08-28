@@ -1,7 +1,7 @@
 /**
  * 禁止词面板 — 变形扩展版（从 0 重做的 UI/UX）
  *
- * 交互：点输入栏右侧的 ⊘ 图标，面板「从输入栏向上变形生长」——
+ * 交互：点输入栏底栏的 ⊘ 图标，面板「从输入栏向上变形生长」——
  *   钉在输入栏上的小头部（标题 + 启用开关）原地不动；
  *   整个编辑器（词库 / 命中前缀 / 保存）从头部上方向上长出（--t: 0 → 编辑器高，0.7s 丝滑）。
  *   关闭时反向收起，并整体淡出，避免"啪"地消失。
@@ -18,6 +18,8 @@
  *   · 触发按钮在面板打开时变 accent 色，状态可读。
  *   · 不自动 focus 编辑器（避免移动端软键盘弹起）。
  *
+ * 2026-08-28:触发按钮位置 .ib-icon (.input-bar 内) → .cp-moderator (.composer .cp-foot .cp-actions 内,展开态才可见)。
+ *             容器由 .input-bar 改为 .composer,锚定 bottom 用 --composer-h 变量(原 --bar-h 同名,见 composer.css)。
  * 依赖：engines/moderator-engine、core/bus、core/dom、ui/input-manager
  * 导出：无（副作用导入）
  */
@@ -41,13 +43,13 @@ style.textContent = `
     #mod-pop {
         --t: 0px; --r: 0px; --b: 0px; --l: 0px;                              /* 四向扩展量初值 0（折叠态：仅头部） */
         position: fixed;
-        bottom: calc(14px + var(--bar-h));                                    /* 锚定输入栏顶部，无缝拼接 */
+        bottom: calc(14px + var(--bar-h));                                    /* 锚定输入栏顶部，无缝拼接（2026-08-28:输入条 .input-bar → .composer，--bar-h 沿用同名） */
         left: 50%; transform: translateX(-50%);
-        width: var(--bar-width);                                              /* 与输入栏像素级同宽 */
+        width: var(--bar-width);                                              /* 与输入栏像素级同宽（2026-08-28:.composer 沿用 --bar-width） */
         height: calc(var(--mod-base-h) + var(--t) + var(--b));
         background: var(--bg-input); color: var(--white-a90);
         border: 1px solid var(--white-a10);
-        border-bottom: 0;                                                     /* 接入 input-bar 的 top border，分隔线由那边单独承担，避免双线 */
+        border-bottom: 0;                                                     /* 接入 composer 的 top border，分隔线由那边单独承担，避免双线 */
         /* 关键：top 用 18px（--radius-lg）而非 999px。
            999px 在 560×高 面板上会被宽度截到 280px → 顶部变穹顶，裁切内容（实测）。
            18px 是干净的圆角矩形，与 modal/插件管理器等本仓库面板惯例一致。 */
@@ -153,18 +155,18 @@ document.head.appendChild(style);
 
 // ============ DOM ============
 
-/** 入口图标（⊘）：收进输入栏与全屏/发送同排；不可用时挂兜底 body */
+/** 入口图标（⊘）：2026-08-28 收进 composer 半屏编辑底栏 .cp-actions（与"收起 / 发送"同排）；
+ *  不可用时挂兜底 body。展开态才显示（composer .open 时由 CSS 揭示） */
 const btn = document.createElement('button');
 btn.id = 'mod-trigger-btn';
-btn.className = 'ib-icon';
+btn.className = 'cp-moderator';
 btn.type = 'button';
 btn.setAttribute('aria-label', '禁止词');
 btn.title = '禁止词';
-btn.innerHTML = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><line x1="6" y1="18" x2="18" y2="6"></line></svg>`;
+btn.innerHTML = `<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"></circle><line x1="6" y1="18" x2="18" y2="6"></line></svg>`;
 {
-    const bar = document.getElementById('input-bar');
-    const send = document.getElementById('btn-send');
-    if (bar && send) bar.insertBefore(btn, send);
+    const actions = document.getElementById('cp-actions');
+    if (actions) actions.insertBefore(btn, actions.firstChild); // 居左：禁词 / 收起 / 发送
     else document.body.appendChild(btn);
 }
 
@@ -313,11 +315,11 @@ hint.querySelector('.mh-apply').addEventListener('click', (e) => {
     if (lastHits.length === 0) return;
     const prefix = moderator.generatePrefix(lastHits);
     const cur = inputManager.text;
-    DOM.hiddenInput.value = prefix + '\n' + cur;
-    inputManager.text = DOM.hiddenInput.value;
+    if (DOM.cpText) DOM.cpText.value = prefix + '\n' + cur;
+    inputManager.text = DOM.cpText ? DOM.cpText.value : (prefix + '\n' + cur);
     inputManager.composing = false;
     inputManager.compData = '';
-    DOM.hiddenInput.focus();
+    if (DOM.cpText) DOM.cpText.focus();
     hint.classList.remove('fade');
     setTimeout(() => hint.classList.remove('show'), 220);
 });

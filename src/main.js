@@ -17,7 +17,8 @@ import { syncAvailableModels } from './core/models-cache.js';
 import { BgEngine } from './engines/bg-engine.js';
 import { ThemeEngine } from './engines/theme-engine.js';
 import { initTTS } from './engines/tts-engine.js'; // 语音引擎：加载音色列表（无副作用）
-import { inputManager, updateInputLayout } from './ui/input-manager.js';
+import { inputManager, updateInputLayout } from './ui/input-manager.js'; // 2026-08-28:薄壳 re-export（inputManager 单例来自 composer.js；updateInputLayout 为 noop 占位）
+// composer 自身 registerUI('composer', ...) 自注册事件；event-bindings/index.js 副作用 import 已触发。
 // tree.js 启动期函数
 import {
     applySettings, initChatTree, renderChat,
@@ -75,7 +76,6 @@ export function onResize() {
 
 /** 初始化：装配引擎、加载数据、绑定事件、暴露外部接口 */
 export function init() {
-    inputManager.init();
     BgEngine.init(DOM.bg);
     ThemeEngine.init(); // 初始化主题引擎
     initTTS();          // 初始化语音引擎（加载音色列表，不支持时仅日志）

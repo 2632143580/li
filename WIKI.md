@@ -110,6 +110,10 @@ li/
 | 消息导航 | 动态 sheet | — | `ui/event-bindings/msg-nav-panel.js` |
 | 词云 | 动态 sheet | — | `ui/event-bindings/wordcloud-panel.js` |
 
+> 2026-08-28:Composer（输入栏 + 半屏编辑 + 节点编辑）一壳两态，**不归类为 sheet**。
+> `.composer-scrim` 走自管（body.composer-open 类），不进 `MODAL_IDS` 互斥体系。
+> 原全屏编辑器 `#fs-editor` 已并入 `.composer`，整页浮层概念删除。
+
 ### 2.4 气泡弹窗（小弹层，与 sheet 互斥独立）
 
 **「气泡弹窗」**——项目专门术语。区别于 sheet 模态抽屉：体积小、非全屏、贴触发源定位。共 3 个，**同一时刻只允许一个可见**（`ui/bubbles.js` 统一互斥）。
@@ -184,7 +188,7 @@ li/
 | 文件 | 绑定对象 |
 |------|----------|
 | `index.js` | `bindEvents` 入口（遍历注册表） |
-| `global.js` | 全局快捷键 / Escape 关模态 |
+| `global.js` | 全局快捷键 / Escape 关模态 / 关 composer |
 | `topbar.js` | 左栏折叠（`li.topbarLeftCollapsed`） |
 | `monitor.js` | 监控圆环 / 上下文上限编辑 |
 | `prompt-bar.js` | 系统提示词编辑（发 `SYS_PROMPT_CHANGE`） |
@@ -197,20 +201,25 @@ li/
 | `click-confirm.js` | 长按 / 双击确认 |
 | `settings.js` | 设置面板 |
 | `temp-settings.js` | 临时设置 |
-| `context-menu.js` | 右键菜单 |
+| `context-menu.js` | 右键菜单（含节点编辑入口，2026-08-28 走 `openComposerEditor`） |
 | `bg-trigger.js` | 背景触发器（监听 `ASSISTANT_DONE`） |
+
+> 2026-08-28:`composer.js`（输入栏 + 半屏编辑 + 节点编辑）已从 `ui/event-bindings/` 平级迁出至
+> `ui/composer.js`，以 `registerUI('composer', ...)` 自注册（由 `event-bindings/index.js` 副作用 import 触发）。
+> 旧 `ui/input-manager.js` 退化为 inputManager 单例 re-export 薄壳，无 registerUI。
 
 ### 3.5 ui/render/ 与 ui/ 单文件
 
 | 文件 | 职责 |
 |------|------|
 | `ui/render/tree-render.js` | 消息树渲染 + 监控 UI 刷新 |
-| `ui/input-manager.js` | 输入框管理 + 布局刷新 |
+| `ui/composer.js` | **2026-08-28 新增**：Composer 一壳两态（胶囊 ↔ 半屏编辑）+ 节点编辑 + 文本/IME 状态 |
+| `ui/input-manager.js` | **2026-08-28 退化为薄壳**：仅 re-export `inputManager` 单例 + `updateInputLayout` 占位 |
 | `ui/voice-tiles.js` | 语音条渲染 |
 | `ui/bg-image.js` | 背景图片上传 / 管理 / 裁剪 |
-| `ui/moderator-ui.js` | 禁词命中提示条 |
+| `ui/moderator-ui.js` | 禁词命中提示条（触发按钮 2026-08-28 迁至 composer .cp-foot） |
 | `ui/bg-trigger.js` | 背景触发器（事件订阅） |
-| `ui/context-menu.js` | 右键菜单 |
+| `ui/context-menu.js` | 右键菜单（节点编辑走 composer） |
 
 ### 3.6 styles/
 
@@ -233,7 +242,7 @@ li/
 | `tts.css` | 语音条 |
 | `waifu.css` | 角色形象 |
 | `form-controls.css` | 按钮 / 输入框 / 滑块 |
-| `fs-editor.css` | 全屏编辑器 `#fs-editor` |
+| `composer.css` | **2026-08-28 新增**：Composer 一壳两态（.composer / .cp-textarea / .cp-side / .cp-foot / .cp-moderator / .cp-edit-bar）+ 遮罩 + 视觉丝滑 |
 | `responsive.css` | 响应式断点 |
 
 ---
@@ -276,6 +285,7 @@ li/
 | 插件面板 | `#bg-modal`、`plugin-list-container`、`theme-list-container` |
 | 裁剪背景 | `#crop-modal`、`crop-preview` |
 | 模态框 | `modal-overlay`、`sheet` |
+| Composer（2026-08-28 一壳两态） | `#composer`、`cp-textarea`、`#cp-expand`、`#cp-collapse`、`#cp-send-fab`、`#cp-send`、`cp-foot`、`cp-edit-bar` |
 | 事件总线 | `EVENTS.`、`bus.emit` |
 | 自注册 UI | `registerUI(` |
 | 引擎单例 | `BgEngine`、`ThemeEngine` |
@@ -296,4 +306,5 @@ li/
 
 ## 8. 变更记录（追加式，不删旧记录）
 
+- 2026-08-28 Composer 替换 .input-bar + #fs-editor 一壳两态：输入栏 + 全屏编辑合二为一（半屏升起 FLIP 滑入 + 键盘避让 + 节点编辑占位条 + 禁词按钮挪至底栏），maxlength 500→2000，对齐 / openFSEditor / fsAlignBtn / alignIcons / liFsAlign 全部移除；`ui/composer.js` 独立模块，`ui/input-manager.js` 退化为 inputManager 单例 re-export 薄壳；WIKI 2.3 / 3.4 / 3.5 / 3.6 / 6 同步。
 - 2026-08-28 首次建 wiki。会话梳理产生本文件；清空历史「撞色强度 / bg-modal 非 sheet / crop-modal 非 sheet / tab 白名单」等技术债（已在前序 commit 修掉，本文件不列为待办）。

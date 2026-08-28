@@ -12,9 +12,10 @@
 export const DOM = {};
 
 (function buildDOMCache() {
-    // 原单文件 buildDOMCache 的 id 清单，逐字保留以保证与 index.html 的 id 对齐
+    // 原单文件 buildDOMCache 的 id 清单，2026-08-28 重构：删除旧 .input-bar / #fs-editor 相关 id，
+    // 新增 #composer + 半屏编辑 + 节点编辑占位条 id。
     const ids = [
-        'bg', 'bg-img-layer', 'bg-dim-layer', 'bg-dom-layer', 'chat', 'hiddenInput', 'save-indicator',
+        'bg', 'bg-img-layer', 'bg-dim-layer', 'bg-dom-layer', 'chat', 'save-indicator',
         'top-msg-count', 'cache-status', 'cache-hit-val', 'context-menu',
         'settings-icon', 'modal', 'modal-close', 'modal-cancel',
         'set-apiUrl', 'set-apiKey', 'set-model-text',
@@ -30,10 +31,12 @@ export const DOM = {};
         'wordcloud-query', 'wordcloud-query-result', 'wordcloud-quick', 'wordcloud-status',
         'wordcloud-seg-light', 'wordcloud-seg-jieba', 'wordcloud-note',
         'bg-modal', 'btn-bg-plugin', 'bg-modal-close', 'plugin-list-container', 'theme-list-container',
-        'fs-editor', 'fs-textarea', 'fs-title', 'fs-confirm', 'fs-cancel',
-        'fs-trigger-btn', 'fs-align-btn',
+        // Composer（2026-08-28 一壳两态：胶囊 + 半屏编辑 + 节点编辑占位条）
+        'composer', 'composer-scrim',
+        'cp-text', 'cp-send', 'cp-send-fab', 'cp-num', 'cp-count',
+        'cp-expand', 'cp-collapse',
+        'cp-edit-bar', 'cp-edit-preview', 'cp-edit-cancel', 'cp-edit-save',
         'btn-msg-nav', 'btn-import-all', 'btn-export-all',
-        'input-bar', 'btn-send',
         'btn-tts-toggle',
         // 语音设置模态框（云端唯一语音源：系统语音/语速/概率预设已移除）
         'voice-modal', 'voice-modal-close', 'voice-modal-cancel',

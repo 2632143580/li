@@ -110,15 +110,40 @@
     <!-- 背景插件 DOM 专属层：承载 DOM 背景插件，由 BgEngine 管理，不遮挡 UI -->
     <div id="bg-dom-layer" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none; overflow: hidden;"></div>
     <div id="chat"></div>
-    <!-- 底部胶囊输入条（2026-08-28 对齐模拟稿 .input-bar）：内部仍是 hiddenInput（IME/回车/文本同步全链路复用）+ 新增发送按钮 -->
-    <div class="input-bar" id="input-bar">
-        <input id="hiddenInput" name="no-autofill" type="text" autocomplete="off" spellcheck="false" maxlength="500" placeholder="输入消息…" />
-        <button class="ib-icon" id="fs-trigger-btn" type="button" aria-label="全屏编辑">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"></path></svg>
-        </button>
-        <button class="ib-send" id="btn-send" type="button" aria-label="发送">
-            <svg viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-        </button>
+    <!-- Composer 一壳两态（2026-08-28 替换 .input-bar + #fs-editor）：
+         胶囊态 = 底部 44px 圆角胶囊（默认）；展开态 = 半屏升起（.open）。
+         容器内顺序：[cp-edit-bar 编辑占位条（默认 hidden）] / cp-textarea / cp-side / cp-foot
+         逻辑与样式详见 src/ui/composer.js + src/styles/composer.css。 -->
+    <div class="composer-scrim" id="composer-scrim" aria-hidden="true"></div>
+    <div class="composer" id="composer">
+        <div class="cp-edit-bar" id="cp-edit-bar" hidden>
+            <span class="cp-edit-label">编辑消息</span>
+            <span class="cp-edit-preview" id="cp-edit-preview"></span>
+            <div class="cp-edit-actions">
+                <button class="pb-btn" id="cp-edit-cancel" type="button">取消</button>
+                <button class="pb-btn pb-btn--accent" id="cp-edit-save" type="button">完成</button>
+            </div>
+        </div>
+        <textarea class="cp-textarea" id="cp-text" rows="1" maxlength="2000" autocomplete="off" spellcheck="false"
+            placeholder="输入消息…"
+            aria-label="消息输入：胶囊态 Enter 发送，Shift+Enter 换行；展开态 Enter 换行，⌘/Ctrl+Enter 发送"></textarea>
+        <div class="cp-side">
+            <button class="cp-round" id="cp-expand" type="button" title="展开为半屏编辑" aria-label="展开编辑器">
+                <svg viewBox="0 0 24 24"><polyline points="6 14 12 8 18 14"/></svg>
+            </button>
+            <button class="cp-round cp-round--send" id="cp-send-fab" type="button" disabled aria-label="发送">
+                <svg viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+            </button>
+        </div>
+        <div class="cp-foot">
+            <span class="cp-count" id="cp-count"><b id="cp-num">0</b>&nbsp;/&nbsp;2000</span>
+            <span class="cp-hint">Enter 换行 · ⌘/Ctrl+Enter 发送</span>
+            <div class="cp-actions" id="cp-actions">
+                <!-- 禁词按钮由 ui/moderator-ui.js 副作用 prepend 到本容器首位（cp-moderator 类） -->
+                <button class="pb-btn" id="cp-collapse" type="button">收起</button>
+                <button class="pb-btn pb-btn--accent" id="cp-send" type="button" disabled>发送</button>
+            </div>
+        </div>
     </div>
     <div id="context-menu"></div>
     <!-- 语音条右键菜单（转文字 / 隐藏文字） -->
@@ -545,18 +570,8 @@
         </div>
     </div>
 
-    <!-- 全屏编辑器 -->
-    <div id="fs-editor">
-        <div id="fs-toolbar">
-            <button id="fs-align-btn" class="fs-tool-btn"></button>
-        </div>
-        <div id="fs-title">沉浸式书写</div>
-        <textarea id="fs-textarea" placeholder="此处支持换行..."></textarea>
-        <div class="fs-actions">
-            <button id="fs-cancel" class="fs-btn">取消</button>
-            <button id="fs-confirm" class="fs-btn primary">发送</button>
-        </div>
-    </div>
+    <!-- 全屏编辑器（#fs-editor）于 2026-08-28 移除：与底部输入条合并为 .composer 一壳两态（胶囊 ↔ 半屏编辑），
+         节点编辑亦复用 .composer（顶 cp-edit-bar 占位条 + 取消 / 完成按钮）。 -->
 
     <script type="module" src="./src/main.js"></script>
 </body>

@@ -29,17 +29,17 @@ function captureDraft() {
     return inputManager.text || '';
 }
 
-/** 恢复草稿到输入框（同步 inputManager.text 与隐藏 input，并标记重绘输入画布）。 @param {string} draft */
+/** 恢复草稿到输入框（同步 inputManager.text 与 composer 内的 textarea，2026-08-28 改用 .cpText）。 @param {string} draft */
 function restoreDraft(draft) {
     const t = draft || '';
     inputManager.text = t;
-    if (DOM.hiddenInput) DOM.hiddenInput.value = t;
+    if (DOM.cpText) DOM.cpText.value = t;
 }
 
 /** 清空输入框。 */
 function clearInput() {
     inputManager.text = '';
-    if (DOM.hiddenInput) DOM.hiddenInput.value = '';
+    if (DOM.cpText) DOM.cpText.value = '';
 }
 
 /**

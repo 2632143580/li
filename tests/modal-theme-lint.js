@@ -29,10 +29,11 @@ const ROOT = path.resolve(__dirname, '..');
 const STYLES_DIR = path.join(ROOT, 'src/styles');
 const QUICK_THEMES = path.join(ROOT, 'src/plugins/quick-themes.js');
 
-// 模态框相关样式文件（经诊断：承载弹窗/设置/下拉/上下文菜单/全屏编辑等浮层 UI）
+// 模态框相关样式文件（经诊断：承载弹窗/设置/下拉/上下文菜单/Composer 浮层 UI 等）
+// 2026-08-28:fs-editor.css 已删除（合并入 .composer）,新增 composer.css
 const MODAL_CSS_FILES = [
     'modal.css', 'settings-panel.css', 'form-controls.css',
-    'dropdown.css', 'fs-editor.css', 'context-menu.css', 'plugin-manager.css', 'quick-theme.css',
+    'dropdown.css', 'composer.css', 'context-menu.css', 'plugin-manager.css', 'quick-theme.css',
 ];
 
 // 颜色类变量前缀（仅用于 INFO 提示「随配色变」的变量，非门禁用）

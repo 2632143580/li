@@ -26,7 +26,8 @@ import { initUI } from '../../core/registry.js';
 
 // —— 各子模块：副作用导入即触发加载与自注册（registerUI），bindEvents 改为遍历注册表 ——
 import '../context-menu.js';
-import '../input-manager.js';
+import '../composer.js';   // 2026-08-28:Composer 替代旧 .input-bar + #fs-editor,registerUI('composer') 触发输入条 + 半屏编辑 + 节点编辑的全部事件绑定
+import '../input-manager.js'; // 2026-08-28:仅作为 inputManager 单例的 re-export 薄壳,无 registerUI
 import './data-exchange.js';
 import './monitor.js';
 import './tts.js';

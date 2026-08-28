@@ -9,7 +9,8 @@
     .msg { max-width: 90%; }
     .modal-content { width: 94%; padding: 18px; }
     .compact-grid { gap: 10px; }
-    #fs-textarea { font-size: 16px; }
+    /* 2026-08-28:#fs-textarea → .cp-textarea(composer 半屏编辑 textarea) */
+    .cp-textarea { font-size: 16px; }
     /* 色块选择器：窄屏缩小触控容器到 36px（仍满足 ≥36px 最低标准），
        适配 tb-body 竖向布局宽度限制 */
     .qt-dot { width: 32px; height: 32px; }

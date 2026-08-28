@@ -26,22 +26,20 @@ body.modal-open { overflow: hidden; }
    直接锁 #chat，模态框关闭时随 body.modal-open 移除自动恢复。 */
 body.modal-open #chat { overflow: hidden !important; }
 
-/* 底部输入层穿透根治：#hiddenInput（z-index:10）
-   可被 tap 聚焦弹键盘。模态遮罩 z-index:100 虽在它们之上，但背景是 60% 半透明黑（--black-a60），
-  输入画布的亮色图形透过 40% 透明度仍可见。其他面板 sheet-body 高、恰好盖住底部输入区没暴露此问题；
-  消息导航或组件切换内容少时 sheet-body 矮，底部输入图形从遮罩下方透出。
-   根治：模态打开时直接隐藏 Canvas 输入层和隐藏输入框，关闭后随 class 移除自动恢复。 */
-body.modal-open .input-bar { visibility: hidden; }
+/* 底部输入层穿透根治：#composer（z-index:60）— 模态遮罩 z-index:100 在其之上。
+   模态打开时直接隐藏输入层避免底部透出，关闭后随 class 移除自动恢复。
+   2026-08-28:.input-bar → .composer（全屏编辑器 #fs-editor 已并入 .composer）。 */
+body.modal-open .composer { visibility: hidden; }
 
 /* 模态框打开时暂停背后的全部 CSS 动画（背后被全屏 overlay 遮住不可见，暂停零视觉损失）：
    否则背后任一动画（TTS 光晕 / 语音波形等）持续产生帧 → 即使 overlay 已无毛玻璃，合成器仍被钉在 60fps。
    模态框内容（.modal-overlay 内）动画不受影响。
    但「活动 UI 浮层」也可能是脱离 .modal-overlay 子树的元素——它们当前就是用户在操作的界面，
-   必须照常播放入场动画，否则会被钉在 opacity:0 而不可见。已知两个受害者：
-     - #fs-editor：全屏编辑器顶层 div，无 .modal-overlay class；
+   必须照常播放入场动画，否则会被钉在 opacity:0 而不可见。已知一个受害者：
      - #set-model-options：模型下拉框，被 tree.js 动态 appendChild 到 body，脱离 #modal 的 overlay 子树。
-   故在此显式排除（后续若再出现同类浮层，追加 :not(...) 即可）。 */
-body.modal-open *:not(.modal-overlay):not(.modal-overlay *):not(#fs-editor):not(#set-model-options) { animation-play-state: paused !important; }
+   故在此显式排除（后续若再出现同类浮层，追加 :not(...) 即可）。
+   2026-08-28:移除 #fs-editor 排除项（已并入 .composer,.composer 不在模态体系内）。 */
+body.modal-open *:not(.modal-overlay):not(.modal-overlay *):not(.composer):not(.composer *):not(#set-model-options) { animation-play-state: paused !important; }
 
 @keyframes overlayFadeIn {
     from { opacity: 0; }

@@ -1,0 +1,232 @@
+/* ============================================================
+ * Composer（2026-08-28 一壳两态：胶囊 ↔ 半屏编辑）
+ * ------------------------------------------------------------
+ * 替代原 .input-bar（顶栏胶囊输入条）+ #fs-editor（全屏浮层编辑器）两件套。
+ *
+ * 形态：
+ *   - 胶囊态：底部 44px 圆角胶囊，textarea 单行；输入超 ≈5 行（IDLE_CAP=132px）自动升舱。
+ *   - 展开态（.composer.open）：容器升为半屏，textarea 升为编辑器，cp-foot 揭示。
+ *   - 编辑态（.composer.editing）：顶 cp-edit-bar 占位条揭示（原文预览 + 取消 / 完成）。
+ *
+ * 动画纪律（唯一动画路径是 transform；其余全部瞬时）：
+ *   - 高度 / 圆角 / padding 无常驻过渡，change 即时生效；
+ *   - 滑入 / 滑出由 JS 走纯 transform 合成器渲染（详见 src/ui/composer.js slide）；
+ *   - 键盘避让：--kb-h 由 composer.js 逐帧直写（visualViewport），无过渡，贴着键盘走。
+ * ============================================================ */
+
+/* ----- 容器变量（--bar-width / --bar-h 与 moderator 面板共用，保持同名） ----- */
+:root {
+    --composer-h: 44px;        /* 胶囊态盒子高度（= 旧 --bar-h） */
+    --bar-h: 44px;             /* 兼容 moderator-ui.js 引用（--bar-h 已存在，值同步） */
+}
+
+/* ----- 遮罩（展开态揭示，关闭态 opacity 0 仍占位但不让点） ----- */
+.composer-scrim {
+    position: fixed; inset: 0;
+    z-index: 45;              /* 高于聊天（z-index:1）/ bg 层，低于 composer（z-index:60） */
+    background: var(--black-a30);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .38s ease;
+}
+body.composer-open .composer-scrim { opacity: 1; pointer-events: auto; }
+
+/* ----- 容器 ----- */
+.composer {
+    position: fixed;
+    left: 0; right: 0; margin: 0 auto;     /* 无 transform 居中（FIX-10b：解耦 transform 滑入） */
+    bottom: calc(14px + env(safe-area-inset-bottom, 0px) + var(--kb-h, 0px));
+    z-index: 60;
+    width: var(--bar-width);
+    height: 44px;                          /* 兜底（实际由 JS 实测写入） */
+    border-radius: 999px;                  /* 任意矩形自动钳成胶囊 */
+    background: var(--bg-input);
+    border: 1px solid var(--white-a10);
+    display: flex; flex-direction: column;
+    overflow: hidden;
+    cursor: text;
+    /* 无常驻 transition：打字增高瞬时；滑入/滑出由 JS 内联精确控制 */
+}
+.composer:focus-within { border-color: var(--white-a20); }
+
+/* 展开态 */
+.composer.open {
+    border-radius: 22px;
+    cursor: auto;
+    border-color: var(--white-a20);
+}
+/* 多行胶囊（contentH > 60）转大圆角，避免角部吃字 */
+.composer.roomy { border-radius: 18px; }
+
+/* ----- 编辑占位条（节点编辑模式：原文预览 + 取消 / 完成） ----- */
+.cp-edit-bar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px 10px 16px;
+    border-bottom: 1px solid var(--white-a10);
+    background: color-mix(in srgb, var(--color-accent-soft) 60%, transparent);
+    flex: none;
+}
+.composer.editing .cp-edit-bar { display: flex; }
+.cp-edit-bar[hidden] { display: none; }
+.composer.editing .cp-edit-bar[hidden] { display: none; }
+.cp-edit-label {
+    font-size: 11px;
+    color: var(--white-a70);
+    letter-spacing: .04em;
+    flex: none;
+}
+.cp-edit-preview {
+    flex: 1; min-width: 0;
+    font-size: 12px;
+    color: var(--white-a80);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.cp-edit-actions { display: flex; gap: 6px; flex: none; }
+
+/* ----- textarea ----- */
+.cp-textarea {
+    flex: 1; width: 100%;
+    resize: none;
+    padding: 11px 88px 11px 16px;          /* 胶囊态右侧让位给按钮组（cp-side） */
+    font-size: 14px; line-height: 1.55;
+    color: var(--white-a90);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    background: transparent;                /* 容器已设底色，textarea 透明避免双层 */
+    border: none; outline: none;
+    -webkit-tap-highlight-color: transparent;
+    font-family: inherit;
+}
+.composer.open .cp-textarea { padding-right: 16px; }
+.cp-textarea::placeholder { color: var(--white-a45); }
+.cp-textarea::selection { background: var(--color-accent-soft); }
+
+/* ----- 胶囊态右侧按钮组（展开 + 发送） ----- */
+.cp-side {
+    position: absolute;
+    right: 8px; bottom: 7px;
+    display: flex; gap: 6px;
+    transition: opacity .15s ease;
+}
+.composer.open .cp-side { opacity: 0; pointer-events: none; }
+
+.cp-round {
+    width: 30px; height: 30px;
+    border-radius: 50%;
+    flex: none;
+    display: flex; align-items: center; justify-content: center;
+    background: var(--white-a05);
+    color: var(--white-a60);
+    cursor: pointer;
+    border: none;
+    transition: all var(--transition-fast);
+    -webkit-tap-highlight-color: transparent;
+}
+.cp-round:hover { background: var(--white-a12); color: var(--white-a90); }
+.cp-round:active { transform: scale(.92); }
+.cp-round svg {
+    width: 15px; height: 15px;
+    fill: none; stroke: currentColor;
+    stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round;
+}
+.cp-round--send:not(:disabled) {
+    background: var(--color-accent-soft);
+    color: var(--color-accent-bright);
+    border: 1px solid var(--color-accent-dim);
+}
+.cp-round--send:disabled { opacity: .4; pointer-events: none; }
+
+/* ----- 展开态底栏（字数 / 提示 / 操作组）----- */
+.cp-foot {
+    display: none;                          /* 胶囊态隐藏；展开态由 .composer.open 揭示 */
+    align-items: center; justify-content: space-between;
+    gap: 10px;
+    padding: 10px 16px 12px;
+    flex: none;
+}
+.composer.open .cp-foot { display: flex; }
+
+.cp-count {
+    font-size: 11px;
+    color: var(--white-a50);
+    font-variant-numeric: tabular-nums;
+    flex: none;
+}
+.cp-count b { color: var(--white-a70); font-weight: 600; }
+.cp-count.warn b { color: var(--status-cache); }
+.cp-count.full b { color: var(--status-bar-danger); }
+
+.cp-hint {
+    font-size: 10px;
+    color: var(--white-a45);
+    letter-spacing: .02em;
+    flex: 1; text-align: center;
+}
+
+.cp-actions { display: flex; gap: 6px; flex: none; }
+
+/* ----- 禁词按钮（展开态底栏首位的 cp-moderator）----- */
+.cp-moderator {
+    width: 30px; height: 30px;
+    border-radius: 50%;
+    flex: none;
+    display: flex; align-items: center; justify-content: center;
+    background: var(--white-a05);
+    color: var(--white-a60);
+    border: 1px solid var(--white-a10);
+    cursor: pointer;
+    padding: 0;
+    transition: all var(--transition-fast);
+    -webkit-tap-highlight-color: transparent;
+}
+.cp-moderator:hover { background: var(--white-a12); color: var(--white-a90); }
+.cp-moderator:active { transform: scale(.92); }
+.cp-moderator svg {
+    width: 16px; height: 16px;
+    fill: none; stroke: currentColor;
+    stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round;
+}
+.cp-moderator.active { color: var(--color-accent); }
+
+/* ----- 展开时聊天内容做轻微下沉缩放（视觉丝滑点）----- */
+body.composer-open #chat {
+    transform: scale(.985) translateY(-4px);
+    transition: transform .42s cubic-bezier(.22, 1, .36, 1);
+}
+
+/* ----- 兼容按钮（沿用 prompt-bar 已有 .pb-btn 体系：cp-collapse / cp-send / cp-edit-*）----- */
+.pb-btn {
+    padding: 5px 12px;
+    font-size: 12px;
+    border-radius: var(--radius-sm);
+    background: var(--white-a08);
+    color: var(--white-a80);
+    border: 1px solid var(--white-a10);
+    cursor: pointer;
+    font-family: inherit;
+    -webkit-tap-highlight-color: transparent;
+    transition: all var(--transition-fast);
+}
+.pb-btn:hover { background: var(--white-a12); }
+.pb-btn:active { transform: scale(.96); }
+.pb-btn--accent {
+    background: var(--color-accent-soft);
+    color: var(--color-accent-bright);
+    border-color: var(--color-accent-dim);
+}
+.pb-btn:disabled { opacity: .45; pointer-events: none; }
+
+/* ----- 移动端：放大字号（防 iOS 聚焦自动放大）+ 调间距 ----- */
+@media (max-width: 600px) {
+    .cp-textarea { font-size: 16px; }
+    .cp-hint { display: none; }             /* 窄屏让位给操作组（禁词/收起/发送） */
+}
+
+/* ----- 减弱动效偏好 ----- */
+@media (prefers-reduced-motion: reduce) {
+    .composer-scrim, body.composer-open #chat { transition: none !important; }
+}

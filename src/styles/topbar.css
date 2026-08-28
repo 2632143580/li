@@ -1,109 +1,8 @@
-/* ====================== 底部胶囊输入条（2026-08-28 对齐模拟稿 .input-bar） ======================
-   容器承载外观，内部 #hiddenInput 保留既有 IME/回车/文本同步全链路（零逻辑改动）；
-   右侧 .ib-send 发送按钮与 Enter 走同一 submitInput 出口。 */
-.input-bar {
-    position: fixed;
-    bottom: 14px;
-    left: 50%;
-    transform: translateX(-50%);
-    z-index: 10;
-    width: var(--bar-width);
-    height: 44px;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 0 8px 0 16px;
-    background: var(--bg-input);
-    border: 1px solid var(--white-a10);
-    border-radius: var(--pill-radius);
-    box-sizing: border-box;
-    transition: border-color var(--transition-fast);
-}
-.input-bar:focus-within { border-color: var(--color-accent-dim); }
-
-#hiddenInput {
-    position: static;              /* 旧绝对定位废弃：交由 .input-bar 容器 flex 排布 */
-    flex: 1;
-    min-width: 0;
-    height: 100%;
-    background: none;
-    color: var(--input-text);
-    caret-color: var(--input-cursor);
-    border: none;
-    outline: none;
-    resize: none;
-    padding: 0;
-    letter-spacing: normal;
-    line-height: normal;
-    font-size: 14px;               /* 模拟稿 .ph 定值 */
-}
-#hiddenInput::placeholder { color: var(--white-a40); }
-
-/* 发送按钮：纸飞机（模拟稿 svg 原样）；与 Enter 共用 submitInput 出口 */
-.ib-send {
-    width: 34px;
-    height: 34px;
-    flex: none;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 0;
-    color: var(--white-a50);
-    background: none;
-    border: none;
-    border-radius: 50%;
-    cursor: pointer;
-    -webkit-tap-highlight-color: transparent;
-    touch-action: manipulation;
-    transition: color var(--transition-fast), transform var(--transition-fast);
-}
-.ib-send:hover { color: var(--white-a90); transform: scale(1.08); }
-.ib-send:active { transform: scale(0.9); }
-.ib-send svg {
-    width: 18px;
-    height: 18px;
-    fill: none;
-    stroke: currentColor;
-    stroke-width: 1.6;
-    stroke-linecap: round;
-    stroke-linejoin: round;
-}
-/* 发送按钮按需显隐：输入框有文字才显示，空则隐藏（减法：无内容时按钮无意义）。
-   注意 .ib-send 设了 display:flex，会盖过 [hidden] 的默认 display:none，故需显式规则强制隐藏。 */
-.ib-send[hidden] { display: none; }
-
-/* 输入条内次级图标钮（全屏编辑 / 禁止词）：与 .ib-send 同尺寸同交互，
-   收进输入条后不再浮层重叠；触控目标 34px（铁律），图标 18px 居中 */
-.ib-icon {
-    width: 34px;
-    height: 34px;
-    flex: none;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 0;
-    color: var(--white-a50);
-    background: none;
-    border: none;
-    border-radius: 50%;
-    cursor: pointer;
-    -webkit-tap-highlight-color: transparent;
-    touch-action: manipulation;
-    transition: color var(--transition-fast), transform var(--transition-fast);
-}
-.ib-icon:hover { color: var(--white-a90); transform: scale(1.08); }
-.ib-icon:active { transform: scale(0.9); }
-/* 激活态：禁词面板展开时，触发图标变 accent 色，状态可读 */
-.ib-icon.active { color: var(--color-accent); }
-.ib-icon svg {
-    width: 18px;
-    height: 18px;
-    fill: none;
-    stroke: currentColor;
-    stroke-width: 1.6;
-    stroke-linecap: round;
-    stroke-linejoin: round;
-}
+/* ====================== 底部胶囊输入条（2026-08-28 迁至 composer.css） ======================
+   .input-bar / #hiddenInput / .ib-send / .ib-icon 已删除，迁入 src/styles/composer.css
+   的 .composer 一壳两态。.ib-icon 唯一残留用途 = 已被 moderator-ui.js 切到
+   .cp-moderator（composer 展开态底栏 .cp-actions 内）。本文件仅保留 token 变量
+   （--bar-width / --bar-h / --pill-radius 等仍被 moderator 面板 / 顶栏胶囊复用）。 */
 
 /* ====================== 顶栏 ====================== */
 /* 顶栏背景统一变量 --bg-pill：所有胶囊（top-bar / tb-body / monitor-bar）共用同一配方，
@@ -122,12 +21,7 @@
     --pill-radius: 999px;
     /* 顶栏三方统一视觉高度：40px（模拟稿定值）；≤600px 变量改 44px 触控铁律一处生效 */
     --topbar-h: 40px;
-    /* 输入栏容器宽度（与禁词面板 #mod-pop 共用，免得两边手算漂移）：
-       桌面 560、窄屏 100vw-24 兜底。当前调用方：.input-bar / #mod-pop */
-    --bar-width: min(560px, calc(100vw - 24px));
-    /* 输入栏容器高度（盒子高度，与 .input-bar { height: 44px } 对齐）；面板 / 提示条
-       用它锚定 bottom = 14px + var(--bar-h)，避免硬编码 44 数字漂移 */
-    --bar-h: 44px;
+    /* --bar-width / --bar-h 已迁至 tokens.css :root 统一管控（2026-08-28） */
 }
 
 /* 移动端：触控目标 ≥ 40px（铁律）。只动一处变量，三方胶囊同高跟上 */

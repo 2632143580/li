@@ -4,11 +4,12 @@
  * 职责：在消息上弹出「复制 / 编辑重发 / 重新生成|重试」菜单。
  *
  * 导出：showContextMenu, hideContextMenu, bindContextMenuEvents
- * 依赖：core/dom, core/logger, ui/input-manager（openFSEditor）, chat/tree（editAndResend, regenerate）
+ * 依赖：core/dom, core/logger, ui/composer（openComposerEditor）, chat/tree（editAndResend, regenerate）
+ * 2026-08-28:openFSEditor → openComposerEditor（composer 替代旧 #fs-editor 整屏浮层）
  */
 import { DOM, W, H } from '../core/dom.js';
 import { Logger } from '../core/logger.js';
-import { openFSEditor } from './input-manager.js';
+import { openComposerEditor } from './composer.js';
 import { editAndResend, regenerate } from '../chat/tree.js';
 
 /**
@@ -33,12 +34,16 @@ export function showContextMenu(x, y, node, parentNode) {
     DOM.contextMenu.appendChild(copyBtn);
 
     if (node.role === 'user') {
-        // 用户消息：编辑重发
+        // 用户消息：编辑重发（2026-08-28:走 composer 节点编辑模式，原文 + 取消/完成占位条揭示）
         const editBtn = document.createElement('button');
         editBtn.textContent = '编辑重发';
         editBtn.onclick = () => {
             hideContextMenu();
-            openFSEditor(node.content, (text) => editAndResend(node, parentNode, text), false);
+            openComposerEditor(
+                node.content,
+                (text) => editAndResend(node, parentNode, text),
+                () => { /* 取消 = 不做事,composer 内部已还原原文 + 关 */ }
+            );
         };
         DOM.contextMenu.appendChild(editBtn);
     } else {

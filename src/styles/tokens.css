@@ -77,6 +77,13 @@
     /* 模态框浮起投影（--modal-elevation）：深色组 14px 光晕+1px 描边 */
     --modal-elevation: 0 0 14px var(--color-accent-glow), 0 0 0 1px var(--color-accent-glow);
 
+    /* 输入栏 / 禁词面板共用尺寸（2026-08-28 迁入 tokens.css 统一管控）：
+       桌面 560、窄屏 100vw-24 兜底。当前调用方：.composer / #mod-pop。
+       历史曾只在 topbar.css 的 :root 块定义，composer.css 引入后 modal-theme-lint
+       会因"不在 tokens.css 全局默认"而报警。迁入此处一并管理。 */
+    --bar-width: min(560px, calc(100vw - 24px));
+    --bar-h: 44px;
+
 
 
 }
