@@ -31,11 +31,12 @@ export const DOM = {};
         'wordcloud-query', 'wordcloud-query-result', 'wordcloud-quick', 'wordcloud-status',
         'wordcloud-seg-light', 'wordcloud-seg-jieba', 'wordcloud-note',
         'bg-modal', 'btn-bg-plugin', 'bg-modal-close', 'plugin-list-container', 'theme-list-container',
-        // Composer（2026-08-28 一壳两态：胶囊 + 半屏编辑 + 节点编辑占位条）
+        // Composer（2026-08-28 一壳两态：胶囊 + 半屏编辑 + 节点编辑占位条 + 半屏禁词面板）
         'composer', 'composer-scrim',
         'cp-text', 'cp-send', 'cp-send-fab', 'cp-num', 'cp-count',
-        'cp-expand', 'cp-collapse',
+        'cp-expand', 'cp-collapse', 'cp-moderator',
         'cp-edit-bar', 'cp-edit-preview', 'cp-edit-cancel', 'cp-edit-save',
+        'cp-mod-panel', 'cp-mod-words', 'cp-mod-prefix', 'cp-mod-num', 'cp-mod-toggle', 'cp-mod-save', 'cp-mod-cancel',
         'btn-msg-nav', 'btn-import-all', 'btn-export-all',
         'btn-tts-toggle',
         // 语音设置模态框（云端唯一语音源：系统语音/语速/概率预设已移除）

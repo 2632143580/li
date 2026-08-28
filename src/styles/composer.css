@@ -105,14 +105,16 @@ body.composer-open .composer-scrim { opacity: 1; pointer-events: auto; }
 .cp-textarea::placeholder { color: var(--white-a45); }
 .cp-textarea::selection { background: var(--color-accent-soft); }
 
-/* ----- 胶囊态右侧按钮组（展开 + 发送） ----- */
+/* ----- 胶囊态右侧按钮组（展开 + 禁词 + 发送） ----- */
 .cp-side {
     position: absolute;
     right: 8px; bottom: 7px;
     display: flex; gap: 6px;
     transition: opacity .15s ease;
 }
-.composer.open .cp-side { opacity: 0; pointer-events: none; }
+/* 2026-08-28 改造:展开态保留禁词按钮常驻,只让展开 + 发送隐藏。
+   .cp-side 自身仍占位(等 .mod 态),用具体子项的 opacity 控制。 */
+.composer.open .cp-side .cp-round:not(.cp-moderator) { opacity: 0; pointer-events: none; }
 
 .cp-round {
     width: 30px; height: 30px;
@@ -169,7 +171,8 @@ body.composer-open .composer-scrim { opacity: 1; pointer-events: auto; }
 
 .cp-actions { display: flex; gap: 6px; flex: none; }
 
-/* ----- 禁词按钮（展开态底栏首位的 cp-moderator）----- */
+/* ----- 禁词按钮（2026-08-28 改造:在 cp-side 内常驻，胶囊态 + 展开态都显示）-----
+   视觉与其他 cp-round 一致,只多一个 .active 状态表示面板打开 */
 .cp-moderator {
     width: 30px; height: 30px;
     border-radius: 50%;
@@ -190,7 +193,127 @@ body.composer-open .composer-scrim { opacity: 1; pointer-events: auto; }
     fill: none; stroke: currentColor;
     stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round;
 }
-.cp-moderator.active { color: var(--color-accent); }
+.cp-moderator.active { color: var(--color-accent); background: var(--color-accent-soft); border-color: var(--color-accent-dim); }
+
+/* ----- 半屏禁词面板（2026-08-28 改造：与 cp-textarea 互斥）----- */
+.cp-mod-panel {
+    display: none;
+    flex-direction: column;
+    gap: 0;
+    flex: 1; min-height: 0;       /* 撑满容器,内部 textarea 自行 flex 伸缩 */
+    padding: 0;
+}
+.composer.mod .cp-textarea { display: none; }
+.composer.mod .cp-side { display: none; }       /* mod 态下隐藏 cp-side 整组 */
+.composer.mod .cp-foot { display: none; }       /* mod 态下隐藏 cp-foot(由 cp-mod-panel 自管) */
+.composer.mod .cp-mod-panel { display: flex; }
+
+/* 头部(标题 + 词数 + 启用开关):钉在面板顶部 */
+.cp-mod-head {
+    flex: none;
+    display: flex; align-items: center; gap: 10px;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--white-a10);
+}
+.cp-mod-title { font-size: 13px; font-weight: 600; color: var(--white-a90); flex: none; }
+.cp-mod-count { font-size: 11px; color: var(--white-a50); flex: none; }
+.cp-mod-count b { color: var(--white-a70); font-weight: 600; }
+/* 启用开关(自绘胶囊;aria-checked 驱动) */
+.cp-mod-toggle {
+    margin-left: auto;
+    position: relative;
+    width: 38px; height: 20px;
+    padding: 0;
+    border: 1px solid var(--white-a10);
+    border-radius: 999px;
+    background: var(--white-a05);
+    cursor: pointer;
+    transition: background var(--transition-normal), border-color var(--transition-normal);
+    flex: none;
+}
+.cp-mod-toggle .cp-mod-knob {
+    position: absolute; top: 2px; left: 2px;
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    background: var(--white-a50);
+    transition: transform var(--transition-normal), background var(--transition-normal);
+}
+.cp-mod-toggle[aria-checked="true"] {
+    background: var(--color-accent);
+    border-color: var(--color-accent);
+}
+.cp-mod-toggle[aria-checked="true"] .cp-mod-knob {
+    transform: translateX(18px);
+    background: var(--color-bg);
+}
+
+/* 词库编辑行(词库 textarea + 命中前缀 + 前缀 textarea) */
+.cp-mod-body {
+    flex: 1 1 auto; min-height: 0;       /* flex:1 撑满,内部 textarea 自行滚动 */
+    display: flex; flex-direction: column; gap: 10px;
+    padding: 12px 16px;
+    overflow: hidden;
+}
+.cp-mod-words,
+.cp-mod-prefix {
+    width: 100%;
+    background: var(--white-a05);
+    color: var(--white-a90);
+    border: 1px solid var(--white-a10);
+    border-radius: 4px;
+    outline: none;
+    box-sizing: border-box;
+    font-size: 13px;
+    line-height: 1.5;
+    resize: none;
+    font-family: inherit;
+    padding: 8px 10px;
+}
+.cp-mod-words { flex: 1 1 auto; min-height: 80px; }   /* 词库占大头 */
+.cp-mod-prefix { flex: none; height: 60px; font-size: 12px; }   /* 命中前缀紧凑 2-3 行 */
+.cp-mod-words::placeholder,
+.cp-mod-prefix::placeholder { color: var(--white-a40); }
+.cp-mod-words:focus,
+.cp-mod-prefix:focus { border-color: var(--color-accent-dim); }
+
+.cp-mod-foot {
+    flex: none;
+    display: flex; align-items: center; gap: 8px;
+    padding: 10px 16px 12px;
+    border-top: 1px solid var(--white-a10);
+    color: var(--white-a50);
+    font-size: 11px;
+}
+.cp-mod-hint { flex: 1; line-height: 1.5; }
+.cp-mod-hint code { color: var(--color-user-bright); font-weight: 600; }
+
+/* 禁词命中提示条(浮在 composer 上方,跟原 #mod-hint 同款视觉,定位改为贴 composer) */
+#mod-hint {
+    position: fixed;
+    bottom: calc(14px + var(--bar-h, 44px) + env(safe-area-inset-bottom, 0px) + var(--kb-h, 0px));
+    left: 50%; transform: translateX(-50%);
+    background: var(--color-user-bright); color: var(--color-bg);
+    border-radius: var(--radius-md);
+    padding: 6px 10px; font-size: 12px; display: none; align-items: center; gap: 8px;
+    z-index: 75;                           /* 高于 composer(60) / scrim(45),低于模态(100) */
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    opacity: 0; transition: opacity .22s ease;
+    white-space: nowrap;
+    max-width: calc(100vw - 24px);
+}
+#mod-hint.fade { opacity: 1; }
+#mod-hint.show { display: flex; }
+#mod-hint .mh-apply {
+    background: var(--color-error);
+    color: var(--white-a95);
+    border: 0; padding: 4px 8px;
+    border-radius: 4px; cursor: pointer; font-weight: bold;
+}
+#mod-hint .mh-close {
+    background: transparent; border: 0;
+    color: inherit; cursor: pointer; font-size: 14px;
+    padding: 0 0 0 2px; line-height: 1;
+}
 
 /* ----- 展开时聊天内容做轻微下沉缩放（视觉丝滑点）----- */
 body.composer-open #chat {

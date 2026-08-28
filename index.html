@@ -131,6 +131,10 @@
             <button class="cp-round" id="cp-expand" type="button" title="展开为半屏编辑" aria-label="展开编辑器">
                 <svg viewBox="0 0 24 24"><polyline points="6 14 12 8 18 14"/></svg>
             </button>
+            <!-- 禁词按钮 2026-08-28 改造：在 cp-side 内常驻,胶囊态 + 展开态都显示,点开半屏禁词面板 -->
+            <button class="cp-round cp-moderator" id="cp-moderator" type="button" title="禁止词" aria-label="禁止词">
+                <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"></circle><line x1="6" y1="18" x2="18" y2="6"></line></svg>
+            </button>
             <button class="cp-round cp-round--send" id="cp-send-fab" type="button" disabled aria-label="发送">
                 <svg viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
             </button>
@@ -139,11 +143,35 @@
             <span class="cp-count" id="cp-count"><b id="cp-num">0</b>&nbsp;/&nbsp;2000</span>
             <span class="cp-hint">Enter 换行 · ⌘/Ctrl+Enter 发送</span>
             <div class="cp-actions" id="cp-actions">
-                <!-- 禁词按钮由 ui/moderator-ui.js 副作用 prepend 到本容器首位（cp-moderator 类） -->
                 <button class="pb-btn" id="cp-collapse" type="button">收起</button>
                 <button class="pb-btn pb-btn--accent" id="cp-send" type="button" disabled>发送</button>
             </div>
         </div>
+        <!-- 半屏禁词面板 2026-08-28 改造：从 composer 容器内部升起,与 cp-textarea 互斥(.mod 类切换) -->
+        <div class="cp-mod-panel" id="cp-mod-panel" hidden>
+            <div class="cp-mod-head">
+                <span class="cp-mod-title">禁止词</span>
+                <span class="cp-mod-count"><b id="cp-mod-num">0</b> 个</span>
+                <button class="cp-mod-toggle" id="cp-mod-toggle" type="button" role="switch" aria-checked="true" aria-label="启用禁止词过滤">
+                    <span class="cp-mod-knob"></span>
+                </button>
+            </div>
+            <div class="cp-mod-body">
+                <textarea id="cp-mod-words" class="cp-mod-words" placeholder="输入词句，逗号或换行分隔"></textarea>
+                <textarea id="cp-mod-prefix" class="cp-mod-prefix" placeholder="命中前缀模板，{words} = 命中词"></textarea>
+            </div>
+            <div class="cp-mod-foot">
+                <span class="cp-mod-hint">AI 回复含词库时插入前缀。<code>{words}</code> = 命中词。</span>
+                <button class="pb-btn" id="cp-mod-cancel" type="button">收起</button>
+                <button class="pb-btn pb-btn--accent" id="cp-mod-save" type="button">保存</button>
+            </div>
+        </div>
+    </div>
+    <!-- 禁词命中提示条（贴在 composer 上方） -->
+    <div id="mod-hint">
+        <span>触发: <span id="mod-hit-words" style="color:#d20; font-weight:bold;"></span></span>
+        <button class="mh-apply" type="button">应用前缀</button>
+        <button class="mh-close" type="button" aria-label="关闭">&times;</button>
     </div>
     <div id="context-menu"></div>
     <!-- 语音条右键菜单（转文字 / 隐藏文字） -->

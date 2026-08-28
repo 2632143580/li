@@ -15,8 +15,8 @@
  *     取消逻辑与原 #fs-editor 第二参数 onSave 行为镜像。
  *
  * 导出:composer 单例(inputManager 兼容旧名 + 容器 open/close 控制),
- *      openComposer, openComposerEditor, closeComposer, sendCurrent,
- *      cancelEdit, updateCount
+ *      openComposer, openComposerEditor, openComposerMod, closeComposer,
+ *      sendCurrent, cancelEdit, updateCount
  * 依赖:core/dom, core/logger, core/registry, engines/bg-engine, chat/tree
  */
 
@@ -41,11 +41,13 @@ const cpNum = DOM.cpNum;
 const cpCount = DOM.cpCount;
 const cpExpand = DOM.cpExpand;
 const cpCollapse = DOM.cpCollapse;
+const cpModerator = DOM.cpModerator;
 const cpScrim = DOM.composerScrim;
 const cpEditBar = DOM.cpEditBar;
 const cpEditPreview = DOM.cpEditPreview;
 const cpEditCancel = DOM.cpEditCancel;
 const cpEditSave = DOM.cpEditSave;
+const cpModPanel = DOM.cpModPanel;
 
 // ====================== 运行时状态 ======================
 /** 键盘高度(像素,逐帧直写 --kb-h) */
@@ -76,6 +78,7 @@ export const inputManager = {
 // ====================== 辅助函数 ======================
 const isOpen = () => composer.classList.contains('open');
 const isEditing = () => composer.classList.contains('editing');
+const isMod = () => composer.classList.contains('mod');
 
 /** 当前可见视口高(visualViewport 优先) */
 const visibleH = () => Math.round(
@@ -151,7 +154,7 @@ function applyHeight() {
         if (opening) composer.style.height = editorH() + 'px';
         return;
     }
-    if (isOpen()) { composer.style.height = editorH() + 'px'; return; }
+    if (isOpen() || isMod()) { composer.style.height = editorH() + 'px'; return; }
     const need = contentH(), cap = idleCap();
     composer.style.height = Math.min(Math.max(44, need), cap) + 'px';
     composer.classList.toggle('roomy', need > 60);
@@ -181,13 +184,39 @@ export function openComposer() {
     updateCount();
 }
 
-/** 收起回胶囊。已关或正在 morphing 则跳过。 */
+/**
+ * 展开为半屏禁词面板(2026-08-28 改造)：从胶囊态升起,容器内切换显示内容
+ * (cp-textarea / cp-side / cp-foot 隐藏,cp-mod-panel 显示)。
+ * 已开 / 已 mod / 正在 morphing 则跳过。点 cp-moderator / 关闭都走此机制,
+ * 跟半屏编辑共用 FLIP 滑入,面板自身不再走浮层互斥。
+ */
+export function openComposerMod() {
+    if (isOpen() || isMod() || morphing) return;
+    morphing = true; opening = true;
+    document.body.classList.add('composer-open');
+    const startH = composer.offsetHeight, endH = editorH(), dy = endH - startH;
+    noanim(() => {
+        composer.classList.add('open', 'mod');
+        composer.classList.remove('roomy');
+        composer.style.height = endH + 'px';
+        composer.style.transform = `translateY(${dy}px)`;
+    });
+    if (cpText) cpText.blur(); // 禁词面板不抢键盘
+    slide(0, 0.38, 'cubic-bezier(.22,1,.36,1)', () => {
+        morphing = false; opening = false;
+        applyHeight();
+    });
+}
+
+/** 收起回胶囊。已关或正在 morphing 则跳过。同时清掉 .mod / .editing。 */
 export function closeComposer() {
-    if (!isOpen() || morphing) return;
+    if ((!isOpen() && !isMod()) || morphing) return;
     morphing = true; opening = false; // 收起途中冻结高度(下坠中缩高发虚)
     const startH = composer.offsetHeight, endH = capsuleH(), dy = startH - endH;
-    cpText.placeholder = '输入消息…';
-    cpText.blur(); // 键盘下落 → bottom 逐帧下贴
+    if (cpText) {
+        cpText.placeholder = '输入消息…';
+        cpText.blur(); // 键盘下落 → bottom 逐帧下贴
+    }
     document.body.classList.remove('composer-open');
     // 退出编辑模式时也清掉上下文(避免下次开时残留)
     if (editCtx) {
@@ -196,7 +225,7 @@ export function closeComposer() {
     }
     slide(dy, 0.3, 'cubic-bezier(.5,0,.75,.4)', () => {
         noanim(() => {
-            composer.classList.remove('open');
+            composer.classList.remove('open', 'mod');
             composer.style.height = endH + 'px';
             composer.classList.toggle('roomy', contentH() > 60);
         });
@@ -361,6 +390,8 @@ function bindComposerEvents() {
     if (cpCollapse) cpCollapse.addEventListener('click', (e) => { e.stopPropagation(); closeComposer(); });
     if (cpSend) cpSend.addEventListener('click', (e) => { e.stopPropagation(); sendCurrent(); });
     if (cpSendFab) cpSendFab.addEventListener('click', (e) => { e.stopPropagation(); sendCurrent(); });
+    // 禁词按钮 click 由 ui/moderator-ui.js 全权管(同步词库/前缀/开关 + 调 openComposerMod/closeComposer),
+    // 此处不再挂监听避免双触发。
     if (cpScrim) cpScrim.addEventListener('click', closeComposer);
 
     // 编辑模式占位条
